@@ -1,0 +1,94 @@
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import './Auth.css';
+
+function Login() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [role, setRole] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { login } = useAuth();
+  const navigate = useNavigate();
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    try {
+      await login(email, password, role || null);
+      navigate('/');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Login failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="auth-container">
+      <div className="auth-card">
+        <div className="auth-header">
+          <span className="auth-icon">🎓</span>
+          <h1>G. Narayanamma Institute of Technology & Science</h1>
+          <p>ProjectSphere - Project Management Portal</p>
+          <div style={{ marginTop: '8px', fontSize: '14px', color: 'var(--text-muted)' }}>
+            Hyderabad • Autonomous • NBA Accredited
+          </div>
+        </div>
+
+        {error && <div className="error-message">{error}</div>}
+
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label>Email or Roll Number</label>
+            <input
+              type="text"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Enter email or roll number"
+              required
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter your password"
+              required
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Role</label>
+            <select value={role} onChange={(e) => setRole(e.target.value)} required>
+              <option value="student">Student</option>
+              <option value="guide">Guide</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+
+          <button type="submit" className="btn btn-primary btn-block" disabled={loading}>
+            {loading ? 'Logging in...' : 'Login'}
+          </button>
+        </form>
+
+        <div className="auth-footer">
+          <p>Don't have an account?</p>
+          <div className="register-links">
+            <Link to="/register/guide" className="register-link">👨‍🏫 Guide</Link>
+            <Link to="/register/admin" className="register-link">👑 Admin</Link>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default Login;
+

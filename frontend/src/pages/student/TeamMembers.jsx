@@ -38,7 +38,7 @@ function TeamMembers({ batchId, leader }) {
         <h2 className="section-title">👥 Team Members</h2>
       </div>
 
-      {members.length === 0 && !leader ? (
+      {!leader && members.length === 0 ? (
         <div className="empty-state">
           <div className="empty-state-icon">👥</div>
           <h3>No Team Members Yet</h3>
@@ -47,15 +47,14 @@ function TeamMembers({ batchId, leader }) {
       ) : (
         <div className="grid grid-3">
           {leader && (
-            <div className="card" style={{ position: 'relative', backgroundColor: '#ebf8ff', border: '2px solid #667eea' }}>
-              <div style={{ fontSize: '40px', marginBottom: '12px' }}>👑</div>
-              <h3 style={{ color: '#2d3748', marginBottom: '8px' }}>{leader.name}</h3>
+            <div key={leader._id} className="card" style={{ position: 'relative' }}>
+              <div style={{ fontSize: '40px', marginBottom: '12px' }}>👤</div>
+              <h3 style={{ color: '#2d3748', marginBottom: '8px' }}>{leader.name} <span style={{ fontSize: '12px', color: '#667eea', fontWeight: '600' }}>(leader)</span></h3>
               <p style={{ color: '#718096', fontSize: '14px' }}>Roll No: {leader.rollNumber}</p>
               <p style={{ color: '#718096', fontSize: '14px' }}>Branch: {leader.branch}</p>
-              <p style={{ color: '#667eea', fontWeight: '600', fontSize: '12px', marginTop: '8px' }}>Team Lead</p>
             </div>
           )}
-          {members.filter(m => m._id !== leader?._id).map((member) => (
+          {members.filter(m => m.rollNo !== leader?.rollNumber && m._id !== leader?._id).map((member) => (
             <div key={member._id} className="card" style={{ position: 'relative' }}>
               <div style={{ fontSize: '40px', marginBottom: '12px' }}>👤</div>
               <h3 style={{ color: '#2d3748', marginBottom: '8px' }}>{member.name}</h3>

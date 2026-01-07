@@ -230,7 +230,7 @@ exports.getOptedTeams = async (req, res) => {
       'optedProblems.status': 'pending'
     })
       .populate('leaderStudentId', 'name email rollNumber branch')
-      .populate('optedProblems.problemId', 'title description guideId')
+      .populate('optedProblems.problemId', 'title description guideId targetYear')
       .populate('optedProblems.coeId', 'name');
 
     for (const batch of newFormatBatches) {
@@ -240,6 +240,8 @@ exports.getOptedTeams = async (req, res) => {
             result.push({
               _id: batch._id,
               teamName: batch.teamName,
+              year: batch.year,
+              branch: batch.branch,
               leaderStudentId: batch.leaderStudentId,
               optedProblemId: opt.problemId,
               coeId: opt.coeId,
@@ -260,7 +262,7 @@ exports.getOptedTeams = async (req, res) => {
       ]
     })
       .populate('leaderStudentId', 'name email rollNumber branch')
-      .populate('optedProblemId', 'title description')
+      .populate('optedProblemId', 'title description targetYear')
       .populate('coeId', 'name');
 
     for (const batch of oldFormatBatches) {
@@ -271,6 +273,8 @@ exports.getOptedTeams = async (req, res) => {
         result.push({
           _id: batch._id,
           teamName: batch.teamName,
+          year: batch.year,
+          branch: batch.branch,
           leaderStudentId: batch.leaderStudentId,
           optedProblemId: batch.optedProblemId,
           coeId: batch.coeId,

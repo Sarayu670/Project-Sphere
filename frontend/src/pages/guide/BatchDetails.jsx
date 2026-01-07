@@ -105,10 +105,10 @@ function BatchDetails({ batchId, onBack }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {batch.leaderStudentId && (
                 <div style={{ background: '#e6f2ff', padding: '8px 12px', borderRadius: '8px', fontSize: '14px', borderLeft: '3px solid #667eea' }}>
-                  <strong>{batch.leaderStudentId.name}</strong> - {batch.leaderStudentId.rollNumber || batch.leaderStudentId.rollNo || 'N/A'} ({batch.branch || 'N/A'}-{batch.section || 'N/A'})
+                  <strong>{batch.leaderStudentId.name}</strong> - {batch.leaderStudentId.rollNumber || batch.leaderStudentId.rollNo || 'N/A'} ({batch.branch || 'N/A'}-{batch.section || 'N/A'}) <em style={{ color: '#667eea', fontSize: '12px' }}>(Leader)</em>
                 </div>
               )}
-              {batch.teamMembers?.map((member) => (
+              {batch.teamMembers?.filter(member => member.rollNo !== (batch.leaderStudentId?.rollNumber || batch.leaderStudentId?.rollNo)).map((member) => (
                 <div key={member._id} style={{ background: '#f7fafc', padding: '8px 12px', borderRadius: '8px', fontSize: '14px' }}>
                   <strong>{member.name}</strong> - {member.rollNo} ({batch.branch || 'N/A'}-{batch.section || 'N/A'})
                 </div>

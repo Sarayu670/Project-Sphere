@@ -223,19 +223,19 @@ function AdminDashboard() {
               {selectedBatch.leaderStudentId && (
                 <div style={{ 
                   padding: '12px', 
-                  background: '#e6f2ff', 
+                  background: '#f7fafc', 
                   borderRadius: '6px', 
-                  borderLeft: '4px solid #667eea',
+                  borderLeft: '4px solid #cbd5e0',
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center'
                 }}>
                   <div>
-                    <div style={{ fontWeight: 'bold', color: '#2d3748', marginBottom: '4px' }}>
-                      👑 Team Leader
+                    <div style={{ fontWeight: '500', color: '#2d3748', marginBottom: '4px' }}>
+                      👤 {selectedBatch.leaderStudentId.name} <span style={{ fontSize: '12px', color: '#667eea' }}>(leader)</span>
                     </div>
                     <div style={{ fontSize: '14px', color: '#2d3748' }}>
-                      {selectedBatch.leaderStudentId.name} - {selectedBatch.leaderStudentId.rollNumber}
+                      {selectedBatch.leaderStudentId.rollNumber}
                     </div>
                     <div style={{ fontSize: '12px', color: '#718096', marginTop: '4px' }}>
                       {selectedBatch.year} {selectedBatch.branch}-{selectedBatch.section}
@@ -244,7 +244,7 @@ function AdminDashboard() {
                 </div>
               )}
               {selectedBatch.teamMembers && selectedBatch.teamMembers.length > 0 ? (
-                selectedBatch.teamMembers.map((member, idx) => (
+                selectedBatch.teamMembers.filter(m => m.rollNo !== selectedBatch.leaderStudentId?.rollNumber && m._id !== selectedBatch.leaderStudentId?._id).map((member, idx) => (
                   <div key={idx} style={{ 
                     padding: '12px', 
                     background: '#f7fafc', 
@@ -256,10 +256,10 @@ function AdminDashboard() {
                   }}>
                     <div>
                       <div style={{ fontWeight: '500', color: '#2d3748', marginBottom: '4px' }}>
-                        Team Member {idx + 1}
+                        👤 {member.name}
                       </div>
                       <div style={{ fontSize: '14px', color: '#2d3748' }}>
-                        {member.name} - {member.rollNo}
+                        {member.rollNo}
                       </div>
                       <div style={{ fontSize: '12px', color: '#718096', marginTop: '4px' }}>
                         {selectedBatch.year} {selectedBatch.branch}-{selectedBatch.section}

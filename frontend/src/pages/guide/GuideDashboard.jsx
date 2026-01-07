@@ -198,7 +198,7 @@ function GuideDashboard() {
                     <button className="btn btn-danger btn-sm" onClick={() => handleDeleteProblem(p._id)}>🗑️</button>
                   </div>
                   <p style={{ color: '#666', margin: '10px 0' }}>{p.description}</p>
-                  <div style={{ fontSize: '14px', color: '#888' }}>Teams: {p.selectedBatchCount}/{p.maxBatches}</div>
+                  <div style={{ fontSize: '14px', color: '#888' }}>Teams: {p.selectedBatchCount}</div>
                 </div>
               ))}
             </div>
@@ -216,10 +216,13 @@ function GuideDashboard() {
                   <div className="batch-icon">👥</div>
                   <h3>{t.teamName}</h3>
                   <p style={{ color: '#667eea', fontWeight: '500', marginBottom: '10px' }}>
-                    <strong>Year:</strong> {YEAR_LABELS[t.year] || t.year} • {t.branch}
+                    <strong>Year:</strong> {t.year || 'N/A'} • <strong>Branch:</strong> {t.branch || 'N/A'} 
+                  </p>
+                  <p style={{ color: '#667eea', fontWeight: '500', marginBottom: '10px' }}>
+                    <strong>Project Type:</strong> {t.optedProblemId?.targetYear === '2nd' ? 'Real Time Project' : t.optedProblemId?.targetYear === '3rd' ? 'Mini Project' : t.optedProblemId?.targetYear === '4th' ? 'Major Project' : 'N/A'}
                   </p>
                   <p><strong>Leader:</strong> {t.leaderStudentId?.name}</p>
-                  <p><strong>Opted Problem:</strong> {t.optedProblemId?.title}</p>
+                  <p><strong>Problem:</strong> {t.optedProblemId?.title}</p>
                   <p><strong>COE:</strong> {t.coeId?.name}</p>
                   <div style={{ display: 'flex', gap: '10px', marginTop: '15px' }}>
                     <button className="btn btn-primary" onClick={() => handleAllot(t._id, t.optedProblemId?._id)}>✅ Allot</button>

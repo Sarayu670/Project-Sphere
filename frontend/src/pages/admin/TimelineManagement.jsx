@@ -340,11 +340,6 @@ function TimelineManagement() {
                         <td><strong>{batch?.teamName}</strong></td>
                         <td>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                            {leader && (
-                              <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#2d3748' }}>
-                                👑 {leader.rollNumber || leader.name}
-                              </div>
-                            )}
                             {members.map((m, idx) => (
                               <div key={idx} style={{ fontSize: '12px', color: '#4a5568', paddingLeft: '18px' }}>
                                 • {m.rollNo}
@@ -365,31 +360,35 @@ function TimelineManagement() {
                         </td>
                         <td>{sub.marks !== null ? `${sub.marks}/${selectedEvent.maxMarks}` : '-'}</td>
                         <td>
-                          {latestAdminRemark ? (
-                            <div 
-                              style={{ 
-                                fontSize: '12px', 
-                                cursor: 'pointer',
-                                padding: '8px',
-                                background: '#f0f0f0',
-                                borderRadius: '4px',
-                                maxHeight: '50px',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap'
-                              }}
-                              onClick={() => setExpandedRemarkSubmission(sub._id)}
-                              title="Click to expand"
-                            >
-                              <strong>Admin:</strong> {latestAdminRemark.remark.substring(0, 50)}...
-                              <br/>
-                              <small style={{ color: '#999' }}>
-                                {new Date(latestAdminRemark.createdAt).toLocaleDateString('en-IN')}
-                              </small>
-                            </div>
-                          ) : (
-                            <span style={{ color: '#999', fontSize: '12px' }}>No remarks</span>
-                          )}
+                          <div style={{ width: '250px', minHeight: '60px', display: 'flex', alignItems: 'center' }}>
+                            {latestAdminRemark ? (
+                              <div 
+                                style={{ 
+                                  fontSize: '12px', 
+                                  cursor: 'pointer',
+                                  padding: '8px',
+                                  background: '#f0f0f0',
+                                  borderRadius: '4px',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  display: '-webkit-box',
+                                  WebkitLineClamp: 2,
+                                  WebkitBoxOrient: 'vertical',
+                                  width: '100%'
+                                }}
+                                onClick={() => setExpandedRemarkSubmission(sub._id)}
+                                title="Click to expand"
+                              >
+                                <strong>Admin:</strong> {latestAdminRemark.remark.substring(0, 50)}...
+                                <br/>
+                                <small style={{ color: '#999' }}>
+                                  {new Date(latestAdminRemark.createdAt).toLocaleDateString('en-IN')}
+                                </small>
+                              </div>
+                            ) : (
+                              <span style={{ color: '#999', fontSize: '12px' }}>No remarks</span>
+                            )}
+                          </div>
                         </td>
                         <td>
                           <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
@@ -418,7 +417,6 @@ function TimelineManagement() {
         <div className="card empty-state">
           <h3>❌ No Timeline Events</h3>
           <p>Create timeline events for Abstract Review, PRC-1, PRC-2, etc.</p>
-          <p style={{ fontSize: '12px', color: '#999' }}>Debug: Events state is empty. Length = {events.length}</p>
         </div>
       ) : !selectedEvent ? (
         <div className="timeline-container">

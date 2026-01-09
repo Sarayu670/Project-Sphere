@@ -95,7 +95,7 @@ function StudentDashboard() {
         )}
 
         {activeTab === 'team' && (
-          <TeamMembers batchId={batch._id} leader={batch.leaderStudentId} />
+          <TeamMembers batchId={batch._id} leader={batch.leaderStudentId} batchYear={batch.year} />
         )}
 
         {activeTab === 'select' && canSelectProblem && (

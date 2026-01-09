@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import * as api from '../../services/api';
 
-function TeamMembers({ batchId, leader }) {
+function TeamMembers({ batchId, leader, batchYear }) {
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -51,6 +51,7 @@ function TeamMembers({ batchId, leader }) {
               <div style={{ fontSize: '40px', marginBottom: '12px' }}>👤</div>
               <h3 style={{ color: '#2d3748', marginBottom: '8px' }}>{leader.name} <span style={{ fontSize: '12px', color: '#667eea', fontWeight: '600' }}>(leader)</span></h3>
               <p style={{ color: '#718096', fontSize: '14px' }}>Roll No: {leader.rollNumber}</p>
+              <p style={{ color: '#718096', fontSize: '14px' }}>Year: {batchYear}</p>
               <p style={{ color: '#718096', fontSize: '14px' }}>Branch: {leader.branch}</p>
             </div>
           )}
@@ -59,6 +60,7 @@ function TeamMembers({ batchId, leader }) {
               <div style={{ fontSize: '40px', marginBottom: '12px' }}>👤</div>
               <h3 style={{ color: '#2d3748', marginBottom: '8px' }}>{member.name}</h3>
               <p style={{ color: '#718096', fontSize: '14px' }}>Roll No: {member.rollNo}</p>
+              <p style={{ color: '#718096', fontSize: '14px' }}>Year: {batchYear}</p>
               <p style={{ color: '#718096', fontSize: '14px' }}>Branch: {member.branch}</p>
             </div>
           ))}

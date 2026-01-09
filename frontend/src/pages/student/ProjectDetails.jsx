@@ -13,6 +13,7 @@ function ProjectDetails({ batch, isPending, isAllotted }) {
           <div style={{ fontSize: '24px', fontWeight: '700', marginBottom: '8px' }}>{batch.teamName}</div>
           <p style={{ opacity: 0.8 }}>Team Leader: {batch.leaderStudentId?.name}</p>
           <p style={{ opacity: 0.8 }}>Email: {batch.leaderStudentId?.email}</p>
+          <p style={{ opacity: 0.8 }}>Year: {batch.year}</p>
           {batch.coeId && <p style={{ opacity: 0.8, marginTop: '8px' }}>COE: {batch.coeId?.name || batch.coeId}</p>}
         </div>
 

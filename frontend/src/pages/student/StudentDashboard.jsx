@@ -106,11 +106,19 @@ function StudentDashboard() {
 
   const handleChatLoaded = (data) => {
     setChatData(data);
-    // Calculate only unread messages from guide
-    if (data && data.messages) {
-      const unread = data.messages.filter(msg => msg.senderType === 'guide').length;
-      setUnreadCount(unread);
+    // Only count unread messages from guide (student side)
+    if (data && data.messages && data.messages.length > 0) {
+      // Reset count to 0 since chat is now viewed
+      setUnreadCount(0);
+    } else {
+      setUnreadCount(0);
     }
+  };
+
+  const handleChatClose = () => {
+    setChatOpen(false);
+    // Reset unread count when chat is closed
+    setUnreadCount(0);
   };
 
   return (
@@ -190,7 +198,7 @@ function StudentDashboard() {
         batchId={batch._id} 
         teamMemberId={typeof batch.leaderStudentId === 'object' ? batch.leaderStudentId._id : batch.leaderStudentId}
         isOpen={chatOpen}
-        onClose={() => setChatOpen(false)}
+        onClose={handleChatClose}
         onChatLoaded={handleChatLoaded}
       />
     </div>

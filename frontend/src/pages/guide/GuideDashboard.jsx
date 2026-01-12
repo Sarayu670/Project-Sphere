@@ -130,6 +130,14 @@ function GuideDashboard() {
     setChatOpen(true);
   };
 
+  const handleChatClose = () => {
+    setChatOpen(false);
+    // Refresh chat count after closing to reflect new unread status
+    setTimeout(() => {
+      setTotalMessageCount(0);
+    }, 300);
+  };
+
   const handleDownloadReport = async () => {
     if (selectedChat && currentChatData) {
       try {
@@ -238,8 +246,14 @@ function GuideDashboard() {
             <div className="grid grid-2">
               {problems.map(p => (
                 <div key={p._id} className="card">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-                    <div><h3>{p.title}</h3><span className="badge badge-info">{p.coeId?.name}</span> <span className="badge badge-warning">{p.targetYear} Year</span></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px', marginBottom: '12px' }}>
+                    <div style={{ flex: 1 }}>
+                      <h3 style={{ marginTop: 0 }}>{p.title}</h3>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                        <span className="badge badge-info">{p.coeId?.name}</span>
+                        <span className="badge badge-warning">{p.targetYear} Year</span>
+                      </div>
+                    </div>
                     <button className="btn btn-danger btn-sm" onClick={() => handleDeleteProblem(p._id)}>🗑️</button>
                   </div>
                   <p style={{ color: '#666', margin: '10px 0' }}>{p.description}</p>
@@ -333,7 +347,7 @@ function GuideDashboard() {
           batchId={selectedChat.batchId}
           teamMemberId={selectedChat.teamMemberId}
           isOpen={chatOpen}
-          onClose={() => setChatOpen(false)}
+          onClose={handleChatClose}
           onChatLoaded={setCurrentChatData}
         />
       )}

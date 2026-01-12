@@ -5,6 +5,14 @@ import './ChatPanel.css';
 
 const API_URL = '/api';
 
+// Helper function to construct full file URL
+const getFileUrl = (fileUrl) => {
+  if (!fileUrl) return '';
+  // File path from backend already starts with /uploads
+  // Vite proxy will handle routing to backend
+  return fileUrl.startsWith('http') ? fileUrl : fileUrl;
+};
+
 const ChatPanel = ({ batchId, teamMemberId, isOpen, onClose, onChatLoaded }) => {
   const { user } = useAuth();
   const [messages, setMessages] = useState([]);
@@ -219,17 +227,28 @@ const ChatPanel = ({ batchId, teamMemberId, isOpen, onClose, onChatLoaded }) => 
             </div>
             {msg.text && <p className="message-text">{msg.text}</p>}
             {msg.fileName && msg.fileUrl && (
-              <a href="#" className="file-link" onClick={(e) => {
-                e.preventDefault();
-                const link = document.createElement('a');
-                link.href = window.location.origin + msg.fileUrl;
-                link.download = msg.fileName;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-              }}>
-                📎 {msg.fileName}
-              </a>
+              <div className="file-actions">
+                <button 
+                  onClick={() => {
+                    const fileUrl = getFileUrl(msg.fileUrl);
+                    // Open file in new tab without refreshing current page
+                    window.open(fileUrl, '_blank', 'noopener,noreferrer');
+                  }}
+                  className="file-link file-view"
+                  title="View document"
+                >
+                  👁️ View
+                </button>
+                <a 
+                  href={getFileUrl(msg.fileUrl)}
+                  className="file-link file-download" 
+                  download={msg.fileName}
+                  title="Download document"
+                >
+                  ⬇️ Download
+                </a>
+                <span className="file-name">📎 {msg.fileName}</span>
+              </div>
             )}
           </div>
         ))}

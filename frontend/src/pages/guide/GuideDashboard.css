@@ -15,6 +15,13 @@
   padding: 24px 28px;
   margin-bottom: 20px;
   box-shadow: var(--shadow-sm);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.header-left {
+  flex: 1;
 }
 
 .dashboard-header h1 {
@@ -22,6 +29,51 @@
   margin-bottom: 6px;
   font-size: 22px;
   letter-spacing: 0.2px;
+}
+
+.header-right {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.messages-btn, .download-report-btn {
+  padding: 10px 18px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.3s;
+  white-space: nowrap;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.messages-btn:hover, .download-report-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.download-report-btn {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: #ff4757;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 700;
+  color: white;
 }
 
 .stats-row {
@@ -236,3 +288,21 @@
   margin-bottom: 8px;
 }
 
+.batch-action-btn {
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--accent-maroon);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-weight: 600;
+  margin-top: 12px;
+}
+
+.batch-action-btn:hover {
+  background: #7a1d1d;
+  transform: translateY(-2px);
+}

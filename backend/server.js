@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const path = require('path');
 const connectDB = require('./config/db');
 
 // Load env vars
@@ -17,6 +18,9 @@ app.use(express.json());
 // Enable CORS
 app.use(cors());
 
+// Serve static files for uploads
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 // Routes
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/coe', require('./routes/coeRoutes'));
@@ -28,6 +32,7 @@ app.use('/api/progress', require('./routes/progressRoutes'));
 app.use('/api/admin', require('./routes/adminRoutes'));
 app.use('/api/timeline', require('./routes/timelineRoutes'));
 app.use('/api/submissions', require('./routes/submissionRoutes'));
+app.use('/api/chat', require('./routes/chatRoutes'));
 
 // Health check
 app.get('/api/health', (req, res) => {

@@ -505,3 +505,17 @@ exports.getBatch = async (req, res) => {
   }
 };
 
+// @desc    Get all batches for a specific guide (for home page)
+// @route   GET /api/batches/guide/:guideId
+exports.getBatchesByGuide = async (req, res) => {
+  try {
+    const batches = await Batch.find({ guideId: req.params.guideId })
+      .populate('leaderStudentId', 'name rollNumber email')
+      .populate('problemId', 'title description')
+      .populate('guideId', 'name email');
+    
+    res.status(200).json({ success: true, data: batches });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

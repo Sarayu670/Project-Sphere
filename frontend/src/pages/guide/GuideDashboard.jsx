@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
 import * as api from '../../services/api';
+import ChatPanel from '../../components/ChatPanel';
+import ChatsListPanel from '../../components/ChatsListPanel';
+import { generateChatReport } from '../../utils/reportGenerator';
 import BatchDetails from './BatchDetails';
 import GuideTimeline from './GuideTimeline';
 import ExcelImportProblem from './ExcelImportProblem';
@@ -17,6 +20,11 @@ function GuideDashboard() {
   const [selectedBatch, setSelectedBatch] = useState(null);
   const [showAddProblem, setShowAddProblem] = useState(false);
   const [showImportExcel, setShowImportExcel] = useState(false);
+  const [chatsListOpen, setChatsListOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [selectedChat, setSelectedChat] = useState(null);
+  const [currentChatData, setCurrentChatData] = useState(null);
+  const [totalMessageCount, setTotalMessageCount] = useState(0);
   const [newProblem, setNewProblem] = useState({ title: '', description: '', coeId: '', targetYear: '', datasetUrl: '' });
   const [dialog, setDialog] = useState({ isOpen: false, title: '', message: '', type: 'info', onConfirm: null, confirmText: 'OK', cancelText: 'Cancel' });
 
@@ -117,14 +125,51 @@ function GuideDashboard() {
     });
   };
 
+  const handleSelectTeam = (teamData) => {
+    setSelectedChat(teamData);
+    setChatOpen(true);
+  };
+
+  const handleDownloadReport = async () => {
+    if (selectedChat && currentChatData) {
+      try {
+        const batch = batches.find(b => b._id === selectedChat.batchId);
+        const guideName = currentChatData.guideId?.name || 'Guide';
+        generateChatReport(currentChatData, batch?.teamName || 'Team', guideName);
+      } catch (error) {
+        console.error('Error generating report:', error);
+      }
+    }
+  };
+
   if (loading) return <div className="loading">Loading...</div>;
   if (selectedBatch) return <BatchDetails batchId={selectedBatch} onBack={() => { setSelectedBatch(null); fetchData(); }} />;
 
   return (
     <div className="guide-dashboard">
       <div className="dashboard-header">
-        <h1>👨‍🏫 Guide Dashboard</h1>
-        <p>Manage your problem statements and teams</p>
+        <div className="header-left">
+          <h1>👨‍🏫 Guide Dashboard</h1>
+          <p>Manage your problem statements and teams</p>
+        </div>
+        <div className="header-right">
+          <button 
+            className="messages-btn"
+            onClick={() => setChatsListOpen(true)}
+            title="View team messages"
+          >
+            💬 Messages {totalMessageCount > 0 && <span className="badge">{totalMessageCount}</span>}
+          </button>
+          {chatOpen && selectedChat && (
+            <button 
+              className="download-report-btn"
+              onClick={handleDownloadReport}
+              title="Download chat report"
+            >
+              📄 Report
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="stats-row">
@@ -241,7 +286,7 @@ function GuideDashboard() {
           {batches.length === 0 ? <div className="card empty-state"><h3>No Teams Allotted Yet</h3><p>Allot teams from pending requests</p></div> : (
             <div className="grid grid-3">
               {batches.map(b => (
-                <div key={b._id} className="batch-card" onClick={() => setSelectedBatch(b._id)}>
+                <div key={b._id} className="batch-card">
                   <div className="batch-status"><span className={`badge badge-${b.status === 'Completed' ? 'success' : b.status === 'In Progress' ? 'warning' : 'info'}`}>{b.status}</span></div>
                   <div className="batch-icon">👥</div>
                   <h3>{b.teamName}</h3>
@@ -249,7 +294,12 @@ function GuideDashboard() {
                   <p className="batch-leader">Leader: {b.leaderStudentId?.name}</p>
                   <p className="batch-problem">📋 {b.problemId?.title}</p>
                   <p className="batch-submissions">✅ Accepted Submissions: {getAcceptedSubmissionsCount(b._id)}</p>
-                  <div className="batch-action">View Details →</div>
+                  <button 
+                    className="batch-action-btn"
+                    onClick={() => setSelectedBatch(b._id)}
+                  >
+                    View Details →
+                  </button>
                 </div>
               ))}
             </div>
@@ -269,9 +319,26 @@ function GuideDashboard() {
         confirmText={dialog.confirmText}
         cancelText={dialog.cancelText}
       />
+
+      <ChatsListPanel 
+        batches={batches}
+        isOpen={chatsListOpen}
+        onClose={() => setChatsListOpen(false)}
+        onSelectTeam={handleSelectTeam}
+        onTotalCount={setTotalMessageCount}
+      />
+
+      {selectedChat && (
+        <ChatPanel 
+          batchId={selectedChat.batchId}
+          teamMemberId={selectedChat.teamMemberId}
+          isOpen={chatOpen}
+          onClose={() => setChatOpen(false)}
+          onChatLoaded={setCurrentChatData}
+        />
+      )}
     </div>
   );
 }
 
 export default GuideDashboard;
-

@@ -7,6 +7,7 @@ const {
   selectProblem,
   updateBatchStatus,
   getBatch,
+  getBatchesByGuide,
   getOptedTeams,
   allotProblem,
   rejectProblem
@@ -14,6 +15,7 @@ const {
 const { protect, authorize } = require('../middleware/auth');
 
 router.get('/', protect, getAllBatches);
+router.get('/guide/:guideId', getBatchesByGuide);
 router.get('/my-batch', protect, authorize('student'), getMyBatch);
 router.get('/opted-teams', protect, authorize('guide'), getOptedTeams);
 router.get('/:id', protect, getBatch);
@@ -24,4 +26,3 @@ router.post('/:id/reject', protect, authorize('guide'), rejectProblem);
 router.put('/:id/status', protect, authorize('guide'), updateBatchStatus);
 
 module.exports = router;
-

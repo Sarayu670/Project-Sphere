@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
+import HomePage from './pages/HomePage';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import RegisterGuide from './pages/RegisterGuide';
@@ -29,12 +30,13 @@ function App() {
 
   return (
     <Routes>
+      <Route path="/home" element={<HomePage />} />
       <Route path="/login" element={!user ? <Login /> : <Navigate to="/" />} />
       <Route path="/register" element={!user ? <Register /> : <Navigate to="/" />} />
       <Route path="/register/guide" element={!user ? <RegisterGuide /> : <Navigate to="/" />} />
       <Route path="/register/admin" element={!user ? <RegisterAdmin /> : <Navigate to="/" />} />
       
-      <Route path="/" element={user ? <Layout /> : <Navigate to="/login" />}>
+      <Route path="/" element={user ? <Layout /> : <Navigate to="/home" />}>
         {user?.role === 'student' && (
           <Route index element={<StudentDashboard />} />
         )}

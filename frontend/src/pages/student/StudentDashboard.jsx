@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import * as api from '../../services/api';
+import ChatPanel from '../../components/ChatPanel';
+import { generateChatReport } from '../../utils/reportGenerator';
 import CreateBatch from './CreateBatch';
 import TeamMembers from './TeamMembers';
 import COEList from './COEList';
@@ -13,6 +15,9 @@ function StudentDashboard() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedCOE, setSelectedCOE] = useState(null);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatData, setChatData] = useState(null);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const fetchBatch = async () => {
     try {
@@ -61,11 +66,75 @@ function StudentDashboard() {
     return 'not-started';
   };
 
+  const handleOpenChat = async () => {
+    try {
+      const leaderId = typeof batch.leaderStudentId === 'object' 
+        ? batch.leaderStudentId._id 
+        : batch.leaderStudentId;
+      
+      if (leaderId) {
+        try {
+          const response = await api.get(`/chat/student/${batch._id}/${leaderId}`);
+          setChatData(response.data.data);
+        } catch (err) {
+          // If chat doesn't exist yet, create a new one
+          setChatData({ 
+            _id: batch._id,
+            batchId: batch, 
+            teamMemberId: { _id: leaderId, teamName: batch.teamName },
+            guideId: batch.guideId,
+            messages: []
+          });
+        }
+      }
+      setChatOpen(true);
+    } catch (error) {
+      console.error('Error opening chat:', error);
+    }
+  };
+
+  const handleDownloadReport = async () => {
+    if (chatData && batch) {
+      try {
+        const guideName = batch.guideId?.name || 'Guide';
+        generateChatReport(chatData, batch.teamName, guideName);
+      } catch (error) {
+        console.error('Error generating report:', error);
+      }
+    }
+  };
+
+  const handleChatLoaded = (data) => {
+    setChatData(data);
+    // Calculate only unread messages from guide
+    if (data && data.messages) {
+      const unread = data.messages.filter(msg => msg.senderType === 'guide').length;
+      setUnreadCount(unread);
+    }
+  };
+
   return (
     <div className="student-dashboard">
       <div className="dashboard-header">
-        <h1>👋 Welcome, Team {batch.teamName}</h1>
-        <p>Status: <span className={`status-badge status-${getStatusClass()}`}>{getStatusText()}</span></p>
+        <div className="header-left">
+          <h1>👋 Welcome, Team {batch.teamName}</h1>
+          <div className="status-info">
+            <span className="status-label">Status:</span>
+            <span className={`status-badge status-${getStatusClass()}`}>{getStatusText()}</span>
+          </div>
+        </div>
+        <div className="header-right">
+          {isAllotted && (
+            <div className="header-actions">
+              <button className="chat-btn" onClick={handleOpenChat} title="Chat with Guide">
+                💬 Chat {unreadCount > 0 && <span className="badge">{unreadCount}</span>}
+              </button>
+              <button className="report-btn" onClick={handleDownloadReport} title="Download Report" disabled={!chatData}>
+                📄 Report
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="tabs">
@@ -116,6 +185,14 @@ function StudentDashboard() {
           <TimelineProgress batchId={batch._id} />
         )}
       </div>
+
+      <ChatPanel 
+        batchId={batch._id} 
+        teamMemberId={typeof batch.leaderStudentId === 'object' ? batch.leaderStudentId._id : batch.leaderStudentId}
+        isOpen={chatOpen}
+        onClose={() => setChatOpen(false)}
+        onChatLoaded={handleChatLoaded}
+      />
     </div>
   );
 }

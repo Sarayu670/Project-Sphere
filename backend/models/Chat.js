@@ -55,6 +55,10 @@ const ChatSchema = new mongoose.Schema({
     role: {
       type: String,
       enum: ['guide', 'student']
+    },
+    lastReadAt: {
+      type: Date,
+      default: Date.now
     }
   }],
   createdAt: {

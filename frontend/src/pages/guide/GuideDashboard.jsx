@@ -57,7 +57,18 @@ function GuideDashboard() {
     }
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { 
+    fetchData();
+    
+    // Auto-refresh message count when chats list is open
+    if (chatsListOpen) {
+      const interval = setInterval(() => {
+        // This will trigger ChatsListPanel to refresh
+        setChatsListOpen(true);
+      }, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [chatsListOpen]);
 
   const handleAddProblem = async (e) => {
     e.preventDefault();
@@ -166,7 +177,7 @@ function GuideDashboard() {
             onClick={() => setChatsListOpen(true)}
             title="View team messages"
           >
-            💬 Messages {totalMessageCount > 0 && <span className="badge">{totalMessageCount}</span>}
+            💬 Messages {totalMessageCount > 0 && <span className="count-badge">{totalMessageCount}</span>}
           </button>
           {chatOpen && selectedChat && (
             <button 
@@ -245,19 +256,21 @@ function GuideDashboard() {
           {problems.length === 0 ? <div className="card empty-state"><h3>No Problem Statements Yet</h3><p>Add your first problem statement to get started</p></div> : (
             <div className="grid grid-2">
               {problems.map(p => (
-                <div key={p._id} className="card">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px', marginBottom: '12px' }}>
-                    <div style={{ flex: 1 }}>
-                      <h3 style={{ marginTop: 0 }}>{p.title}</h3>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                <div key={p._id} className="card problem-card">
+                  <div className="problem-header">
+                    <div className="problem-title-section">
+                      <h3>{p.title}</h3>
+                      <div className="problem-badges">
                         <span className="badge badge-info">{p.coeId?.name}</span>
                         <span className="badge badge-warning">{p.targetYear} Year</span>
                       </div>
                     </div>
-                    <button className="btn btn-danger btn-sm" onClick={() => handleDeleteProblem(p._id)}>🗑️</button>
+                    <button className="btn btn-danger btn-sm" onClick={() => handleDeleteProblem(p._id)} title="Delete Problem">🗑️</button>
                   </div>
-                  <p style={{ color: '#666', margin: '10px 0' }}>{p.description}</p>
-                  <div style={{ fontSize: '14px', color: '#888' }}>Teams: {p.selectedBatchCount}</div>
+                  <p className="problem-description">{p.description || 'No description provided.'}</p>
+                  <div className="problem-footer">
+                    <span className="teams-count">👥 Teams: {p.selectedBatchCount || 0}</span>
+                  </div>
                 </div>
               ))}
             </div>

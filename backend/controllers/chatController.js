@@ -207,25 +207,64 @@ exports.markChatAsRead = async (req, res) => {
     const userRole = req.user.role;
     const { batchId, teamMemberId } = req.body;
 
+    console.log('markChatAsRead - userId:', userId, 'userRole:', userRole);
+
     const chat = await Chat.findOne({ batchId, teamMemberId });
 
     if (!chat) {
-      return res.status(404).json({
-        success: false,
-        message: 'Chat not found'
+      // If chat doesn't exist, create it first
+      let guideId;
+      if (userRole === 'guide') {
+        guideId = userId;
+      } else {
+        const batch = await Batch.findById(batchId).select('guideId');
+        guideId = batch.guideId;
+      }
+
+      const newChat = new Chat({
+        batchId,
+        teamMemberId,
+        guideId,
+        messages: [],
+        readBy: [{
+          userId,
+          role: userRole,
+          lastReadAt: new Date()
+        }]
+      });
+      
+      await newChat.save();
+
+      return res.status(200).json({
+        success: true,
+        message: 'Chat marked as read',
+        data: newChat
       });
     }
 
-    // Check if user already marked as read
-    const alreadyRead = chat.readBy.some(reader => reader.userId.toString() === userId);
+    // Find if user already marked as read
+    const existingReadIndex = chat.readBy.findIndex(reader => {
+      const readerUserId = reader.userId ? reader.userId.toString() : null;
+      return readerUserId === userId;
+    });
 
-    if (!alreadyRead) {
+    console.log('markChatAsRead - existingReadIndex:', existingReadIndex);
+
+    if (existingReadIndex === -1) {
+      // User reading for first time
       chat.readBy.push({
         userId,
-        role: userRole
+        role: userRole,
+        lastReadAt: new Date()
       });
-      await chat.save();
+      console.log('markChatAsRead - Added new read record');
+    } else {
+      // Update the lastReadAt timestamp for existing user
+      chat.readBy[existingReadIndex].lastReadAt = new Date();
+      console.log('markChatAsRead - Updated read timestamp');
     }
+    
+    await chat.save();
 
     res.status(200).json({
       success: true,
@@ -233,6 +272,7 @@ exports.markChatAsRead = async (req, res) => {
       data: chat
     });
   } catch (error) {
+    console.error('markChatAsRead error:', error);
     res.status(500).json({
       success: false,
       message: error.message

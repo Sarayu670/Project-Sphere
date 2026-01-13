@@ -43,10 +43,12 @@ const ChatPanel = ({ batchId, teamMemberId, isOpen, onClose, onChatLoaded }) => 
 
   const markChatAsRead = async () => {
     try {
-      await axios.post(`${API_URL}/chat/mark-read`, {
+      console.log('markChatAsRead called - user.id:', user.id);
+      const response = await axios.post(`${API_URL}/chat/mark-read`, {
         batchId,
         teamMemberId
       });
+      console.log('markChatAsRead response:', response.data);
     } catch (error) {
       console.error('Error marking chat as read:', error);
     }
@@ -80,25 +82,69 @@ const ChatPanel = ({ batchId, teamMemberId, isOpen, onClose, onChatLoaded }) => 
   };
 
   const calculateUnreadCount = (msgs, chat) => {
-    if (!chat.readBy) {
-      setUnreadCount(msgs.length);
+    if (!chat || !msgs || !Array.isArray(msgs) || msgs.length === 0) {
+      console.log('calculateUnreadCount - Invalid input');
+      setUnreadCount(0);
       return;
     }
     
-    const userHasRead = chat.readBy.some(reader => reader.userId === user.id);
-    if (!userHasRead) {
-      // All messages are unread for this user
-      setUnreadCount(msgs.length);
-    } else {
-      // Count only new messages after last read
-      const lastReadIndex = chat.messages.length - 1;
-      let unread = 0;
-      for (let i = lastReadIndex; i < msgs.length; i++) {
-        if (msgs[i].senderType !== user.role) {
-          unread++;
-        }
+    const readBy = chat.readBy || [];
+    console.log('calculateUnreadCount - readBy array:', readBy);
+    console.log('calculateUnreadCount - user.id:', user.id);
+    
+    // Find current user's last read timestamp
+    let userReadData = null;
+    for (const reader of readBy) {
+      const readerUserId = reader.userId ? reader.userId.toString() : null;
+      console.log('calculateUnreadCount - Comparing:', readerUserId, '===', user.id, '?', readerUserId === user.id);
+      if (readerUserId === user.id) {
+        userReadData = reader;
+        break;
       }
-      setUnreadCount(Math.max(0, unread));
+    }
+    
+    const lastReadAt = userReadData?.lastReadAt ? new Date(userReadData.lastReadAt) : null;
+    console.log('calculateUnreadCount - lastReadAt:', lastReadAt);
+    
+    // For students: count only NEW messages from guide (sent AFTER last read)
+    if (user.role === 'student') {
+      if (!lastReadAt) {
+        // Never read before, count all guide messages
+        const unreadFromGuide = msgs.filter(msg => msg.senderType === 'guide').length;
+        console.log('calculateUnreadCount - STUDENT never read. Unread:', unreadFromGuide);
+        setUnreadCount(unreadFromGuide);
+        return;
+      }
+      
+      // Count only messages from guide that came AFTER last read time
+      const unreadFromGuide = msgs.filter(msg => {
+        const isGuideMsg = msg.senderType === 'guide';
+        const isAfterRead = new Date(msg.timestamp) > lastReadAt;
+        return isGuideMsg && isAfterRead;
+      }).length;
+      console.log('calculateUnreadCount - STUDENT after read. Unread:', unreadFromGuide);
+      setUnreadCount(Math.max(0, unreadFromGuide));
+      return;
+    }
+    
+    // For guides: count only NEW messages from students (sent AFTER last read)
+    if (user.role === 'guide') {
+      if (!lastReadAt) {
+        // Never read before, count all student messages
+        const unreadFromStudent = msgs.filter(msg => msg.senderType === 'student').length;
+        console.log('calculateUnreadCount - GUIDE never read. Unread:', unreadFromStudent);
+        setUnreadCount(unreadFromStudent);
+        return;
+      }
+      
+      // Count only messages from student that came AFTER last read time
+      const unreadFromStudent = msgs.filter(msg => {
+        const isStudentMsg = msg.senderType === 'student';
+        const isAfterRead = new Date(msg.timestamp) > lastReadAt;
+        return isStudentMsg && isAfterRead;
+      }).length;
+      console.log('calculateUnreadCount - GUIDE after read. Unread:', unreadFromStudent);
+      setUnreadCount(Math.max(0, unreadFromStudent));
     }
   };
 

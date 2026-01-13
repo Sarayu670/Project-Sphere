@@ -63,7 +63,7 @@
   background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
 }
 
-.badge {
+.count-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -306,14 +306,79 @@
   background: #7a1d1d;
   transform: translateY(-2px);
 }
+.problem-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  justify-content: space-between;
+}
+
+.problem-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.problem-title-section {
+  flex: 1;
+}
+
+.problem-title-section h3 {
+  margin: 0 0 8px 0;
+  font-size: 18px;
+  color: var(--primary);
+  line-height: 1.3;
+}
+
+.problem-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.problem-description {
+  color: var(--text-muted);
+  font-size: 14px;
+  margin-bottom: 16px;
+  flex: 1;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.5;
+}
+
+.problem-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-light);
+  margin-top: auto;
+}
+
+.teams-count {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .badge {
-  display: inline-block;
-  padding: 5px 10px;
-  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 6px;
   font-size: 11px;
   font-weight: 700;
   white-space: nowrap;
-  border: 1px solid transparent;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .badge-info {

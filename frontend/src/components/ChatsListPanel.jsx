@@ -11,6 +11,9 @@ const ChatsListPanel = ({ batches, isOpen, onClose, onSelectTeam, onTotalCount }
   useEffect(() => {
     if (isOpen) {
       fetchAllChats();
+      // Auto-refresh every 2 seconds when open
+      const interval = setInterval(fetchAllChats, 2000);
+      return () => clearInterval(interval);
     }
   }, [isOpen, batches]);
 

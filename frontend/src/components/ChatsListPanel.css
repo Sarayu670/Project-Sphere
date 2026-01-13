@@ -128,16 +128,6 @@
   transform: translateX(4px);
 }
 
-.team-chat-item.has-messages {
-  background: #fffbf0;
-  border-color: #ffa500;
-}
-
-.team-chat-item.has-messages:hover {
-  background: #fff8e6;
-  border-color: #ff8c00;
-}
-
 .team-info {
   flex: 1;
 }
@@ -153,30 +143,6 @@
   margin: 0;
   font-size: 13px;
   color: #999;
-}
-
-.message-badge {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
-  color: white;
-  border-radius: 50%;
-  font-weight: 700;
-  font-size: 12px;
-  flex-shrink: 0;
-}
-
-.chats-footer {
-  padding: 16px 20px;
-  border-top: 1px solid #e0e7ff;
-  background: #f8f9ff;
-  text-align: center;
-  font-size: 13px;
-  color: #667eea;
-  font-weight: 600;
 }
 
 /* Scrollbar styling */

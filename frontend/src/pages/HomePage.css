@@ -215,6 +215,37 @@
   font-weight: 800;
 }
 
+.section-tabs {
+  max-width: 600px;
+  margin: 20px auto 30px;
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  border-bottom: 2px solid #e0e7ff;
+}
+
+.section-tab {
+  padding: 12px 24px;
+  background: none;
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  color: #999;
+  cursor: pointer;
+  transition: all 0.3s;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+}
+
+.section-tab:hover {
+  color: #667eea;
+}
+
+.section-tab.active {
+  color: #667eea;
+  border-bottom-color: #667eea;
+}
+
 .search-container {
   max-width: 600px;
   margin: 30px auto;

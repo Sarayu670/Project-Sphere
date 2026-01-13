@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import ProjectDirectory from './ProjectDirectory';
 import './HomePage.css';
 
 const API_URL = '/api';
@@ -12,6 +13,7 @@ const HomePage = () => {
   const [filteredGuides, setFilteredGuides] = useState([]);
   const [selectedGuide, setSelectedGuide] = useState(null);
   const [guideBatches, setGuideBatches] = useState([]);
+  const [activeSection, setActiveSection] = useState('guides'); // 'guides' or 'projects'
 
   useEffect(() => {
     fetchGuides();
@@ -47,6 +49,12 @@ const HomePage = () => {
       console.error('Error fetching guide batches:', error);
       setGuideBatches([]);
     }
+  };
+
+  const toggleSection = (section) => {
+    setActiveSection(section);
+    setSelectedGuide(null);
+    setGuideBatches([]);
   };
 
   return (
@@ -125,88 +133,109 @@ const HomePage = () => {
       </section>
 
       <section className="guide-search-section">
-        <h2>Find Your Guide</h2>
-        <p className="section-subtitle">Search for guides and explore their projects</p>
+        <h2>Explore Projects & Guides</h2>
+        <p className="section-subtitle">Search for guides and projects from our database</p>
         
-        <div className="search-container">
-          <input
-            type="text"
-            placeholder="Search guide name..."
-            value={searchTerm}
-            onChange={(e) => handleSearch(e.target.value)}
-            className="search-input"
-          />
+        <div className="section-tabs">
+          <button 
+            className={`section-tab ${activeSection === 'guides' ? 'active' : ''}`}
+            onClick={() => { setActiveSection('guides'); setSelectedGuide(null); }}
+          >
+            👨‍🏫 Find Guides
+          </button>
+          <button 
+            className={`section-tab ${activeSection === 'projects' ? 'active' : ''}`}
+            onClick={() => setActiveSection('projects')}
+          >
+            📚 Browse Projects
+          </button>
         </div>
 
-        <div className="guide-content">
-          {!selectedGuide ? (
-            <div className="guides-list">
-              {filteredGuides.length > 0 ? (
-                filteredGuides.map(guide => (
-                  <div
-                    key={guide._id}
-                    className="guide-card"
-                    onClick={() => handleGuideSelect(guide)}
-                  >
-                    <div className="guide-avatar">👨‍🏫</div>
-                    <div className="guide-info">
-                      <h3>{guide.name}</h3>
-                      <p className="guide-email">{guide.email}</p>
-                      <p className="guide-batches">
-                        {guide.assignedBatches || 0} / {guide.maxBatches || 3} teams
+        {activeSection === 'guides' ? (
+          <>
+            <div className="search-container">
+              <input
+                type="text"
+                placeholder="Search guide name..."
+                value={searchTerm}
+                onChange={(e) => handleSearch(e.target.value)}
+                className="search-input"
+              />
+            </div>
+
+            <div className="guide-content">
+              {!selectedGuide ? (
+                <div className="guides-list">
+                  {filteredGuides.length > 0 ? (
+                    filteredGuides.map(guide => (
+                      <div
+                        key={guide._id}
+                        className="guide-card"
+                        onClick={() => handleGuideSelect(guide)}
+                      >
+                        <div className="guide-avatar">👨‍🏫</div>
+                        <div className="guide-info">
+                          <h3>{guide.name}</h3>
+                          <p className="guide-email">{guide.email}</p>
+                          <p className="guide-batches">
+                            {guide.assignedBatches || 0} / {guide.maxBatches || 3} teams
+                          </p>
+                        </div>
+                        <div className="guide-action">
+                          View Projects →
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="no-results">
+                      <p>No guides found matching "{searchTerm}"</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="guide-detail">
+                  <button className="back-btn" onClick={() => setSelectedGuide(null)}>
+                    ← Back to Guides
+                  </button>
+                  <div className="guide-detail-header">
+                    <div className="guide-avatar-large">👨‍🏫</div>
+                    <div className="guide-detail-info">
+                      <h2>{selectedGuide.name}</h2>
+                      <p>{selectedGuide.email}</p>
+                      <p className="capacity">
+                        Teams: {selectedGuide.assignedBatches || 0} / {selectedGuide.maxBatches || 3}
                       </p>
                     </div>
-                    <div className="guide-action">
-                      View Projects →
-                    </div>
                   </div>
-                ))
-              ) : (
-                <div className="no-results">
-                  <p>No guides found matching "{searchTerm}"</p>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="guide-detail">
-              <button className="back-btn" onClick={() => setSelectedGuide(null)}>
-                ← Back to Guides
-              </button>
-              <div className="guide-detail-header">
-                <div className="guide-avatar-large">👨‍🏫</div>
-                <div className="guide-detail-info">
-                  <h2>{selectedGuide.name}</h2>
-                  <p>{selectedGuide.email}</p>
-                  <p className="capacity">
-                    Teams: {selectedGuide.assignedBatches || 0} / {selectedGuide.maxBatches || 3}
-                  </p>
-                </div>
-              </div>
 
-              <h3>Projects Assigned to This Guide</h3>
-              {guideBatches.length > 0 ? (
-                <div className="batches-grid">
-                  {guideBatches.map(batch => (
-                    <div key={batch._id} className="batch-preview">
-                      <h4>{batch.teamName}</h4>
-                      <p><strong>Year:</strong> {batch.year}</p>
-                      <p><strong>Status:</strong> {batch.status}</p>
-                      {batch.problemId && (
-                        <div className="problem-info">
-                          <p><strong>Project:</strong> {batch.problemId.title}</p>
+                  <h3>Projects Assigned to This Guide</h3>
+                  {guideBatches.length > 0 ? (
+                    <div className="batches-grid">
+                      {guideBatches.map(batch => (
+                        <div key={batch._id} className="batch-preview">
+                          <h4>{batch.teamName}</h4>
+                          <p><strong>Year:</strong> {batch.year}</p>
+                          <p><strong>Status:</strong> {batch.status}</p>
+                          {batch.problemId && (
+                            <div className="problem-info">
+                              <p><strong>Project:</strong> {batch.problemId.title}</p>
+                            </div>
+                          )}
                         </div>
-                      )}
+                      ))}
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="no-batches">
-                  <p>No projects assigned yet</p>
+                  ) : (
+                    <div className="no-batches">
+                      <p>No projects assigned yet</p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
-          )}
-        </div>
+          </>
+        ) : (
+          <ProjectDirectory />
+        )}
       </section>
 
       <section className="cta-section">

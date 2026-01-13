@@ -78,3 +78,13 @@ export const addSubmissionComment = (id, comment) => axios.post(`${API_URL}/subm
 export const assignSubmissionMarks = (id, marks, status) => axios.post(`${API_URL}/submissions/${id}/marks`, { marks, status });
 export const addAdminRemark = (id, remark) => axios.post(`${API_URL}/submissions/${id}/admin-remark`, { remark });
 
+// Generic methods
+export const get = (path, config) => axios.get(path, config);
+export const post = (path, data, config) => axios.post(path, data, config);
+
+// Projects
+export const getAllProjects = () => axios.get(`${API_URL}/projects`);
+export const getGuideProjects = () => axios.get(`${API_URL}/projects/guide/myprojects`);
+export const searchProjects = (query) => axios.get(`${API_URL}/projects/search`, { params: { q: query } });
+export const exportProjects = (params) => axios.get(`${API_URL}/projects/export`, { params });
+

@@ -63,19 +63,6 @@
   background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
 }
 
-.count-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  background: #ff4757;
-  border-radius: 50%;
-  font-size: 11px;
-  font-weight: 700;
-  color: white;
-}
-
 .stats-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));

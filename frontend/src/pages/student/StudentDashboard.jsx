@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import * as api from '../../services/api';
-import { useAuth } from '../../context/AuthContext';
 import ChatPanel from '../../components/ChatPanel';
 import { generateChatReport } from '../../utils/reportGenerator';
 import CreateBatch from './CreateBatch';
@@ -12,14 +11,12 @@ import TimelineProgress from './TimelineProgress';
 import './StudentDashboard.css';
 
 function StudentDashboard() {
-  const { user } = useAuth();
   const [batch, setBatch] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedCOE, setSelectedCOE] = useState(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [chatData, setChatData] = useState(null);
-  const [unreadCount, setUnreadCount] = useState(0);
 
   const fetchBatch = async () => {
     try {
@@ -34,57 +31,7 @@ function StudentDashboard() {
 
   useEffect(() => {
     fetchBatch();
-    
-    // Fetch unread message count every 3 seconds when chat is closed
-    if (!chatOpen && batch?._id) {
-      const interval = setInterval(async () => {
-        try {
-          const leaderId = typeof batch?.leaderStudentId === 'object' 
-            ? batch?.leaderStudentId._id 
-            : batch?.leaderStudentId;
-          
-          if (leaderId && batch?._id) {
-            const response = await api.get(`/chat/student/${batch._id}/${leaderId}`);
-            if (response && response.data.data) {
-              const msgs = response.data.data.messages || [];
-              const readBy = response.data.data.readBy || [];
-              
-              // Find current user's last read timestamp
-              const userReadData = readBy.find(reader => 
-                reader.userId && 
-                reader.userId.toString && 
-                reader.userId.toString() === user?.id
-              );
-              const lastReadAt = userReadData?.lastReadAt ? new Date(userReadData.lastReadAt) : null;
-              
-              console.log('StudentDashboard DEBUG: user.id =', user?.id);
-              console.log('StudentDashboard DEBUG: readBy =', readBy);
-              console.log('StudentDashboard DEBUG: lastReadAt =', lastReadAt);
-              
-              // Count only messages from guide that came AFTER last read
-              let unreadCount = 0;
-              if (!lastReadAt) {
-                // Never read before, count all guide messages
-                unreadCount = msgs.filter(msg => msg.senderType === 'guide').length;
-              } else {
-                // Count only new messages from guide after last read
-                unreadCount = msgs.filter(msg => 
-                  msg.senderType === 'guide' && new Date(msg.timestamp) > lastReadAt
-                ).length;
-              }
-              
-              console.log('StudentDashboard DEBUG: unreadCount =', unreadCount);
-              setUnreadCount(Math.max(0, unreadCount));
-            }
-          }
-        } catch (error) {
-          console.error('Error fetching unread count:', error);
-        }
-      }, 3000);
-      
-      return () => clearInterval(interval);
-    }
-  }, [chatOpen, batch?._id, user?.id]);
+  }, []);
 
   if (loading) {
     return <div className="loading">Loading...</div>;
@@ -158,49 +105,10 @@ function StudentDashboard() {
 
   const handleChatLoaded = (data) => {
     setChatData(data);
-    // When chat is opened, it's marked as read, so reset count to 0
-    setUnreadCount(0);
   };
 
   const handleChatClose = () => {
     setChatOpen(false);
-    // When chat closes, recalculate unread count from latest data
-    if (chatData && chatData.messages && Array.isArray(chatData.messages)) {
-      const readBy = chatData.readBy || [];
-      
-      // Find current user's read data
-      let userReadData = null;
-      for (const reader of readBy) {
-        const readerUserId = reader.userId ? reader.userId.toString() : null;
-        if (readerUserId === user?.id) {
-          userReadData = reader;
-          break;
-        }
-      }
-      
-      const lastReadAt = userReadData?.lastReadAt ? new Date(userReadData.lastReadAt) : null;
-      
-      console.log('handleChatClose - lastReadAt:', lastReadAt);
-      console.log('handleChatClose - Total messages:', chatData.messages.length);
-      
-      if (!lastReadAt) {
-        // Never read before, count all guide messages
-        const unreadFromGuide = chatData.messages.filter(msg => msg.senderType === 'guide').length;
-        console.log('handleChatClose - Never read, unread guide messages:', unreadFromGuide);
-        setUnreadCount(unreadFromGuide);
-      } else {
-        // Count only new messages from guide after last read
-        const unreadFromGuide = chatData.messages.filter(msg => {
-          const msgTime = new Date(msg.timestamp);
-          const isGuideMsg = msg.senderType === 'guide';
-          const isAfterRead = msgTime > lastReadAt;
-          console.log('Msg:', msg.senderName, 'Type:', msg.senderType, 'Time:', msgTime, 'After read?:', isAfterRead);
-          return isGuideMsg && isAfterRead;
-        }).length;
-        console.log('handleChatClose - After read, unread guide messages:', unreadFromGuide);
-        setUnreadCount(Math.max(0, unreadFromGuide));
-      }
-    }
   };
 
   return (
@@ -217,7 +125,7 @@ function StudentDashboard() {
           {isAllotted && (
             <div className="header-actions">
               <button className="chat-btn" onClick={handleOpenChat} title="Chat with Guide">
-                💬 Chat {unreadCount > 0 && <span className="badge">{unreadCount}</span>}
+                💬 Chat
               </button>
               <button className="report-btn" onClick={handleDownloadReport} title="Download Report" disabled={!chatData}>
                 📄 Report

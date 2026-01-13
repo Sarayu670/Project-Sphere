@@ -3,6 +3,8 @@ import * as api from '../../services/api';
 import COEManagement from './COEManagement';
 import TimelineManagement from './TimelineManagement';
 import BatchImport from './BatchImport';
+import ProjectImport from './ProjectImport';
+import ProjectDirectory from '../ProjectDirectory';
 import './AdminDashboard.css';
 
 const YEARS = ['2nd', '3rd', '4th'];
@@ -91,6 +93,8 @@ function AdminDashboard() {
         <button className={`tab ${activeTab === 'timeline' ? 'active' : ''}`} onClick={() => setActiveTab('timeline')}>📅 Timeline</button>
         <button className={`tab ${activeTab === 'filter' ? 'active' : ''}`} onClick={() => { setActiveTab('filter'); setSelectedBatch(null); }}>🔍 Filter by Class</button>
         <button className={`tab ${activeTab === 'import' ? 'active' : ''}`} onClick={() => setActiveTab('import')}>📤 Batch Import</button>
+        <button className={`tab ${activeTab === 'projects' ? 'active' : ''}`} onClick={() => setActiveTab('projects')}>📊 Import Projects</button>
+        <button className={`tab ${activeTab === 'directory' ? 'active' : ''}`} onClick={() => setActiveTab('directory')}>📚 Project Directory</button>
         <button className={`tab ${activeTab === 'coes' ? 'active' : ''}`} onClick={() => { setActiveTab('coes'); setSelectedCOE(null); }}>🏛️ COE Overview</button>
         <button className={`tab ${activeTab === 'manage' ? 'active' : ''}`} onClick={() => setActiveTab('manage')}>⚙️ Manage COEs</button>
       </div>
@@ -106,6 +110,24 @@ function AdminDashboard() {
             }}
             onCancel={() => setActiveTab('filter')}
           />
+        </div>
+      )}
+
+      {activeTab === 'projects' && (
+        <div className="tab-content">
+          <ProjectImport 
+            onImportComplete={() => {
+              setActiveTab('directory');
+              fetchData();
+            }}
+            onCancel={() => setActiveTab('directory')}
+          />
+        </div>
+      )}
+
+      {activeTab === 'directory' && (
+        <div className="tab-content">
+          <ProjectDirectory />
         </div>
       )}
 

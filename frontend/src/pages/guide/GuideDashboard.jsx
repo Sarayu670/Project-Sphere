@@ -6,6 +6,7 @@ import { generateChatReport } from '../../utils/reportGenerator';
 import BatchDetails from './BatchDetails';
 import GuideTimeline from './GuideTimeline';
 import ExcelImportProblem from './ExcelImportProblem';
+import ProjectDirectory from '../ProjectDirectory';
 import ConfirmationDialog from '../../components/ConfirmationDialog';
 import './GuideDashboard.css';
 
@@ -24,7 +25,6 @@ function GuideDashboard() {
   const [chatOpen, setChatOpen] = useState(false);
   const [selectedChat, setSelectedChat] = useState(null);
   const [currentChatData, setCurrentChatData] = useState(null);
-  const [totalMessageCount, setTotalMessageCount] = useState(0);
   const [newProblem, setNewProblem] = useState({ title: '', description: '', coeId: '', targetYear: '', datasetUrl: '' });
   const [dialog, setDialog] = useState({ isOpen: false, title: '', message: '', type: 'info', onConfirm: null, confirmText: 'OK', cancelText: 'Cancel' });
 
@@ -59,16 +59,7 @@ function GuideDashboard() {
 
   useEffect(() => { 
     fetchData();
-    
-    // Auto-refresh message count when chats list is open
-    if (chatsListOpen) {
-      const interval = setInterval(() => {
-        // This will trigger ChatsListPanel to refresh
-        setChatsListOpen(true);
-      }, 3000);
-      return () => clearInterval(interval);
-    }
-  }, [chatsListOpen]);
+  }, []);
 
   const handleAddProblem = async (e) => {
     e.preventDefault();
@@ -143,10 +134,6 @@ function GuideDashboard() {
 
   const handleChatClose = () => {
     setChatOpen(false);
-    // Refresh chat count after closing to reflect new unread status
-    setTimeout(() => {
-      setTotalMessageCount(0);
-    }, 300);
   };
 
   const handleDownloadReport = async () => {
@@ -177,7 +164,7 @@ function GuideDashboard() {
             onClick={() => setChatsListOpen(true)}
             title="View team messages"
           >
-            💬 Messages {totalMessageCount > 0 && <span className="count-badge">{totalMessageCount}</span>}
+            💬 Messages
           </button>
           {chatOpen && selectedChat && (
             <button 
@@ -202,8 +189,8 @@ function GuideDashboard() {
         <button className={`tab ${activeTab === 'problems' ? 'active' : ''}`} onClick={() => setActiveTab('problems')}>📋 My Problem Statements</button>
         <button className={`tab ${activeTab === 'requests' ? 'active' : ''}`} onClick={() => setActiveTab('requests')}>⏳ Pending Requests ({optedTeams.length})</button>
         <button className={`tab ${activeTab === 'teams' ? 'active' : ''}`} onClick={() => setActiveTab('teams')}>👥 My Teams</button>
-        <button className={`tab ${activeTab === 'submissions' ? 'active' : ''}`} onClick={() => setActiveTab('submissions')}>� Timeline</button>
-
+        <button className={`tab ${activeTab === 'submissions' ? 'active' : ''}`} onClick={() => setActiveTab('submissions')}>📅 Timeline</button>
+        <button className={`tab ${activeTab === 'directory' ? 'active' : ''}`} onClick={() => setActiveTab('directory')}>📚 Project Directory</button>
       </div>
 
       {activeTab === 'problems' && (
@@ -336,6 +323,8 @@ function GuideDashboard() {
 
       {activeTab === 'submissions' && <GuideTimeline />}
       
+      {activeTab === 'directory' && <ProjectDirectory />}
+      
       <ConfirmationDialog
         isOpen={dialog.isOpen}
         title={dialog.title}
@@ -352,7 +341,6 @@ function GuideDashboard() {
         isOpen={chatsListOpen}
         onClose={() => setChatsListOpen(false)}
         onSelectTeam={handleSelectTeam}
-        onTotalCount={setTotalMessageCount}
       />
 
       {selectedChat && (

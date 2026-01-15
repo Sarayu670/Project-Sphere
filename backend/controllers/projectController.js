@@ -208,4 +208,4 @@ exports.deleteAllProjects = async (req, res) => {
         });
     }
 };
-};
+

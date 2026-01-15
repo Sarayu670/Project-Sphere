@@ -3,14 +3,9 @@ import * as api from '../../services/api';
 import COEManagement from './COEManagement';
 import TimelineManagement from './TimelineManagement';
 import BatchImport from './BatchImport';
-<<<<<<< HEAD
 
 import ImportProjectData from './ImportProjectData';
 import GuideSearch from './GuideSearch';
-=======
-import ProjectImport from './ProjectImport';
-import ProjectDirectory from '../ProjectDirectory';
->>>>>>> fe67197a81f0cbe2ab9c1c027870cc75acf31a20
 import './AdminDashboard.css';
 
 const YEARS = ['2nd', '3rd', '4th'];
@@ -100,13 +95,8 @@ function AdminDashboard() {
         <button className={`tab ${activeTab === 'filter' ? 'active' : ''}`} onClick={() => { setActiveTab('filter'); setSelectedBatch(null); }}>🔍 Filter by Class</button>
         <button className={`tab ${activeTab === 'guide-search' ? 'active' : ''}`} onClick={() => setActiveTab('guide-search')}>👨‍🏫 Search Guide Batches</button>
         <button className={`tab ${activeTab === 'import' ? 'active' : ''}`} onClick={() => setActiveTab('import')}>📤 Batch Import</button>
-<<<<<<< HEAD
 
         <button className={`tab ${activeTab === 'project-import' ? 'active' : ''}`} onClick={() => setActiveTab('project-import')}>📊 Import Projects</button>
-=======
-        <button className={`tab ${activeTab === 'projects' ? 'active' : ''}`} onClick={() => setActiveTab('projects')}>📊 Import Projects</button>
-        <button className={`tab ${activeTab === 'directory' ? 'active' : ''}`} onClick={() => setActiveTab('directory')}>📚 Project Directory</button>
->>>>>>> fe67197a81f0cbe2ab9c1c027870cc75acf31a20
         <button className={`tab ${activeTab === 'coes' ? 'active' : ''}`} onClick={() => { setActiveTab('coes'); setSelectedCOE(null); }}>🏛️ COE Overview</button>
         <button className={`tab ${activeTab === 'manage' ? 'active' : ''}`} onClick={() => setActiveTab('manage')}>⚙️ Manage COEs</button>
       </div>
@@ -125,7 +115,6 @@ function AdminDashboard() {
         </div>
       )}
 
-<<<<<<< HEAD
       {activeTab === 'guide-search' && (
         <div className="tab-content">
           <GuideSearch />
@@ -137,23 +126,6 @@ function AdminDashboard() {
       {activeTab === 'project-import' && (
         <div className="tab-content">
           <ImportProjectData />
-=======
-      {activeTab === 'projects' && (
-        <div className="tab-content">
-          <ProjectImport 
-            onImportComplete={() => {
-              setActiveTab('directory');
-              fetchData();
-            }}
-            onCancel={() => setActiveTab('directory')}
-          />
-        </div>
-      )}
-
-      {activeTab === 'directory' && (
-        <div className="tab-content">
-          <ProjectDirectory />
->>>>>>> fe67197a81f0cbe2ab9c1c027870cc75acf31a20
         </div>
       )}
 

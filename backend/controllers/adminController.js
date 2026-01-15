@@ -194,6 +194,11 @@ exports.importBatches = async (req, res) => {
           });
         }
 
+        // 4. Update students with batchId (Crucial for consistency)
+        for (const studentId of studentIds) {
+          await Student.findByIdAndUpdate(studentId, { batchId: batch._id });
+        }
+
         results.success++;
       } catch (err) {
         results.failed++;
@@ -231,11 +236,22 @@ exports.importBatchData = async (req, res) => {
 
     const results = { success: 0, failed: 0, errors: [], batchCount: 0, studentCount: 0 };
 
-    // Group data by batch ID
+    // Group data by batch ID with fill-down logic for merged cells
     const batchGroups = {};
+    let lastProjId = '';
+
     for (const row of data) {
-      const projId = row['Proj ID/Batch'] || row['Batch'] || '';
+      // Check multiple common column names
+      let projId = row['Proj ID/Batch'] || row['Batch'] || row['Batch/Team'] || row['Team'] || '';
+
+      // Fill down if empty but we have student data (implies merged cell)
+      if (!projId && lastProjId && (row['Roll Number'] || row['Student Name'])) {
+        projId = lastProjId;
+      }
+
       if (projId) {
+        lastProjId = projId; // Update last seen ID
+
         if (!batchGroups[projId]) {
           batchGroups[projId] = [];
         }
@@ -371,7 +387,26 @@ exports.importBatchData = async (req, res) => {
 
           // Update all students with batch ID
           for (const studentId of studentIds) {
-            await Student.findByIdAndUpdate(studentId, { batchId: batch._id });
+            const updatedStudent = await Student.findByIdAndUpdate(studentId, { batchId: batch._id }, { new: true });
+
+            // Allow duplicate TeamMember creation just in case, or check first
+            // But since this is inside importBatchData and we grouped by batch, we can assume we need to create them.
+            // Check if TeamMember exists
+            const existingMember = await TeamMember.findOne({ rollNo: updatedStudent.rollNumber });
+            if (!existingMember) {
+              await TeamMember.create({
+                batchId: batch._id,
+                name: updatedStudent.name,
+                rollNo: updatedStudent.rollNumber,
+                branch: updatedStudent.branch || 'CSE' // Default if missing
+              });
+            } else {
+              // Update existing member if needed
+              existingMember.batchId = batch._id;
+              existingMember.name = updatedStudent.name;
+              existingMember.branch = updatedStudent.branch || existingMember.branch;
+              await existingMember.save();
+            }
           }
         }
       } catch (err) {

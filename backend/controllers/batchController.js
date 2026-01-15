@@ -12,20 +12,20 @@ exports.getAllBatches = async (req, res) => {
       .populate({
         path: 'problemId',
         select: 'title description coeId guideId targetYear',
-        populate: { 
-          path: 'coeId', 
+        populate: {
+          path: 'coeId',
           select: 'name'
         }
       })
       .populate('optedProblemId', 'title description')
       .populate('coeId', 'name')
       .populate('guideId', 'name email');
-    
+
     // Get team members for each batch
     batches = await Promise.all(
       batches.map(async (batch) => {
         const batchObj = batch.toObject();
-        
+
         // Ensure problemId.coeId is properly set
         if (batchObj.problemId && batchObj.problemId.coeId) {
           console.log('✅ Found COE in problemId:', batchObj.problemId.coeId);
@@ -34,17 +34,42 @@ exports.getAllBatches = async (req, res) => {
         } else {
           console.log('⚠️ No COE found for batch:', batchObj.teamName);
         }
-        
-        // Get team members for this batch
-        const teamMembers = await require('../models/TeamMember')
-          .find({ batchId: batch._id })
-          .select('name rollNo branch');
-        batchObj.teamMembers = teamMembers;
-        
+
+        // Get team members from BOTH Student and TeamMember collections to handle different import histories
+        const [students, teamMembersList] = await Promise.all([
+          require('../models/Student').find({ batchId: batch._id }).select('name rollNumber branch'),
+          require('../models/TeamMember').find({ batchId: batch._id }).select('name rollNo branch')
+        ]);
+
+        // Merge and deduplicate by roll number
+        const combinedMembers = new Map();
+
+        students.forEach(s => {
+          if (s.rollNumber) combinedMembers.set(s.rollNumber.toLowerCase(), {
+            _id: s._id,
+            name: s.name,
+            rollNo: s.rollNumber,
+            branch: s.branch
+          });
+        });
+
+        teamMembersList.forEach(tm => {
+          if (tm.rollNo && !combinedMembers.has(tm.rollNo.toLowerCase())) {
+            combinedMembers.set(tm.rollNo.toLowerCase(), {
+              _id: tm._id,
+              name: tm.name,
+              rollNo: tm.rollNo,
+              branch: tm.branch
+            });
+          }
+        });
+
+        batchObj.teamMembers = Array.from(combinedMembers.values());
+
         return batchObj;
       })
     );
-    
+
     console.log('📡 getAllBatches returning:', batches.length, 'batches');
     if (batches.length > 0) {
       console.log('📌 Sample batch:', {
@@ -94,7 +119,15 @@ exports.getMyBatch = async (req, res) => {
       return res.status(404).json({ success: false, message: 'No batch found', data: null });
     }
 
-    const teamMembers = await TeamMember.find({ batchId: batch._id });
+    // Get team members from Student collection
+    const students = await require('../models/Student').find({ batchId: batch._id });
+    const teamMembers = students.map(s => ({
+      _id: s._id,
+      name: s.name,
+      rollNo: s.rollNumber,
+      branch: s.branch
+    }));
+
     res.status(200).json({ success: true, data: { ...batch.toObject(), teamMembers } });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -461,7 +494,7 @@ exports.updateBatchStatus = async (req, res) => {
   try {
     const { status } = req.body;
     const batch = await Batch.findById(req.params.id);
-    
+
     if (!batch) {
       return res.status(404).json({ success: false, message: 'Batch not found' });
     }
@@ -493,12 +526,20 @@ exports.getBatch = async (req, res) => {
       .populate('leaderStudentId', 'name email rollNumber branch')
       .populate('problemId', 'title description coeId datasetUrl')
       .populate('guideId', 'name email');
-    
+
     if (!batch) {
       return res.status(404).json({ success: false, message: 'Batch not found' });
     }
 
-    const teamMembers = await TeamMember.find({ batchId: batch._id });
+    // Get team members from Student collection
+    const students = await require('../models/Student').find({ batchId: batch._id });
+    const teamMembers = students.map(s => ({
+      _id: s._id,
+      name: s.name,
+      rollNo: s.rollNumber,
+      branch: s.branch
+    }));
+
     res.status(200).json({ success: true, data: { ...batch.toObject(), teamMembers } });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -513,7 +554,7 @@ exports.getBatchesByGuide = async (req, res) => {
       .populate('leaderStudentId', 'name rollNumber email')
       .populate('problemId', 'title description')
       .populate('guideId', 'name email');
-    
+
     res.status(200).json({ success: true, data: batches });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -525,7 +566,7 @@ exports.getBatchesByGuide = async (req, res) => {
 exports.searchBatches = async (req, res) => {
   try {
     const { query } = req.query;
-    
+
     if (!query || query.trim().length === 0) {
       return res.status(200).json({ success: true, data: [] });
     }
@@ -546,7 +587,13 @@ exports.searchBatches = async (req, res) => {
 
     const teamMembers = await Promise.all(
       batches.map(async (batch) => {
-        const members = await TeamMember.find({ batchId: batch._id });
+        const students = await require('../models/Student').find({ batchId: batch._id });
+        const members = students.map(s => ({
+          _id: s._id,
+          name: s.name,
+          rollNo: s.rollNumber,
+          branch: s.branch
+        }));
         return { batch: batch.toObject(), teamMembers: members };
       })
     );

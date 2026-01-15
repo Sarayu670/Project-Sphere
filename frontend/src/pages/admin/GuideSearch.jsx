@@ -39,6 +39,70 @@ function GuideSearch() {
     }
   };
 
+  // Helper to deduplicate and merge batches and projects
+  const getUnifiedTeams = () => {
+    if (!results) return [];
+
+    const teamMap = new Map();
+
+    // First, add all batches from results
+    if (results.batches) {
+      results.batches.forEach(batch => {
+        teamMap.set(batch.teamName.toLowerCase(), {
+          _id: batch._id,
+          teamName: batch.teamName,
+          students: batch.students,
+          studentCount: batch.studentCount,
+          leaderStudent: batch.leaderStudent,
+          guideName: results.guide.name,
+          projectTitle: 'N/A',
+          coe: 'N/A',
+          isProject: false
+        });
+      });
+    }
+
+    // Then, merge or add projects
+    projects.forEach(project => {
+      const key = project.teamName.toLowerCase();
+      const existing = teamMap.get(key);
+
+      if (existing) {
+        // Project exists, update metadata and prefer its student list if it has one
+        existing.projectTitle = project.projectTitle;
+        existing.coe = project.coe;
+        existing.isProject = true;
+
+        // Use project's student list if it looks more authoritative
+        if (project.students && project.students.length > 0) {
+          existing.students = project.students.map((s, idx) => ({
+            name: s,
+            rollNumber: project.rollNumbers?.[idx] || 'N/A'
+          }));
+          existing.studentCount = project.students.length;
+        }
+      } else {
+        teamMap.set(key, {
+          _id: project._id,
+          teamName: project.teamName,
+          students: project.students.map((s, idx) => ({
+            name: s,
+            rollNumber: project.rollNumbers?.[idx] || 'N/A'
+          })),
+          studentCount: project.students.length,
+          guideName: project.guideName,
+          projectTitle: project.projectTitle,
+          coe: project.coe,
+          isProject: true
+        });
+      }
+    });
+
+    return Array.from(teamMap.values());
+  };
+
+  const unifiedTeams = getUnifiedTeams();
+
   return (
     <div>
       <div className="section-header">
@@ -100,27 +164,19 @@ function GuideSearch() {
           <div>
             <div style={{ marginBottom: '24px', padding: '16px', background: '#edf2f7', borderRadius: '8px' }}>
               <h3 style={{ color: '#2d3748', marginBottom: '12px' }}>👨‍🏫 Guide: {results.guide.name}</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginTop: '12px' }}>
-                <div style={{ padding: '12px', background: 'white', borderRadius: '6px', border: '1px solid #cbd5e0' }}>
-                  <p style={{ fontSize: '12px', color: '#718096', marginBottom: '4px' }}>Total Batches</p>
-                  <p style={{ fontSize: '20px', fontWeight: 'bold', color: '#667eea' }}>{results.totalBatches}</p>
-                </div>
-                <div style={{ padding: '12px', background: 'white', borderRadius: '6px', border: '1px solid #cbd5e0' }}>
-                  <p style={{ fontSize: '12px', color: '#718096', marginBottom: '4px' }}>Total Students</p>
-                  <p style={{ fontSize: '20px', fontWeight: 'bold', color: '#667eea' }}>{results.totalStudents}</p>
-                </div>
-                <div style={{ padding: '12px', background: 'white', borderRadius: '6px', border: '1px solid #cbd5e0' }}>
-                  <p style={{ fontSize: '12px', color: '#718096', marginBottom: '4px' }}>Imported Projects</p>
-                  <p style={{ fontSize: '20px', fontWeight: 'bold', color: '#667eea' }}>{projects.length}</p>
+              <div style={{ maxWidth: '240px' }}>
+                <div style={{ padding: '16px', background: 'white', borderRadius: '8px', border: '1px solid #cbd5e0', textAlign: 'center' }}>
+                  <p style={{ fontSize: '14px', color: '#718096', marginBottom: '8px' }}>Total Batches</p>
+                  <p style={{ fontSize: '28px', fontWeight: 'bold', color: '#667eea' }}>{unifiedTeams.length}</p>
                 </div>
               </div>
             </div>
 
             {/* Single Unified Table */}
-            {(results.batches.length > 0 || projects.length > 0) ? (
+            {unifiedTeams.length > 0 ? (
               <div>
                 <h3 style={{ color: '#2d3748', marginBottom: '16px' }}>
-                  📋 All Teams & Projects ({results.totalBatches + projects.length})
+                  📋 All Teams & Projects ({unifiedTeams.length})
                 </h3>
 
                 <div style={{ overflowX: 'auto' }}>
@@ -143,128 +199,76 @@ function GuideSearch() {
                       </tr>
                     </thead>
                     <tbody>
-                      {/* Regular Batches */}
-                      {results.batches.map((batch) => {
-                        if (batch.students && batch.students.length > 0) {
-                          return batch.students.map((student, studentIdx) => (
-                            <tr key={`batch-${batch._id}-${student._id || studentIdx}`} style={{
-                              borderBottom: '1px solid #e2e8f0',
-                              background: studentIdx % 2 === 0 ? '#fafbfc' : 'white'
-                            }}>
-                              {studentIdx === 0 ? (
-                                <td rowSpan={batch.students.length} style={{
-                                  padding: '12px',
-                                  fontWeight: '600',
-                                  color: '#2d3748',
-                                  borderRight: '2px solid #cbd5e0',
-                                  verticalAlign: 'top',
-                                  background: '#f0f4ff'
+                      {unifiedTeams.map((team) => (
+                        team.students.map((student, studentIdx) => (
+                          <tr key={`${team._id}-${studentIdx}`} style={{
+                            borderBottom: '1px solid #e2e8f0',
+                            background: team.isProject
+                              ? (studentIdx % 2 === 0 ? '#f0fdf4' : 'white')
+                              : (studentIdx % 2 === 0 ? '#fafbfc' : 'white')
+                          }}>
+                            {studentIdx === 0 ? (
+                              <td rowSpan={team.students.length} style={{
+                                padding: '12px',
+                                fontWeight: '600',
+                                color: '#2d3748',
+                                borderRight: '2px solid #cbd5e0',
+                                verticalAlign: 'top',
+                                background: team.isProject ? '#ecfdf5' : '#f0f4ff'
+                              }}>
+                                {team.teamName}
+                                <div style={{
+                                  fontSize: '11px',
+                                  color: team.isProject ? '#10b981' : '#667eea',
+                                  marginTop: '4px',
+                                  fontWeight: '500'
                                 }}>
-                                  {batch.teamName}
-                                  <div style={{ fontSize: '11px', color: '#667eea', marginTop: '4px', fontWeight: '500' }}>
-                                    {batch.studentCount} members
-                                  </div>
-                                </td>
-                              ) : null}
-                              <td style={{ padding: '12px', fontSize: '13px', color: '#4a5568' }}>
-                                {student.rollNumber || 'N/A'}
+                                  {team.studentCount} members
+                                </div>
                               </td>
-                              <td style={{ padding: '12px', fontSize: '13px', color: '#2d3748', fontWeight: '500' }}>
-                                {student.name}
-                                {batch.leaderStudent && student._id === batch.leaderStudent._id && (
-                                  <span style={{
-                                    marginLeft: '8px',
-                                    padding: '2px 8px',
-                                    background: '#667eea',
-                                    color: 'white',
-                                    borderRadius: '4px',
-                                    fontSize: '10px',
-                                    fontWeight: '600'
-                                  }}>
-                                    LEADER
-                                  </span>
-                                )}
-                              </td>
-                              {studentIdx === 0 ? (
-                                <>
-                                  <td rowSpan={batch.students.length} style={{ padding: '12px', fontSize: '13px', color: '#4a5568', verticalAlign: 'top' }}>
-                                    {results.guide.name}
-                                  </td>
-                                  <td rowSpan={batch.students.length} style={{ padding: '12px', fontSize: '13px', color: '#4a5568', verticalAlign: 'top' }}>
-                                    N/A
-                                  </td>
-                                  <td rowSpan={batch.students.length} style={{
-                                    padding: '12px',
-                                    fontSize: '13px',
-                                    color: 'white',
-                                    background: '#667eea',
-                                    fontWeight: '600',
-                                    verticalAlign: 'top'
-                                  }}>
-                                    N/A
-                                  </td>
-                                </>
-                              ) : null}
-                            </tr>
-                          ));
-                        }
-                        return null;
-                      })}
-
-                      {/* Imported Projects */}
-                      {projects.map((project) => {
-                        if (project.students && project.students.length > 0) {
-                          return project.students.map((student, studentIdx) => (
-                            <tr key={`project-${project._id}-${studentIdx}`} style={{
-                              borderBottom: '1px solid #e2e8f0',
-                              background: studentIdx % 2 === 0 ? '#f0fdf4' : 'white'
-                            }}>
-                              {studentIdx === 0 ? (
-                                <td rowSpan={project.students.length} style={{
-                                  padding: '12px',
-                                  fontWeight: '600',
-                                  color: '#2d3748',
-                                  borderRight: '2px solid #cbd5e0',
-                                  verticalAlign: 'top',
-                                  background: '#ecfdf5'
+                            ) : null}
+                            <td style={{ padding: '12px', fontSize: '13px', color: '#4a5568' }}>
+                              {student.rollNumber || 'N/A'}
+                            </td>
+                            <td style={{ padding: '12px', fontSize: '13px', color: '#2d3748', fontWeight: '500' }}>
+                              {student.name}
+                              {team.leaderStudent && student._id === team.leaderStudent._id && (
+                                <span style={{
+                                  marginLeft: '8px',
+                                  padding: '2px 8px',
+                                  background: '#667eea',
+                                  color: 'white',
+                                  borderRadius: '4px',
+                                  fontSize: '10px',
+                                  fontWeight: '600'
                                 }}>
-                                  {project.teamName}
-                                  <div style={{ fontSize: '11px', color: '#10b981', marginTop: '4px', fontWeight: '500' }}>
-                                    {project.students.length} members
-                                  </div>
+                                  LEADER
+                                </span>
+                              )}
+                            </td>
+                            {studentIdx === 0 ? (
+                              <>
+                                <td rowSpan={team.students.length} style={{ padding: '12px', fontSize: '13px', color: '#4a5568', verticalAlign: 'top' }}>
+                                  {team.guideName}
                                 </td>
-                              ) : null}
-                              <td style={{ padding: '12px', fontSize: '13px', color: '#4a5568' }}>
-                                {project.rollNumbers && project.rollNumbers[studentIdx] ? project.rollNumbers[studentIdx] : 'N/A'}
-                              </td>
-                              <td style={{ padding: '12px', fontSize: '13px', color: '#2d3748', fontWeight: '500' }}>
-                                {student}
-                              </td>
-                              {studentIdx === 0 ? (
-                                <>
-                                  <td rowSpan={project.students.length} style={{ padding: '12px', fontSize: '13px', color: '#4a5568', verticalAlign: 'top' }}>
-                                    {project.guideName}
-                                  </td>
-                                  <td rowSpan={project.students.length} style={{ padding: '12px', fontSize: '13px', color: '#4a5568', verticalAlign: 'top' }}>
-                                    {project.projectTitle}
-                                  </td>
-                                  <td rowSpan={project.students.length} style={{
-                                    padding: '12px',
-                                    fontSize: '13px',
-                                    color: 'white',
-                                    background: '#10b981',
-                                    fontWeight: '600',
-                                    verticalAlign: 'top'
-                                  }}>
-                                    {project.coe}
-                                  </td>
-                                </>
-                              ) : null}
-                            </tr>
-                          ));
-                        }
-                        return null;
-                      })}
+                                <td rowSpan={team.students.length} style={{ padding: '12px', fontSize: '13px', color: '#4a5568', verticalAlign: 'top' }}>
+                                  {team.projectTitle}
+                                </td>
+                                <td rowSpan={team.students.length} style={{
+                                  padding: '12px',
+                                  fontSize: '13px',
+                                  color: 'white',
+                                  background: team.isProject ? '#10b981' : '#667eea',
+                                  fontWeight: '600',
+                                  verticalAlign: 'top'
+                                }}>
+                                  {team.coe}
+                                </td>
+                              </>
+                            ) : null}
+                          </tr>
+                        ))
+                      ))}
                     </tbody>
                   </table>
                 </div>

@@ -1,4 +1,8 @@
 const Project = require('../models/Project');
+const Batch = require('../models/Batch');
+const Student = require('../models/Student');
+const Guide = require('../models/Guide');
+const TeamMember = require('../models/TeamMember');
 const { parseExcelFile, mergeRecords, validateRecord } = require('../utils/excelParser');
 
 /**
@@ -62,31 +66,116 @@ exports.importExcelFiles = async (req, res) => {
                     continue;
                 }
 
-                // Check if project already exists
-                const existingProject = await Project.findOne({
-                    teamName: record.teamName,
-                    projectTitle: record.projectTitle
-                });
-
-                if (existingProject) {
-                    results.failed++;
-                    results.warnings.push({
-                        teamName: record.teamName,
-                        projectTitle: record.projectTitle,
-                        errors: ['Project already exists in database']
-                    });
-                    continue;
+                // Sync with Batch and Students
+                // 1. Find or create Guide
+                let guide = null;
+                if (record.guideName && record.guideName !== 'N/A') {
+                    guide = await Guide.findOne({ name: { $regex: new RegExp(`^${record.guideName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } });
+                    if (!guide) {
+                        const email = record.guideName.toLowerCase().replace(/[^a-z0-9]/g, '') + '@gmail.com';
+                        guide = await Guide.create({
+                            name: record.guideName,
+                            email: email,
+                            password: 'password123'
+                        });
+                    }
                 }
 
-                // Create new project
-                await Project.create({
-                    teamName: record.teamName,
-                    students: record.students,
-                    guideName: record.guideName,
-                    projectTitle: record.projectTitle,
-                    coe: record.coe,
-                    source: 'excel_import'
-                });
+                // 2. Find or create Students
+                let studentIds = [];
+                for (let j = 0; j < record.students.length; j++) {
+                    const sName = record.students[j];
+                    const sRoll = record.rollNumbers[j] || `TEMP_${record.teamName}_${j}`;
+
+                    let student = await Student.findOne({ rollNumber: sRoll });
+                    if (!student) {
+                        const email = sRoll.toLowerCase() + '@gmail.com';
+                        student = await Student.create({
+                            name: sName,
+                            email: email,
+                            password: 'password123',
+                            rollNumber: sRoll,
+                            year: record.year || '4th',
+                            branch: record.branch || 'CSE',
+                            section: record.section || 'A'
+                        });
+                    } else {
+                        // Update metadata if student exists
+                        if (record.year) student.year = record.year;
+                        if (record.branch) student.branch = record.branch;
+                        if (record.section) student.section = record.section;
+                        await student.save();
+                    }
+                    studentIds.push(student._id);
+                }
+
+                // 3. Find or create Batch
+                let batch = await Batch.findOne({ teamName: record.teamName });
+
+                // CRITICAL: If batch exists, unlink old members to prevent cumulative growth
+                if (batch) {
+                    console.log(`[Import] Refreshing members for batch: ${batch.teamName}`);
+                    await Student.updateMany({ batchId: batch._id }, { batchId: null });
+                    await TeamMember.deleteMany({ batchId: batch._id });
+
+                    if (guide) batch.guideId = guide._id;
+                    if (studentIds.length > 0) batch.leaderStudentId = studentIds[0];
+                    if (record.year) batch.year = record.year;
+                    if (record.branch) batch.branch = record.branch;
+                    if (record.section) batch.section = record.section;
+                    await batch.save();
+                } else {
+                    batch = await Batch.create({
+                        teamName: record.teamName,
+                        leaderStudentId: studentIds[0] || null,
+                        guideId: guide ? guide._id : null,
+                        year: record.year || '4th',
+                        branch: record.branch || 'CSE',
+                        section: record.section || 'A'
+                    });
+                }
+
+                // 4. Link students to batch and create TeamMembers
+                if (batch) {
+                    for (const sId of studentIds) {
+                        const s = await Student.findByIdAndUpdate(sId, { batchId: batch._id }, { new: true });
+
+                        await TeamMember.findOneAndUpdate(
+                            { rollNo: s.rollNumber },
+                            {
+                                batchId: batch._id,
+                                name: s.name,
+                                rollNo: s.rollNumber,
+                                branch: s.branch
+                            },
+                            { upsert: true }
+                        );
+                    }
+                }
+
+                // Create or Update project (Deduplicate by teamName)
+                let project = await Project.findOne({ teamName: record.teamName });
+
+                if (project) {
+                    // Update existing project
+                    project.students = record.students;
+                    project.rollNumbers = record.rollNumbers || [];
+                    project.guideName = record.guideName;
+                    project.projectTitle = record.projectTitle !== 'N/A' ? record.projectTitle : project.projectTitle;
+                    project.coe = record.coe;
+                    await project.save();
+                } else {
+                    // Create new project
+                    await Project.create({
+                        teamName: record.teamName,
+                        students: record.students,
+                        rollNumbers: record.rollNumbers || [],
+                        guideName: record.guideName,
+                        projectTitle: record.projectTitle,
+                        coe: record.coe,
+                        source: 'excel_import'
+                    });
+                }
 
                 results.success++;
             } catch (error) {

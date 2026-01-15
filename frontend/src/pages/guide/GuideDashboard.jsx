@@ -6,6 +6,7 @@ import { generateChatReport } from '../../utils/reportGenerator';
 import BatchDetails from './BatchDetails';
 import GuideTimeline from './GuideTimeline';
 import ExcelImportProblem from './ExcelImportProblem';
+import ProjectDirectory from '../ProjectDirectory';
 import ConfirmationDialog from '../../components/ConfirmationDialog';
 import './GuideDashboard.css';
 
@@ -24,7 +25,6 @@ function GuideDashboard() {
   const [chatOpen, setChatOpen] = useState(false);
   const [selectedChat, setSelectedChat] = useState(null);
   const [currentChatData, setCurrentChatData] = useState(null);
-  const [totalMessageCount, setTotalMessageCount] = useState(0);
   const [newProblem, setNewProblem] = useState({ title: '', description: '', coeId: '', targetYear: '', datasetUrl: '' });
   const [dialog, setDialog] = useState({ isOpen: false, title: '', message: '', type: 'info', onConfirm: null, confirmText: 'OK', cancelText: 'Cancel' });
   const [searchTerm, setSearchTerm] = useState('');
@@ -60,7 +60,9 @@ function GuideDashboard() {
     }
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { 
+    fetchData();
+  }, []);
 
   const handleSearch = async (value) => {
     setSearchTerm(value);
@@ -155,6 +157,10 @@ function GuideDashboard() {
     setChatOpen(true);
   };
 
+  const handleChatClose = () => {
+    setChatOpen(false);
+  };
+
   const handleDownloadReport = async () => {
     if (selectedChat && currentChatData) {
       try {
@@ -183,7 +189,7 @@ function GuideDashboard() {
             onClick={() => setChatsListOpen(true)}
             title="View team messages"
           >
-            💬 Messages {totalMessageCount > 0 && <span className="badge">{totalMessageCount}</span>}
+            💬 Messages
           </button>
           {chatOpen && selectedChat && (
             <button 
@@ -208,8 +214,8 @@ function GuideDashboard() {
         <button className={`tab ${activeTab === 'problems' ? 'active' : ''}`} onClick={() => setActiveTab('problems')}>📋 My Problem Statements</button>
         <button className={`tab ${activeTab === 'requests' ? 'active' : ''}`} onClick={() => setActiveTab('requests')}>⏳ Pending Requests ({optedTeams.length})</button>
         <button className={`tab ${activeTab === 'teams' ? 'active' : ''}`} onClick={() => setActiveTab('teams')}>👥 My Teams</button>
-        <button className={`tab ${activeTab === 'submissions' ? 'active' : ''}`} onClick={() => setActiveTab('submissions')}>� Timeline</button>
-
+        <button className={`tab ${activeTab === 'submissions' ? 'active' : ''}`} onClick={() => setActiveTab('submissions')}>📅 Timeline</button>
+        <button className={`tab ${activeTab === 'directory' ? 'active' : ''}`} onClick={() => setActiveTab('directory')}>📚 Project Directory</button>
       </div>
 
       {activeTab === 'problems' && (
@@ -260,6 +266,7 @@ function GuideDashboard() {
             </div>
           )}
           {problems.length === 0 ? <div className="card empty-state"><h3>No Problem Statements Yet</h3><p>Add your first problem statement to get started</p></div> : (
+<<<<<<< HEAD
             <>
               <div style={{ marginBottom: '20px' }}>
                 <input
@@ -290,6 +297,28 @@ function GuideDashboard() {
                 ))}
               </div>
             </>
+=======
+            <div className="grid grid-2">
+              {problems.map(p => (
+                <div key={p._id} className="card problem-card">
+                  <div className="problem-header">
+                    <div className="problem-title-section">
+                      <h3>{p.title}</h3>
+                      <div className="problem-badges">
+                        <span className="badge badge-info">{p.coeId?.name}</span>
+                        <span className="badge badge-warning">{p.targetYear} Year</span>
+                      </div>
+                    </div>
+                    <button className="btn btn-danger btn-sm" onClick={() => handleDeleteProblem(p._id)} title="Delete Problem">🗑️</button>
+                  </div>
+                  <p className="problem-description">{p.description || 'No description provided.'}</p>
+                  <div className="problem-footer">
+                    <span className="teams-count">👥 Teams: {p.selectedBatchCount || 0}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+>>>>>>> fe67197a81f0cbe2ab9c1c027870cc75acf31a20
           )}
         </div>
       )}
@@ -352,6 +381,8 @@ function GuideDashboard() {
 
       {activeTab === 'submissions' && <GuideTimeline />}
       
+      {activeTab === 'directory' && <ProjectDirectory />}
+      
       <ConfirmationDialog
         isOpen={dialog.isOpen}
         title={dialog.title}
@@ -368,7 +399,6 @@ function GuideDashboard() {
         isOpen={chatsListOpen}
         onClose={() => setChatsListOpen(false)}
         onSelectTeam={handleSelectTeam}
-        onTotalCount={setTotalMessageCount}
       />
 
       {selectedChat && (
@@ -376,7 +406,7 @@ function GuideDashboard() {
           batchId={selectedChat.batchId}
           teamMemberId={selectedChat.teamMemberId}
           isOpen={chatOpen}
-          onClose={() => setChatOpen(false)}
+          onClose={handleChatClose}
           onChatLoaded={setCurrentChatData}
         />
       )}

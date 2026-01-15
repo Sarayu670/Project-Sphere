@@ -5,6 +5,14 @@ import './ChatPanel.css';
 
 const API_URL = '/api';
 
+// Helper function to construct full file URL
+const getFileUrl = (fileUrl) => {
+  if (!fileUrl) return '';
+  // File path from backend already starts with /uploads
+  // Vite proxy will handle routing to backend
+  return fileUrl.startsWith('http') ? fileUrl : fileUrl;
+};
+
 const ChatPanel = ({ batchId, teamMemberId, isOpen, onClose, onChatLoaded }) => {
   const { user } = useAuth();
   const [messages, setMessages] = useState([]);
@@ -14,7 +22,6 @@ const ChatPanel = ({ batchId, teamMemberId, isOpen, onClose, onChatLoaded }) => 
   const [selectedFile, setSelectedFile] = useState(null);
   const [chatData, setChatData] = useState(null);
   const [lastMessageCount, setLastMessageCount] = useState(0);
-  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     if (isOpen && batchId && teamMemberId) {
@@ -22,8 +29,6 @@ const ChatPanel = ({ batchId, teamMemberId, isOpen, onClose, onChatLoaded }) => 
       if (user.role === 'student') {
         fetchGuideInfo();
       }
-      // Mark chat as read when opened
-      markChatAsRead();
       
       // Smart auto-refresh - only updates if message count changed
       const interval = setInterval(() => {
@@ -32,17 +37,6 @@ const ChatPanel = ({ batchId, teamMemberId, isOpen, onClose, onChatLoaded }) => 
       return () => clearInterval(interval);
     }
   }, [isOpen, batchId, teamMemberId]);
-
-  const markChatAsRead = async () => {
-    try {
-      await axios.post(`${API_URL}/chat/mark-read`, {
-        batchId,
-        teamMemberId
-      });
-    } catch (error) {
-      console.error('Error marking chat as read:', error);
-    }
-  };
 
   const checkForNewMessages = async () => {
     try {
@@ -60,7 +54,6 @@ const ChatPanel = ({ batchId, teamMemberId, isOpen, onClose, onChatLoaded }) => 
           setLastMessageCount(newMessages.length);
           setMessages(newMessages);
           setChatData(response.data.data);
-          calculateUnreadCount(newMessages, response.data.data);
           if (onChatLoaded) {
             onChatLoaded(response.data.data);
           }
@@ -68,29 +61,6 @@ const ChatPanel = ({ batchId, teamMemberId, isOpen, onClose, onChatLoaded }) => 
       }
     } catch (error) {
       console.error('Error checking messages:', error);
-    }
-  };
-
-  const calculateUnreadCount = (msgs, chat) => {
-    if (!chat.readBy) {
-      setUnreadCount(msgs.length);
-      return;
-    }
-    
-    const userHasRead = chat.readBy.some(reader => reader.userId === user.id);
-    if (!userHasRead) {
-      // All messages are unread for this user
-      setUnreadCount(msgs.length);
-    } else {
-      // Count only new messages after last read
-      const lastReadIndex = chat.messages.length - 1;
-      let unread = 0;
-      for (let i = lastReadIndex; i < msgs.length; i++) {
-        if (msgs[i].senderType !== user.role) {
-          unread++;
-        }
-      }
-      setUnreadCount(Math.max(0, unread));
     }
   };
 
@@ -108,7 +78,6 @@ const ChatPanel = ({ batchId, teamMemberId, isOpen, onClose, onChatLoaded }) => 
         setLastMessageCount(msgs.length);
         setMessages(msgs);
         setChatData(response.data.data);
-        calculateUnreadCount(msgs, response.data.data);
         if (onChatLoaded) {
           onChatLoaded(response.data.data);
         }
@@ -170,7 +139,6 @@ const ChatPanel = ({ batchId, teamMemberId, isOpen, onClose, onChatLoaded }) => 
         setLastMessageCount(msgs.length);
         setMessages(msgs);
         setChatData(response.data.data);
-        calculateUnreadCount(msgs, response.data.data);
         if (onChatLoaded) {
           onChatLoaded(response.data.data);
         }
@@ -219,17 +187,28 @@ const ChatPanel = ({ batchId, teamMemberId, isOpen, onClose, onChatLoaded }) => 
             </div>
             {msg.text && <p className="message-text">{msg.text}</p>}
             {msg.fileName && msg.fileUrl && (
-              <a href="#" className="file-link" onClick={(e) => {
-                e.preventDefault();
-                const link = document.createElement('a');
-                link.href = window.location.origin + msg.fileUrl;
-                link.download = msg.fileName;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-              }}>
-                📎 {msg.fileName}
-              </a>
+              <div className="file-actions">
+                <button 
+                  onClick={() => {
+                    const fileUrl = getFileUrl(msg.fileUrl);
+                    // Open file in new tab without refreshing current page
+                    window.open(fileUrl, '_blank', 'noopener,noreferrer');
+                  }}
+                  className="file-link file-view"
+                  title="View document"
+                >
+                  👁️ View
+                </button>
+                <a 
+                  href={getFileUrl(msg.fileUrl)}
+                  className="file-link file-download" 
+                  download={msg.fileName}
+                  title="Download document"
+                >
+                  ⬇️ Download
+                </a>
+                <span className="file-name">📎 {msg.fileName}</span>
+              </div>
             )}
           </div>
         ))}

@@ -17,7 +17,6 @@ function StudentDashboard() {
   const [selectedCOE, setSelectedCOE] = useState(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [chatData, setChatData] = useState(null);
-  const [unreadCount, setUnreadCount] = useState(0);
 
   const fetchBatch = async () => {
     try {
@@ -106,11 +105,10 @@ function StudentDashboard() {
 
   const handleChatLoaded = (data) => {
     setChatData(data);
-    // Calculate only unread messages from guide
-    if (data && data.messages) {
-      const unread = data.messages.filter(msg => msg.senderType === 'guide').length;
-      setUnreadCount(unread);
-    }
+  };
+
+  const handleChatClose = () => {
+    setChatOpen(false);
   };
 
   return (
@@ -127,7 +125,7 @@ function StudentDashboard() {
           {isAllotted && (
             <div className="header-actions">
               <button className="chat-btn" onClick={handleOpenChat} title="Chat with Guide">
-                💬 Chat {unreadCount > 0 && <span className="badge">{unreadCount}</span>}
+                💬 Chat
               </button>
               <button className="report-btn" onClick={handleDownloadReport} title="Download Report" disabled={!chatData}>
                 📄 Report
@@ -190,7 +188,7 @@ function StudentDashboard() {
         batchId={batch._id} 
         teamMemberId={typeof batch.leaderStudentId === 'object' ? batch.leaderStudentId._id : batch.leaderStudentId}
         isOpen={chatOpen}
-        onClose={() => setChatOpen(false)}
+        onClose={handleChatClose}
         onChatLoaded={handleChatLoaded}
       />
     </div>

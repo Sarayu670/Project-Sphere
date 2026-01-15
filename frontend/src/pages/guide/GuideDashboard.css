@@ -63,19 +63,6 @@
   background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
 }
 
-.badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  background: #ff4757;
-  border-radius: 50%;
-  font-size: 11px;
-  font-weight: 700;
-  color: white;
-}
-
 .stats-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -305,4 +292,120 @@
 .batch-action-btn:hover {
   background: #7a1d1d;
   transform: translateY(-2px);
+}
+.problem-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  justify-content: space-between;
+}
+
+.problem-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.problem-title-section {
+  flex: 1;
+}
+
+.problem-title-section h3 {
+  margin: 0 0 8px 0;
+  font-size: 18px;
+  color: var(--primary);
+  line-height: 1.3;
+}
+
+.problem-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.problem-description {
+  color: var(--text-muted);
+  font-size: 14px;
+  margin-bottom: 16px;
+  flex: 1;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.5;
+}
+
+.problem-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-light);
+  margin-top: auto;
+}
+
+.teams-count {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.badge-info {
+  background: rgba(102, 126, 234, 0.15);
+  color: #667eea;
+  border: 1px solid rgba(102, 126, 234, 0.3);
+}
+
+.badge-warning {
+  background: rgba(217, 119, 6, 0.15);
+  color: #d97706;
+  border: 1px solid rgba(217, 119, 6, 0.3);
+}
+
+.badge-success {
+  background: rgba(22, 163, 74, 0.15);
+  color: #16a34a;
+  border: 1px solid rgba(22, 163, 74, 0.3);
+}
+
+/* Card header with title and badges */
+.card > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.card h3 {
+  color: var(--text);
+  margin-bottom: 8px;
+  margin: 0 0 8px 0;
+  word-break: break-word;
+}
+
+.batch-submissions {
+  color: #667eea;
+  font-weight: 500;
+  margin-bottom: 10px;
+  font-size: 13px;
 }

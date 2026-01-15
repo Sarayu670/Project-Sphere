@@ -4,3 +4,5 @@ backend/node_modules/
 dist/
 *.xlsx
 *.xls
+.vs/
+.env

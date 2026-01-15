@@ -17,11 +17,14 @@
   box-shadow: var(--shadow-sm);
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  gap: 20px;
+  flex-wrap: wrap;
 }
 
 .header-left {
   flex: 1;
+  min-width: 300px;
 }
 
 .dashboard-header h1 {
@@ -35,6 +38,20 @@
   margin: 0;
   font-size: 12px;
   color: #666;
+}
+
+.status-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.status-label {
+  font-weight: 700;
+  color: var(--text);
+  font-size: 13px;
 }
 
 .header-right {
@@ -94,13 +111,14 @@
 }
 
 .status-badge {
-  padding: 3px 10px;
+  padding: 6px 14px;
   border-radius: 999px;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 700;
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
+  white-space: nowrap;
 }
 
 .status-not-started {

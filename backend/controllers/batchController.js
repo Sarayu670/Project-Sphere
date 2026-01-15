@@ -519,3 +519,45 @@ exports.getBatchesByGuide = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// @desc    Search batches by project ID, student name, guide name, or project title
+// @route   GET /api/batches/search
+exports.searchBatches = async (req, res) => {
+  try {
+    const { query } = req.query;
+    
+    if (!query || query.trim().length === 0) {
+      return res.status(200).json({ success: true, data: [] });
+    }
+
+    const searchQuery = query.trim();
+    const searchRegex = new RegExp(searchQuery, 'i');
+
+    const batches = await Batch.find({
+      $or: [
+        { teamName: searchRegex },
+        { 'leaderStudentId.name': searchRegex },
+        { 'guideId.name': searchRegex }
+      ]
+    })
+      .populate('leaderStudentId', 'name rollNumber email')
+      .populate('problemId', 'title description')
+      .populate('guideId', 'name email');
+
+    const teamMembers = await Promise.all(
+      batches.map(async (batch) => {
+        const members = await TeamMember.find({ batchId: batch._id });
+        return { batch: batch.toObject(), teamMembers: members };
+      })
+    );
+
+    const results = teamMembers.map(({ batch, teamMembers }) => ({
+      ...batch,
+      teamMembers
+    }));
+
+    res.status(200).json({ success: true, data: results });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

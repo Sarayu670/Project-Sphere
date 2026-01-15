@@ -41,6 +41,11 @@ const StudentSchema = new mongoose.Schema({
     enum: ['A', 'B', 'C', 'D', 'E'],
     required: [true, 'Section is required']
   },
+  batchId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Batch',
+    default: null
+  },
   role: {
     type: String,
     default: 'student'

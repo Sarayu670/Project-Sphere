@@ -12,6 +12,29 @@ exports.getAllGuides = async (req, res) => {
   }
 };
 
+// @desc    Search guides by name
+// @route   GET /api/guides/search?q=searchTerm
+exports.searchGuides = async (req, res) => {
+  try {
+    const { q } = req.query;
+    
+    if (!q || q.trim() === '') {
+      return res.status(400).json({ success: false, message: 'Search query is required' });
+    }
+
+    // Create a regex pattern for case-insensitive search
+    const searchPattern = new RegExp(q, 'i');
+
+    const guides = await Guide.find({
+      name: searchPattern
+    }).select('-password');
+
+    res.status(200).json({ success: true, data: guides });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // @desc    Get single guide
 // @route   GET /api/guides/:id
 exports.getGuide = async (req, res) => {

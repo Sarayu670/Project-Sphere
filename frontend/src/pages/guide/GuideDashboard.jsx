@@ -27,6 +27,8 @@ function GuideDashboard() {
   const [totalMessageCount, setTotalMessageCount] = useState(0);
   const [newProblem, setNewProblem] = useState({ title: '', description: '', coeId: '', targetYear: '', datasetUrl: '' });
   const [dialog, setDialog] = useState({ isOpen: false, title: '', message: '', type: 'info', onConfirm: null, confirmText: 'OK', cancelText: 'Cancel' });
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filteredProblems, setFilteredProblems] = useState([]);
 
   const TARGET_YEARS = ['2nd', '3rd', '4th'];
   
@@ -46,6 +48,7 @@ function GuideDashboard() {
         api.getGuideSubmissions()
       ]);
       setProblems(problemsRes.data.data);
+      setFilteredProblems(problemsRes.data.data);
       setCoes(coesRes.data.data);
       setBatches(batchesRes.data.data);
       setOptedTeams(optedRes.data.data);
@@ -58,6 +61,28 @@ function GuideDashboard() {
   };
 
   useEffect(() => { fetchData(); }, []);
+
+  const handleSearch = async (value) => {
+    setSearchTerm(value);
+
+    if (!value.trim()) {
+      setFilteredProblems(problems);
+      return;
+    }
+
+    try {
+      const response = await api.searchProblems(value);
+      setFilteredProblems(response.data.data || []);
+    } catch (error) {
+      console.error('Error searching problems:', error);
+      // Fallback to local filtering
+      const filtered = problems.filter(p =>
+        p.title.toLowerCase().includes(value.toLowerCase()) ||
+        p.description?.toLowerCase().includes(value.toLowerCase())
+      );
+      setFilteredProblems(filtered);
+    }
+  };
 
   const handleAddProblem = async (e) => {
     e.preventDefault();
@@ -235,18 +260,36 @@ function GuideDashboard() {
             </div>
           )}
           {problems.length === 0 ? <div className="card empty-state"><h3>No Problem Statements Yet</h3><p>Add your first problem statement to get started</p></div> : (
-            <div className="grid grid-2">
-              {problems.map(p => (
-                <div key={p._id} className="card">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-                    <div><h3>{p.title}</h3><span className="badge badge-info">{p.coeId?.name}</span> <span className="badge badge-warning">{p.targetYear} Year</span></div>
-                    <button className="btn btn-danger btn-sm" onClick={() => handleDeleteProblem(p._id)}>🗑️</button>
+            <>
+              <div style={{ marginBottom: '20px' }}>
+                <input
+                  type="text"
+                  placeholder="Search your problems by title or description..."
+                  value={searchTerm}
+                  onChange={(e) => handleSearch(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: '4px',
+                    border: '1px solid #cbd5e0',
+                    fontSize: '14px',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+              <div className="grid grid-2">
+                {filteredProblems.map(p => (
+                  <div key={p._id} className="card">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                      <div><h3>{p.title}</h3><span className="badge badge-info">{p.coeId?.name}</span> <span className="badge badge-warning">{p.targetYear} Year</span></div>
+                      <button className="btn btn-danger btn-sm" onClick={() => handleDeleteProblem(p._id)}>🗑️</button>
+                    </div>
+                    <p style={{ color: '#666', margin: '10px 0' }}>{p.description}</p>
+                    <div style={{ fontSize: '14px', color: '#888' }}>Teams: {p.selectedBatchCount}</div>
                   </div>
-                  <p style={{ color: '#666', margin: '10px 0' }}>{p.description}</p>
-                  <div style={{ fontSize: '14px', color: '#888' }}>Teams: {p.selectedBatchCount}</div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            </>
           )}
         </div>
       )}

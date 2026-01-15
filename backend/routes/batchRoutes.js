@@ -10,11 +10,13 @@ const {
   getBatchesByGuide,
   getOptedTeams,
   allotProblem,
-  rejectProblem
+  rejectProblem,
+  searchBatches
 } = require('../controllers/batchController');
 const { protect, authorize } = require('../middleware/auth');
 
 router.get('/', protect, getAllBatches);
+router.get('/search', searchBatches);
 router.get('/guide/:guideId', getBatchesByGuide);
 router.get('/my-batch', protect, authorize('student'), getMyBatch);
 router.get('/opted-teams', protect, authorize('guide'), getOptedTeams);

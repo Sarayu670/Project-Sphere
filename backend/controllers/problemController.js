@@ -14,6 +14,34 @@ exports.getAllProblems = async (req, res) => {
   }
 };
 
+// @desc    Search problem statements by title or description
+// @route   GET /api/problems/search?q=searchTerm
+exports.searchProblems = async (req, res) => {
+  try {
+    const { q } = req.query;
+    
+    if (!q || q.trim() === '') {
+      return res.status(400).json({ success: false, message: 'Search query is required' });
+    }
+
+    // Create a regex pattern for case-insensitive search
+    const searchPattern = new RegExp(q, 'i');
+
+    const problems = await ProblemStatement.find({
+      $or: [
+        { title: searchPattern },
+        { description: searchPattern }
+      ]
+    })
+      .populate('coeId', 'name')
+      .populate('guideId', 'name email assignedBatches maxBatches');
+
+    res.status(200).json({ success: true, data: problems });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // @desc    Get my problem statements (Guide)
 // @route   GET /api/problems/my-problems
 exports.getMyProblems = async (req, res) => {

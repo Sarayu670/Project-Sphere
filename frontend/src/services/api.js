@@ -18,12 +18,14 @@ export const deleteCOE = (id) => axios.delete(`${API_URL}/coe/${id}`);
 
 // Guides
 export const getAllGuides = () => axios.get(`${API_URL}/guides`);
+export const searchGuides = (query) => axios.get(`${API_URL}/guides/search`, { params: { q: query } });
 export const getGuide = (id) => axios.get(`${API_URL}/guides/${id}`);
 export const createGuide = (data) => axios.post(`${API_URL}/guides`, data);
 export const getMyBatches = () => axios.get(`${API_URL}/guides/my-batches`);
 
 // Problems
 export const getAllProblems = () => axios.get(`${API_URL}/problems`);
+export const searchProblems = (query) => axios.get(`${API_URL}/problems/search`, { params: { q: query } });
 export const getMyProblems = () => axios.get(`${API_URL}/problems/my-problems`);
 export const getProblemsByCOE = (coeId) => axios.get(`${API_URL}/problems/coe/${coeId}`);
 export const getProblem = (id) => axios.get(`${API_URL}/problems/${id}`);
@@ -33,6 +35,7 @@ export const deleteProblem = (id) => axios.delete(`${API_URL}/problems/${id}`);
 
 // Batches
 export const getAllBatches = () => axios.get(`${API_URL}/batches`);
+export const searchBatches = (query) => axios.get(`${API_URL}/batches/search`, { params: { query } });
 export const getMyBatch = () => axios.get(`${API_URL}/batches/my-batch`);
 export const getBatch = (id) => axios.get(`${API_URL}/batches/${id}`);
 export const createBatch = (data) => axios.post(`${API_URL}/batches`, data);
@@ -60,6 +63,14 @@ export const getAdminOverview = () => axios.get(`${API_URL}/admin/overview`);
 export const getBatchGuideMapping = () => axios.get(`${API_URL}/admin/batch-guide-mapping`);
 export const createAdmin = (data) => axios.post(`${API_URL}/admin/create`, data);
 export const importBatches = (data) => axios.post(`${API_URL}/admin/import-batches`, data);
+export const importBatchData = (file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  return axios.post(`${API_URL}/admin/import-batch-data`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+};
+export const searchBatchesByGuide = (guideName) => axios.get(`${API_URL}/admin/search-batches-by-guide`, { params: { guideName } });
 
 // Timeline
 export const getAllTimelineEvents = (year) => axios.get(`${API_URL}/timeline`, { params: { year } });
@@ -78,3 +89,16 @@ export const addSubmissionComment = (id, comment) => axios.post(`${API_URL}/subm
 export const assignSubmissionMarks = (id, marks, status) => axios.post(`${API_URL}/submissions/${id}/marks`, { marks, status });
 export const addAdminRemark = (id, remark) => axios.post(`${API_URL}/submissions/${id}/admin-remark`, { remark });
 
+// Projects (Excel Import & Smart Search)
+export const getAllProjects = () => axios.get(`${API_URL}/projects`);
+export const searchProjects = (query) => axios.get(`${API_URL}/projects/search`, { params: { q: query } });
+export const importProjectExcelFiles = (files) => {
+  const formData = new FormData();
+  files.forEach((file, index) => {
+    formData.append('files', file);
+  });
+  return axios.post(`${API_URL}/projects/import`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+};
+export const deleteAllProjects = () => axios.delete(`${API_URL}/projects/all`);

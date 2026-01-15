@@ -33,6 +33,7 @@ app.use('/api/admin', require('./routes/adminRoutes'));
 app.use('/api/timeline', require('./routes/timelineRoutes'));
 app.use('/api/submissions', require('./routes/submissionRoutes'));
 app.use('/api/chat', require('./routes/chatRoutes'));
+app.use('/api/projects', require('./routes/projectRoutes'));
 
 // Health check
 app.get('/api/health', (req, res) => {

@@ -41,13 +41,13 @@ exports.getDashboard = async (req, res) => {
 exports.getOverview = async (req, res) => {
   try {
     const coes = await COE.find();
-    
+
     const problems = await ProblemStatement.find()
       .populate('coeId', 'name')
       .populate('guideId', 'name email assignedBatches maxBatches');
-    
+
     const guides = await Guide.find().select('-password');
-    
+
     const batches = await Batch.find()
       .populate('leaderStudentId', 'name email')
       .populate('problemId', 'title')
@@ -67,15 +67,15 @@ exports.getOverview = async (req, res) => {
 exports.createAdmin = async (req, res) => {
   try {
     const { name, email, password } = req.body;
-    
+
     const existingAdmin = await Admin.findOne({ email });
     if (existingAdmin) {
       return res.status(400).json({ success: false, message: 'Admin already exists' });
     }
 
     const admin = await Admin.create({ name, email, password });
-    res.status(201).json({ 
-      success: true, 
+    res.status(201).json({
+      success: true,
       data: { id: admin._id, name: admin.name, email: admin.email, role: 'admin' }
     });
   } catch (error) {
@@ -112,7 +112,7 @@ exports.getBatchGuideMapping = async (req, res) => {
 exports.importBatches = async (req, res) => {
   try {
     const { batches } = req.body;
-    
+
     if (!batches || !Array.isArray(batches)) {
       return res.status(400).json({ success: false, message: 'Invalid batches data' });
     }
@@ -137,14 +137,14 @@ exports.importBatches = async (req, res) => {
         const studentIds = [];
         for (const member of members) {
           let student = await Student.findOne({ rollNumber: member.rollNo });
-          
+
           // Default password: team_name@123
           const password = `${teamName}@123`;
 
           if (!student) {
             // Generate a default email if not provided
             const email = `${member.rollNo.toLowerCase()}@gmail.com`;
-            
+
             student = await Student.create({
               name: member.name,
               rollNumber: member.rollNo,
@@ -169,7 +169,7 @@ exports.importBatches = async (req, res) => {
         // 2. Create Batch
         // Use the first member as leader
         const leaderStudentId = studentIds[0];
-        
+
         // Check if a batch already exists for this leader
         let batch = await Batch.findOne({ leaderStudentId });
         if (batch) {
@@ -214,3 +214,240 @@ exports.importBatches = async (req, res) => {
   }
 };
 
+// @desc    Import batches with students from Excel file
+// @route   POST /api/admin/import-batch-data
+exports.importBatchData = async (req, res) => {
+  try {
+    const XLSX = require('xlsx');
+
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No file provided' });
+    }
+
+    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+    const data = XLSX.utils.sheet_to_json(worksheet);
+
+    const results = { success: 0, failed: 0, errors: [], batchCount: 0, studentCount: 0 };
+
+    // Group data by batch ID
+    const batchGroups = {};
+    for (const row of data) {
+      const projId = row['Proj ID/Batch'] || row['Batch'] || '';
+      if (projId) {
+        if (!batchGroups[projId]) {
+          batchGroups[projId] = [];
+        }
+        batchGroups[projId].push(row);
+      }
+    }
+
+    // Process each batch
+    for (const [projId, batchRows] of Object.entries(batchGroups)) {
+      try {
+        // Get batch details from first row
+        const firstRow = batchRows[0];
+        const guideName = firstRow['Internal Guide'] || '';
+        const projectTitle = firstRow['Project Title'] || '';
+        const teamName = projId;
+
+        if (!guideName || !projectTitle) {
+          results.errors.push({
+            batch: projId,
+            error: 'Missing Internal Guide or Project Title'
+          });
+          results.failed += batchRows.length;
+          continue;
+        }
+
+        // Find or create guide - use case-insensitive name search
+        let guide = await Guide.findOne({
+          name: { $regex: `^${guideName}$`, $options: 'i' }
+        });
+
+        if (!guide) {
+          try {
+            // Generate unique email using timestamp to avoid duplicates
+            const emailBase = guideName.toLowerCase().replace(/[^a-z0-9]/g, '');
+            const uniqueEmail = `${emailBase}${Date.now()}@guide.gnits.ac.in`;
+
+            guide = await Guide.create({
+              name: guideName,
+              email: uniqueEmail,
+              password: 'defaultPassword123',
+              role: 'guide'
+            });
+          } catch (err) {
+            // If creation fails, try finding again (in case it was created by another request)
+            guide = await Guide.findOne({
+              name: { $regex: `^${guideName}$`, $options: 'i' }
+            });
+
+            if (!guide) {
+              // Still not found after creation attempt, skip this batch
+              results.errors.push({
+                batch: projId,
+                error: `Could not find or create guide "${guideName}"`
+              });
+              results.failed += batchRows.length;
+              continue;
+            }
+          }
+        }
+
+        // Process students in this batch first to create leader
+        const studentIds = [];
+        let leaderStudentId = null;
+
+        for (const row of batchRows) {
+          try {
+            const rollNumber = row['Roll Number'] || '';
+            const studentName = row['Student Name'] || '';
+
+            if (!rollNumber || !studentName) {
+              results.errors.push({
+                batch: projId,
+                student: studentName || rollNumber,
+                error: 'Missing Roll Number or Student Name'
+              });
+              results.failed++;
+              continue;
+            }
+
+            // Check if student already exists
+            let student = await Student.findOne({ rollNumber: rollNumber });
+
+            if (!student) {
+              // Create new student with all required fields
+              student = await Student.create({
+                name: studentName,
+                email: `${rollNumber}@student.gnits.ac.in`,
+                rollNumber: rollNumber,
+                password: rollNumber, // Use roll number as default password
+                year: '2nd',
+                branch: 'CSE',
+                section: 'A',
+                role: 'student'
+              });
+            }
+
+            studentIds.push(student._id);
+
+            // Set first student as leader for this batch
+            if (!leaderStudentId) {
+              leaderStudentId = student._id;
+            }
+
+            results.studentCount++;
+            results.success++;
+          } catch (err) {
+            results.errors.push({
+              batch: projId,
+              student: row['Student Name'],
+              error: err.message
+            });
+            results.failed++;
+          }
+        }
+
+        // Create batch with leader student
+        if (leaderStudentId && studentIds.length > 0) {
+          let batch = await Batch.findOne({ teamName: teamName });
+
+          if (!batch) {
+            batch = await Batch.create({
+              leaderStudentId: leaderStudentId,
+              teamName: teamName,
+              guideId: guide._id,
+              year: '2nd',
+              branch: 'CSE',
+              section: 'A',
+              status: 'Not Started',
+              allotmentStatus: 'none'
+            });
+            results.batchCount++;
+          }
+
+          // Update all students with batch ID
+          for (const studentId of studentIds) {
+            await Student.findByIdAndUpdate(studentId, { batchId: batch._id });
+          }
+        }
+      } catch (err) {
+        results.errors.push({
+          batch: projId,
+          error: err.message
+        });
+        results.failed += batchRows.length;
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      data: results,
+      message: `Import completed: ${results.batchCount} batches, ${results.studentCount} students (${results.success} succeeded, ${results.failed} failed)`
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Search batches by guide name
+// @route   GET /api/admin/search-batches-by-guide
+exports.searchBatchesByGuide = async (req, res) => {
+  try {
+    const { guideName } = req.query;
+
+    if (!guideName || guideName.trim() === '') {
+      return res.status(400).json({ success: false, message: 'Guide name is required' });
+    }
+
+    // Find guide by name (case-insensitive PARTIAL match)
+    // This will match "Leela" in "Mrs. A. Leela Kumari"
+    const guide = await Guide.findOne({
+      name: { $regex: guideName, $options: 'i' }
+    });
+
+    if (!guide) {
+      return res.status(404).json({ success: false, message: `Guide "${guideName}" not found` });
+    }
+
+    // Find all batches for this guide and populate all data
+    const batches = await Batch.find({ guideId: guide._id }).lean();
+
+    // Get students for each batch
+    const batchesWithStudents = await Promise.all(
+      batches.map(async (batch) => {
+        const students = await Student.find({ batchId: batch._id }).select('name rollNumber');
+        const leader = await Student.findById(batch.leaderStudentId).select('name rollNumber');
+        return {
+          _id: batch._id,
+          teamName: batch.teamName,
+          year: batch.year,
+          branch: batch.branch,
+          section: batch.section,
+          status: batch.status,
+          leaderStudent: leader,
+          students: students,
+          studentCount: students.length
+        };
+      })
+    );
+
+    res.status(200).json({
+      success: true,
+      data: {
+        guide: {
+          id: guide._id,
+          name: guide.name
+        },
+        batches: batchesWithStudents,
+        totalBatches: batchesWithStudents.length,
+        totalStudents: batchesWithStudents.reduce((sum, batch) => sum + (batch.students?.length || 0), 0)
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

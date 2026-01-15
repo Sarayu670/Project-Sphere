@@ -3,6 +3,9 @@ import * as api from '../../services/api';
 import COEManagement from './COEManagement';
 import TimelineManagement from './TimelineManagement';
 import BatchImport from './BatchImport';
+
+import ImportProjectData from './ImportProjectData';
+import GuideSearch from './GuideSearch';
 import './AdminDashboard.css';
 
 const YEARS = ['2nd', '3rd', '4th'];
@@ -90,7 +93,10 @@ function AdminDashboard() {
       <div className="tabs">
         <button className={`tab ${activeTab === 'timeline' ? 'active' : ''}`} onClick={() => setActiveTab('timeline')}>📅 Timeline</button>
         <button className={`tab ${activeTab === 'filter' ? 'active' : ''}`} onClick={() => { setActiveTab('filter'); setSelectedBatch(null); }}>🔍 Filter by Class</button>
+        <button className={`tab ${activeTab === 'guide-search' ? 'active' : ''}`} onClick={() => setActiveTab('guide-search')}>👨‍🏫 Search Guide Batches</button>
         <button className={`tab ${activeTab === 'import' ? 'active' : ''}`} onClick={() => setActiveTab('import')}>📤 Batch Import</button>
+
+        <button className={`tab ${activeTab === 'project-import' ? 'active' : ''}`} onClick={() => setActiveTab('project-import')}>📊 Import Projects</button>
         <button className={`tab ${activeTab === 'coes' ? 'active' : ''}`} onClick={() => { setActiveTab('coes'); setSelectedCOE(null); }}>🏛️ COE Overview</button>
         <button className={`tab ${activeTab === 'manage' ? 'active' : ''}`} onClick={() => setActiveTab('manage')}>⚙️ Manage COEs</button>
       </div>
@@ -99,13 +105,27 @@ function AdminDashboard() {
 
       {activeTab === 'import' && (
         <div className="tab-content">
-          <BatchImport 
+          <BatchImport
             onImportComplete={() => {
               setActiveTab('filter');
               fetchData();
             }}
             onCancel={() => setActiveTab('filter')}
           />
+        </div>
+      )}
+
+      {activeTab === 'guide-search' && (
+        <div className="tab-content">
+          <GuideSearch />
+        </div>
+      )}
+
+
+
+      {activeTab === 'project-import' && (
+        <div className="tab-content">
+          <ImportProjectData />
         </div>
       )}
 
@@ -221,10 +241,10 @@ function AdminDashboard() {
             <h3>👥 Team Members</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {selectedBatch.leaderStudentId && (
-                <div style={{ 
-                  padding: '12px', 
-                  background: '#f7fafc', 
-                  borderRadius: '6px', 
+                <div style={{
+                  padding: '12px',
+                  background: '#f7fafc',
+                  borderRadius: '6px',
                   borderLeft: '4px solid #cbd5e0',
                   display: 'flex',
                   justifyContent: 'space-between',
@@ -245,10 +265,10 @@ function AdminDashboard() {
               )}
               {selectedBatch.teamMembers && selectedBatch.teamMembers.length > 0 ? (
                 selectedBatch.teamMembers.filter(m => m.rollNo !== selectedBatch.leaderStudentId?.rollNumber && m._id !== selectedBatch.leaderStudentId?._id).map((member, idx) => (
-                  <div key={idx} style={{ 
-                    padding: '12px', 
-                    background: '#f7fafc', 
-                    borderRadius: '6px', 
+                  <div key={idx} style={{
+                    padding: '12px',
+                    background: '#f7fafc',
+                    borderRadius: '6px',
                     borderLeft: '4px solid #cbd5e0',
                     display: 'flex',
                     justifyContent: 'space-between',
@@ -330,9 +350,9 @@ function AdminDashboard() {
                     <tr key={batch._id}>
                       <td><strong>{batch.teamName}</strong></td>
                       <td>{batch.year} {batch.branch}-{batch.section}</td>
-                      <td>{batch.leaderStudentId?.name}<br/><small style={{ color: '#888' }}>{batch.leaderStudentId?.email}</small></td>
+                      <td>{batch.leaderStudentId?.name}<br /><small style={{ color: '#888' }}>{batch.leaderStudentId?.email}</small></td>
                       <td>{batch.problemId?.title || batch.optedProblemId?.title || '-'}</td>
-                      <td>{batch.guideId?.name || <span style={{ color: '#f59e0b' }}>Pending</span>}<br/><small style={{ color: '#888' }}>{batch.guideId?.email}</small></td>
+                      <td>{batch.guideId?.name || <span style={{ color: '#f59e0b' }}>Pending</span>}<br /><small style={{ color: '#888' }}>{batch.guideId?.email}</small></td>
                       <td><span className={`badge badge-${getStatusColor(batch.status)}`}>{batch.status}</span></td>
                     </tr>
                   ))}

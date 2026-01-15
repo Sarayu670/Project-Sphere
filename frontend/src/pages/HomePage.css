@@ -428,6 +428,223 @@
   border-radius: 10px;
 }
 
+/* Batches List */
+.batches-list {
+  display: grid;
+  gap: 12px;
+}
+
+.batch-card {
+  background: white;
+  border: 1px solid #e0e7ff;
+  border-radius: 12px;
+  padding: 20px;
+  transition: all 0.3s;
+}
+
+.batch-card:hover {
+  border-color: #667eea;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+  transform: translateX(4px);
+}
+
+.batch-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.batch-header h4 {
+  font-size: 16px;
+  color: #333;
+  margin: 0;
+  font-weight: 700;
+}
+
+.status-badge {
+  font-size: 12px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  background: #f0f4ff;
+  color: #667eea;
+  font-weight: 600;
+}
+
+.batch-details {
+  display: grid;
+  gap: 8px;
+}
+
+.batch-info {
+  font-size: 13px;
+  color: #666;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.batch-info strong {
+  color: #333;
+  font-weight: 600;
+}
+
+.search-results-section {
+  margin-bottom: 32px;
+}
+
+.search-results-section h3 {
+  font-size: 18px;
+  color: #333;
+  margin-bottom: 16px;
+  font-weight: 700;
+}
+
+.problems-list {
+  display: grid;
+  gap: 12px;
+}
+
+.problem-card {
+  background: white;
+  border: 1px solid #e0e7ff;
+  border-radius: 12px;
+  padding: 20px;
+  transition: all 0.3s;
+}
+
+.problem-card:hover {
+  border-color: #667eea;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+  transform: translateX(4px);
+}
+
+.problem-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  margin-bottom: 12px;
+  gap: 16px;
+}
+
+.problem-header h4 {
+  font-size: 16px;
+  color: #333;
+  margin: 0;
+  font-weight: 700;
+  flex: 1;
+}
+
+.coe-badge {
+  font-size: 12px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  background: #f0f4ff;
+  color: #667eea;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.problem-description {
+  font-size: 13px;
+  color: #666;
+  margin: 0 0 12px 0;
+  line-height: 1.5;
+}
+
+.problem-meta {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-size: 12px;
+}
+
+.year-badge {
+  padding: 4px 12px;
+  border-radius: 6px;
+  background: #f0f4ff;
+  color: #667eea;
+  font-weight: 600;
+}
+
+.guide-name {
+  color: #666;
+  font-weight: 600;
+}
+
+.no-results-message {
+  text-align: center;
+  padding: 40px 20px;
+  color: #999;
+  background: white;
+  border: 1px dashed #e0e7ff;
+  border-radius: 10px;
+}
+
+.search-spinner {
+  position: absolute;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 18px;
+}
+
+/* Projects List - Excel Import Data */
+.projects-list {
+  display: grid;
+  gap: 16px;
+}
+
+.project-card {
+  background: white;
+  border: 1px solid #e0e7ff;
+  border-radius: 12px;
+  padding: 20px;
+  transition: all 0.3s;
+}
+
+.project-card:hover {
+  border-color: #667eea;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+  transform: translateX(4px);
+}
+
+.project-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  gap: 16px;
+}
+
+.project-header h4 {
+  font-size: 18px;
+  color: #333;
+  margin: 0;
+  font-weight: 700;
+  flex: 1;
+}
+
+.project-details {
+  display: grid;
+  gap: 10px;
+}
+
+.project-info {
+  font-size: 14px;
+  color: #666;
+  margin: 0;
+  line-height: 1.6;
+}
+
+.project-info strong {
+  color: #333;
+  font-weight: 600;
+  display: inline-block;
+  min-width: 110px;
+}
+
+
 /* CTA Section */
 .cta-section {
   padding: 60px 20px;

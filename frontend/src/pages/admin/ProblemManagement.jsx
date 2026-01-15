@@ -11,6 +11,8 @@ function ProblemManagement() {
   const [formData, setFormData] = useState({ coeId: '', title: '', description: '', year: new Date().getFullYear(), guideId: '', datasetUrl: '' });
   const [saving, setSaving] = useState(false);
   const [dialog, setDialog] = useState({ isOpen: false, title: '', message: '', type: 'info', onConfirm: null });
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filteredProblems, setFilteredProblems] = useState([]);
 
   const fetchData = async () => {
     try {
@@ -20,6 +22,7 @@ function ProblemManagement() {
         api.getAllGuides()
       ]);
       setProblems(problemsRes.data.data);
+      setFilteredProblems(problemsRes.data.data);
       setCOEs(coesRes.data.data);
       setGuides(guidesRes.data.data);
     } catch (error) {
@@ -33,6 +36,28 @@ function ProblemManagement() {
     fetchData();
   }, []);
 
+  const handleSearch = async (value) => {
+    setSearchTerm(value);
+
+    if (!value.trim()) {
+      setFilteredProblems(problems);
+      return;
+    }
+
+    try {
+      const response = await api.searchProblems(value);
+      setFilteredProblems(response.data.data || []);
+    } catch (error) {
+      console.error('Error searching problems:', error);
+      // Fallback to local filtering
+      const filtered = problems.filter(problem =>
+        problem.title.toLowerCase().includes(value.toLowerCase()) ||
+        problem.description?.toLowerCase().includes(value.toLowerCase())
+      );
+      setFilteredProblems(filtered);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
@@ -40,6 +65,7 @@ function ProblemManagement() {
       await api.createProblem(formData);
       setFormData({ coeId: '', title: '', description: '', year: new Date().getFullYear(), guideId: '', datasetUrl: '' });
       setShowModal(false);
+      setSearchTerm('');
       fetchData();
     } catch (error) {
       showDialog('Error', error.response?.data?.message || 'Failed to create problem', 'danger');
@@ -90,40 +116,58 @@ function ProblemManagement() {
           <p>No problems created yet. Click "Add Problem" to create one.</p>
         </div>
       ) : (
-        <div style={{ overflowX: 'auto' }}>
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Title</th>
-                <th>COE</th>
-                <th>Guide</th>
-                <th>Year</th>
-                <th>Selected</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {problems.map((problem) => (
-                <tr key={problem._id}>
-                  <td><strong>{problem.title}</strong></td>
-                  <td>{problem.coeId?.name || '-'}</td>
-                  <td>{problem.guideId?.name || '-'}</td>
-                  <td>{problem.year}</td>
-                  <td>
-                    <span className={`badge ${problem.selectedBatchCount >= problem.maxBatches ? 'badge-danger' : 'badge-success'}`}>
-                      {problem.selectedBatchCount}/{problem.maxBatches}
-                    </span>
-                  </td>
-                  <td>
-                    <button className="btn btn-danger" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => handleDelete(problem._id)}>
-                      Delete
-                    </button>
-                  </td>
+        <>
+          <div style={{ marginBottom: '20px' }}>
+            <input
+              type="text"
+              placeholder="Search problems by title or description..."
+              value={searchTerm}
+              onChange={(e) => handleSearch(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '10px 12px',
+                borderRadius: '4px',
+                border: '1px solid #cbd5e0',
+                fontSize: '14px',
+                boxSizing: 'border-box'
+              }}
+            />
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Title</th>
+                  <th>COE</th>
+                  <th>Guide</th>
+                  <th>Year</th>
+                  <th>Selected</th>
+                  <th>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {filteredProblems.map((problem) => (
+                  <tr key={problem._id}>
+                    <td><strong>{problem.title}</strong></td>
+                    <td>{problem.coeId?.name || '-'}</td>
+                    <td>{problem.guideId?.name || '-'}</td>
+                    <td>{problem.year}</td>
+                    <td>
+                      <span className={`badge ${problem.selectedBatchCount >= problem.maxBatches ? 'badge-danger' : 'badge-success'}`}>
+                        {problem.selectedBatchCount}/{problem.maxBatches}
+                      </span>
+                    </td>
+                    <td>
+                      <button className="btn btn-danger" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => handleDelete(problem._id)}>
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       {showModal && (

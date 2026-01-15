@@ -31,7 +31,7 @@ function GuideDashboard() {
   const [filteredProblems, setFilteredProblems] = useState([]);
 
   const TARGET_YEARS = ['2nd', '3rd', '4th'];
-  
+
   const YEAR_LABELS = {
     '2nd': '2nd - Real Time Project',
     '3rd': '3rd - Mini Project',
@@ -60,7 +60,7 @@ function GuideDashboard() {
     }
   };
 
-  useEffect(() => { 
+  useEffect(() => {
     fetchData();
   }, []);
 
@@ -184,7 +184,7 @@ function GuideDashboard() {
           <p>Manage your problem statements and teams</p>
         </div>
         <div className="header-right">
-          <button 
+          <button
             className="messages-btn"
             onClick={() => setChatsListOpen(true)}
             title="View team messages"
@@ -192,7 +192,7 @@ function GuideDashboard() {
             💬 Messages
           </button>
           {chatOpen && selectedChat && (
-            <button 
+            <button
               className="download-report-btn"
               onClick={handleDownloadReport}
               title="Download chat report"
@@ -243,21 +243,21 @@ function GuideDashboard() {
               <form onSubmit={handleAddProblem}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
                   <div className="form-group"><label>COE</label>
-                    <select value={newProblem.coeId} onChange={(e) => setNewProblem({...newProblem, coeId: e.target.value})} required>
+                    <select value={newProblem.coeId} onChange={(e) => setNewProblem({ ...newProblem, coeId: e.target.value })} required>
                       <option value="">Select COE</option>
                       {coes.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
                     </select>
                   </div>
                   <div className="form-group"><label>Target Year</label>
-                    <select value={newProblem.targetYear} onChange={(e) => setNewProblem({...newProblem, targetYear: e.target.value})} required>
+                    <select value={newProblem.targetYear} onChange={(e) => setNewProblem({ ...newProblem, targetYear: e.target.value })} required>
                       <option value="">Select Year</option>
                       {TARGET_YEARS.map(y => <option key={y} value={y}>{YEAR_LABELS[y]}</option>)}
                     </select>
                   </div>
                 </div>
-                <div className="form-group"><label>Title</label><input type="text" value={newProblem.title} onChange={(e) => setNewProblem({...newProblem, title: e.target.value})} required /></div>
-                <div className="form-group"><label>Description</label><textarea value={newProblem.description} onChange={(e) => setNewProblem({...newProblem, description: e.target.value})} rows={3} /></div>
-                <div className="form-group"><label>Dataset URL (optional)</label><input type="url" value={newProblem.datasetUrl} onChange={(e) => setNewProblem({...newProblem, datasetUrl: e.target.value})} /></div>
+                <div className="form-group"><label>Title</label><input type="text" value={newProblem.title} onChange={(e) => setNewProblem({ ...newProblem, title: e.target.value })} required /></div>
+                <div className="form-group"><label>Description</label><textarea value={newProblem.description} onChange={(e) => setNewProblem({ ...newProblem, description: e.target.value })} rows={3} /></div>
+                <div className="form-group"><label>Dataset URL (optional)</label><input type="url" value={newProblem.datasetUrl} onChange={(e) => setNewProblem({ ...newProblem, datasetUrl: e.target.value })} /></div>
                 <div style={{ display: 'flex', gap: '10px' }}><button type="submit" className="btn btn-primary">Save</button><button type="button" className="btn btn-secondary" onClick={() => setShowAddProblem(false)}>Cancel</button></div>
                 <div style={{ marginTop: '10px', padding: '10px', backgroundColor: '#f0f4ff', borderRadius: '4px', fontSize: '12px', color: '#666' }}>
                   💡 Tip: You can also import multiple problems at once using the "Import from Excel" button
@@ -266,7 +266,6 @@ function GuideDashboard() {
             </div>
           )}
           {problems.length === 0 ? <div className="card empty-state"><h3>No Problem Statements Yet</h3><p>Add your first problem statement to get started</p></div> : (
-<<<<<<< HEAD
             <>
               <div style={{ marginBottom: '20px' }}>
                 <input
@@ -297,28 +296,6 @@ function GuideDashboard() {
                 ))}
               </div>
             </>
-=======
-            <div className="grid grid-2">
-              {problems.map(p => (
-                <div key={p._id} className="card problem-card">
-                  <div className="problem-header">
-                    <div className="problem-title-section">
-                      <h3>{p.title}</h3>
-                      <div className="problem-badges">
-                        <span className="badge badge-info">{p.coeId?.name}</span>
-                        <span className="badge badge-warning">{p.targetYear} Year</span>
-                      </div>
-                    </div>
-                    <button className="btn btn-danger btn-sm" onClick={() => handleDeleteProblem(p._id)} title="Delete Problem">🗑️</button>
-                  </div>
-                  <p className="problem-description">{p.description || 'No description provided.'}</p>
-                  <div className="problem-footer">
-                    <span className="teams-count">👥 Teams: {p.selectedBatchCount || 0}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
->>>>>>> fe67197a81f0cbe2ab9c1c027870cc75acf31a20
           )}
         </div>
       )}
@@ -333,7 +310,7 @@ function GuideDashboard() {
                   <div className="batch-icon">👥</div>
                   <h3>{t.teamName}</h3>
                   <p style={{ color: '#667eea', fontWeight: '500', marginBottom: '10px' }}>
-                    <strong>Year:</strong> {t.year || 'N/A'} • <strong>Branch:</strong> {t.branch || 'N/A'} 
+                    <strong>Year:</strong> {t.year || 'N/A'} • <strong>Branch:</strong> {t.branch || 'N/A'}
                   </p>
                   <p style={{ color: '#667eea', fontWeight: '500', marginBottom: '10px' }}>
                     <strong>Project Type:</strong> {t.optedProblemId?.targetYear === '2nd' ? 'Real Time Project' : t.optedProblemId?.targetYear === '3rd' ? 'Mini Project' : t.optedProblemId?.targetYear === '4th' ? 'Major Project' : 'N/A'}
@@ -366,7 +343,7 @@ function GuideDashboard() {
                   <p className="batch-leader">Leader: {b.leaderStudentId?.name}</p>
                   <p className="batch-problem">📋 {b.problemId?.title}</p>
                   <p className="batch-submissions">✅ Accepted Submissions: {getAcceptedSubmissionsCount(b._id)}</p>
-                  <button 
+                  <button
                     className="batch-action-btn"
                     onClick={() => setSelectedBatch(b._id)}
                   >
@@ -380,9 +357,9 @@ function GuideDashboard() {
       )}
 
       {activeTab === 'submissions' && <GuideTimeline />}
-      
+
       {activeTab === 'directory' && <ProjectDirectory />}
-      
+
       <ConfirmationDialog
         isOpen={dialog.isOpen}
         title={dialog.title}
@@ -394,7 +371,7 @@ function GuideDashboard() {
         cancelText={dialog.cancelText}
       />
 
-      <ChatsListPanel 
+      <ChatsListPanel
         batches={batches}
         isOpen={chatsListOpen}
         onClose={() => setChatsListOpen(false)}
@@ -402,7 +379,7 @@ function GuideDashboard() {
       />
 
       {selectedChat && (
-        <ChatPanel 
+        <ChatPanel
           batchId={selectedChat.batchId}
           teamMemberId={selectedChat.teamMemberId}
           isOpen={chatOpen}

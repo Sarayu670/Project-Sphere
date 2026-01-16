@@ -20,10 +20,14 @@ export const AuthProvider = ({ children }) => {
   }, [token]);
 
   const fetchUser = async () => {
+    console.log('Fetching user data...');
     try {
+      // Add a simple timeout or just log errors clearly
       const res = await axios.get('/api/auth/me');
+      console.log('User data fetched successfully:', res.data.user?.role);
       setUser(res.data.user);
     } catch (error) {
+      console.error('Error fetching user:', error.response?.status || error.message);
       localStorage.removeItem('token');
       setToken(null);
       delete axios.defaults.headers.common['Authorization'];
@@ -31,6 +35,7 @@ export const AuthProvider = ({ children }) => {
       setLoading(false);
     }
   };
+
 
   const login = async (email, password, role = null) => {
     const res = await axios.post('/api/auth/login', { email, password, role });

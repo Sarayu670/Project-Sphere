@@ -15,15 +15,19 @@ function App() {
 
   if (loading) {
     return (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
         height: '100vh',
-        color: 'white',
-        fontSize: '18px'
+        background: 'var(--bg-subtle)',
+        color: 'var(--primary)',
+        fontSize: '24px',
+        fontWeight: 'bold'
       }}>
-        Loading...
+        <div className="spinner" style={{ marginBottom: '20px' }}>⏳</div>
+        Loading Project Sphere...
       </div>
     );
   }
@@ -35,7 +39,7 @@ function App() {
       <Route path="/register" element={!user ? <Register /> : <Navigate to="/" />} />
       <Route path="/register/guide" element={!user ? <RegisterGuide /> : <Navigate to="/" />} />
       <Route path="/register/admin" element={!user ? <RegisterAdmin /> : <Navigate to="/" />} />
-      
+
       <Route path="/" element={user ? <Layout /> : <Navigate to="/home" />}>
         {user?.role === 'student' && (
           <Route index element={<StudentDashboard />} />

@@ -26,6 +26,10 @@ function AdminDashboard() {
   const [filterBranch, setFilterBranch] = useState('');
   const [filterSection, setFilterSection] = useState('');
 
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
   const fetchData = async () => {
     try {
       console.log('AdminDashboard: Fetching data...');
@@ -69,11 +73,22 @@ function AdminDashboard() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterYear, filterBranch, filterSection]);
+
   if (loading) return <div className="loading">Loading...</div>;
 
   console.log('AdminDashboard: Rendering with activeTab:', activeTab);
 
   const filteredBatches = getFilteredBatches();
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredBatches.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedBatches = filteredBatches.slice(startIndex, endIndex);
 
   return (
     <div className="admin-dashboard">
@@ -189,7 +204,7 @@ function AdminDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredBatches.map((batch) => (
+                  {paginatedBatches.map((batch) => (
                     <tr key={batch._id}>
                       <td><strong>{batch.teamName}</strong></td>
                       <td>
@@ -212,6 +227,56 @@ function AdminDashboard() {
                   ))}
                 </tbody>
               </table>
+
+              {/* Pagination Controls */}
+              {filteredBatches.length > itemsPerPage && (
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  gap: '10px',
+                  marginTop: '20px',
+                  padding: '15px'
+                }}>
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    style={{ opacity: currentPage === 1 ? 0.5 : 1 }}
+                  >
+                    ← Previous
+                  </button>
+
+                  <div style={{ display: 'flex', gap: '5px' }}>
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                      <button
+                        key={page}
+                        className={`btn btn-sm ${page === currentPage ? 'btn-primary' : 'btn-secondary'}`}
+                        onClick={() => setCurrentPage(page)}
+                        style={{
+                          minWidth: '40px',
+                          fontWeight: page === currentPage ? 'bold' : 'normal'
+                        }}
+                      >
+                        {page}
+                      </button>
+                    ))}
+                  </div>
+
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages}
+                    style={{ opacity: currentPage === totalPages ? 0.5 : 1 }}
+                  >
+                    Next →
+                  </button>
+
+                  <span style={{ marginLeft: '15px', color: '#666', fontSize: '14px' }}>
+                    Showing {startIndex + 1}-{Math.min(endIndex, filteredBatches.length)} of {filteredBatches.length}
+                  </span>
+                </div>
+              )}
             </div>
           )}
         </div>

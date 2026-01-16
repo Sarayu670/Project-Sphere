@@ -3,7 +3,10 @@ const Batch = require('../models/Batch');
 const Student = require('../models/Student');
 const Guide = require('../models/Guide');
 const TeamMember = require('../models/TeamMember');
+const COE = require('../models/COE');
+const ProblemStatement = require('../models/ProblemStatement');
 const { parseExcelFile, mergeRecords, validateRecord } = require('../utils/excelParser');
+
 
 /**
  * @desc    Import projects from Excel files
@@ -67,49 +70,115 @@ exports.importExcelFiles = async (req, res) => {
                 }
 
                 // Sync with Batch and Students
-                // 1. Find or create Guide
+                // 1. Find or create Guide (with error handling for duplicates)
                 let guide = null;
                 if (record.guideName && record.guideName !== 'N/A') {
-                    guide = await Guide.findOne({ name: { $regex: new RegExp(`^${record.guideName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } });
-                    if (!guide) {
-                        const email = record.guideName.toLowerCase().replace(/[^a-z0-9]/g, '') + '@gmail.com';
-                        guide = await Guide.create({
-                            name: record.guideName,
-                            email: email,
-                            password: 'password123'
-                        });
+                    const email = record.guideName.toLowerCase().replace(/[^a-z0-9]/g, '') + '@gmail.com';
+
+                    try {
+                        guide = await Guide.findOneAndUpdate(
+                            { email: email },
+                            {
+                                name: record.guideName,
+                                email: email,
+                                password: 'password123'
+                            },
+                            { upsert: true, new: true, setDefaultsOnInsert: true }
+                        );
+                    } catch (error) {
+                        // Handle duplicate key error - guide already exists
+                        if (error.code === 11000) {
+                            console.log(`[Import] Guide already exists: ${email}, fetching...`);
+                            guide = await Guide.findOne({ email: email });
+                        } else {
+                            throw error;
+                        }
                     }
                 }
 
-                // 2. Find or create Students
-                let studentIds = [];
-                for (let j = 0; j < record.students.length; j++) {
-                    const sName = record.students[j];
+
+                // 2. Find or create Students (optimized with parallel processing and error handling)
+                const studentPromises = record.students.map(async (sName, j) => {
                     const sRoll = record.rollNumbers[j] || `TEMP_${record.teamName}_${j}`;
+                    const email = sRoll.toLowerCase() + '@gmail.com';
 
-                    let student = await Student.findOne({ rollNumber: sRoll });
-                    if (!student) {
-                        const email = sRoll.toLowerCase() + '@gmail.com';
-                        student = await Student.create({
-                            name: sName,
-                            email: email,
-                            password: 'password123',
-                            rollNumber: sRoll,
-                            year: record.year || '4th',
-                            branch: record.branch || 'CSE',
-                            section: record.section || 'A'
-                        });
-                    } else {
-                        // Update metadata if student exists
-                        if (record.year) student.year = record.year;
-                        if (record.branch) student.branch = record.branch;
-                        if (record.section) student.section = record.section;
-                        await student.save();
+                    try {
+                        const student = await Student.findOneAndUpdate(
+                            { rollNumber: sRoll },
+                            {
+                                name: sName,
+                                email: email,
+                                password: 'password123',
+                                rollNumber: sRoll,
+                                year: record.year || '4th',
+                                branch: record.branch || 'CSE',
+                                section: record.section || 'A'
+                            },
+                            { upsert: true, new: true, setDefaultsOnInsert: true }
+                        );
+
+                        return student._id;
+                    } catch (error) {
+                        // Handle duplicate key error - student already exists
+                        if (error.code === 11000) {
+                            console.log(`[Import] Student already exists: ${sRoll}, fetching...`);
+                            const existingStudent = await Student.findOne({ rollNumber: sRoll });
+                            return existingStudent._id;
+                        } else {
+                            throw error;
+                        }
                     }
-                    studentIds.push(student._id);
+                });
+
+                const studentIds = await Promise.all(studentPromises);
+
+                // 3. Find or create COE
+                let coe = null;
+                if (record.coe && record.coe !== 'N/A') {
+                    try {
+                        coe = await COE.findOneAndUpdate(
+                            { name: record.coe },
+                            {
+                                name: record.coe,
+                                description: `Center of Excellence: ${record.coe}`
+                            },
+                            { upsert: true, new: true, setDefaultsOnInsert: true }
+                        );
+                    } catch (error) {
+                        if (error.code === 11000) {
+                            coe = await COE.findOne({ name: record.coe });
+                        } else {
+                            console.error(`Error creating COE: ${error.message}`);
+                        }
+                    }
                 }
 
-                // 3. Find or create Batch
+                // 4. Find or create ProblemStatement
+                let problem = null;
+                if (record.projectTitle && record.projectTitle !== 'N/A') {
+                    try {
+                        problem = await ProblemStatement.findOneAndUpdate(
+                            { title: record.projectTitle },
+                            {
+                                title: record.projectTitle,
+                                description: `Project: ${record.projectTitle}`,
+                                coeId: coe ? coe._id : null,
+                                guideId: guide ? guide._id : null,
+                                targetYear: record.year || '4th',
+                                status: 'active'
+                            },
+                            { upsert: true, new: true, setDefaultsOnInsert: true }
+                        );
+                    } catch (error) {
+                        if (error.code === 11000) {
+                            problem = await ProblemStatement.findOne({ title: record.projectTitle });
+                        } else {
+                            console.error(`Error creating ProblemStatement: ${error.message}`);
+                        }
+                    }
+                }
+
+                // 5. Find or create Batch
                 let batch = await Batch.findOne({ teamName: record.teamName });
 
                 // CRITICAL: If batch exists, unlink old members to prevent cumulative growth
@@ -119,6 +188,8 @@ exports.importExcelFiles = async (req, res) => {
                     await TeamMember.deleteMany({ batchId: batch._id });
 
                     if (guide) batch.guideId = guide._id;
+                    if (problem) batch.problemId = problem._id;
+                    if (coe) batch.coeId = coe._id;
                     if (studentIds.length > 0) batch.leaderStudentId = studentIds[0];
                     if (record.year) batch.year = record.year;
                     if (record.branch) batch.branch = record.branch;
@@ -129,15 +200,18 @@ exports.importExcelFiles = async (req, res) => {
                         teamName: record.teamName,
                         leaderStudentId: studentIds[0] || null,
                         guideId: guide ? guide._id : null,
+                        problemId: problem ? problem._id : null,
+                        coeId: coe ? coe._id : null,
                         year: record.year || '4th',
                         branch: record.branch || 'CSE',
                         section: record.section || 'A'
                     });
                 }
 
-                // 4. Link students to batch and create TeamMembers
+
+                // 6. Link students to batch and create TeamMembers (optimized with parallel processing)
                 if (batch) {
-                    for (const sId of studentIds) {
+                    const linkingPromises = studentIds.map(async (sId) => {
                         const s = await Student.findByIdAndUpdate(sId, { batchId: batch._id }, { new: true });
 
                         await TeamMember.findOneAndUpdate(
@@ -150,7 +224,9 @@ exports.importExcelFiles = async (req, res) => {
                             },
                             { upsert: true }
                         );
-                    }
+                    });
+
+                    await Promise.all(linkingPromises);
                 }
 
                 // Create or Update project (Deduplicate by teamName)

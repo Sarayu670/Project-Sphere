@@ -195,7 +195,7 @@ function GuideSearch() {
                         <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', fontSize: '14px' }}>Student Name</th>
                         <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', fontSize: '14px' }}>Guide</th>
                         <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', fontSize: '14px' }}>Project Title</th>
-                        <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', fontSize: '14px' }}>COE</th>
+                        <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', fontSize: '14px' }}>COE/Domain</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -203,6 +203,7 @@ function GuideSearch() {
                         team.students.map((student, studentIdx) => (
                           <tr key={`${team._id}-${studentIdx}`} style={{
                             borderBottom: '1px solid #e2e8f0',
+                            borderTop: studentIdx === 0 ? '3px solid #cbd5e0' : 'none',
                             background: team.isProject
                               ? (studentIdx % 2 === 0 ? '#f0fdf4' : 'white')
                               : (studentIdx % 2 === 0 ? '#fafbfc' : 'white')

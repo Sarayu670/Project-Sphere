@@ -3,7 +3,7 @@ import * as XLSX from 'xlsx';
 import * as api from '../services/api';
 import './ProjectDirectory.css';
 
-function ProjectDirectory() {
+function ProjectDirectory({ showExport = true }) {
   const [projects, setProjects] = useState([]);
   const [filteredProjects, setFilteredProjects] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -107,7 +107,7 @@ function ProjectDirectory() {
     const worksheet = XLSX.utils.json_to_sheet(exportData);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Projects');
-    
+
     const filename = `Projects_${searchQuery || 'All'}_${new Date().toISOString().split('T')[0]}.xlsx`;
     XLSX.writeFile(workbook, filename);
   };
@@ -158,14 +158,16 @@ function ProjectDirectory() {
             <option value="title">Sort by: Project Title</option>
           </select>
 
-          <button
-            onClick={exportToExcel}
-            className="btn-export"
-            disabled={filteredProjects.length === 0}
-            title="Export filtered projects to Excel"
-          >
-            ?? Export ({filteredProjects.length})
-          </button>
+          {showExport && (
+            <button
+              onClick={exportToExcel}
+              className="btn-export"
+              disabled={filteredProjects.length === 0}
+              title="Export filtered projects to Excel"
+            >
+              ?? Export ({filteredProjects.length})
+            </button>
+          )}
         </div>
       </div>
 

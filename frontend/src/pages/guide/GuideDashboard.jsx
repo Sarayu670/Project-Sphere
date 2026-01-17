@@ -6,7 +6,7 @@ import { generateChatReport } from '../../utils/reportGenerator';
 import BatchDetails from './BatchDetails';
 import GuideTimeline from './GuideTimeline';
 import ExcelImportProblem from './ExcelImportProblem';
-import ProjectDirectory from '../ProjectDirectory';
+import GuideSearch from '../admin/GuideSearch';
 import ConfirmationDialog from '../../components/ConfirmationDialog';
 import './GuideDashboard.css';
 
@@ -215,7 +215,7 @@ function GuideDashboard() {
         <button className={`tab ${activeTab === 'requests' ? 'active' : ''}`} onClick={() => setActiveTab('requests')}>⏳ Pending Requests ({optedTeams.length})</button>
         <button className={`tab ${activeTab === 'teams' ? 'active' : ''}`} onClick={() => setActiveTab('teams')}>👥 My Teams</button>
         <button className={`tab ${activeTab === 'submissions' ? 'active' : ''}`} onClick={() => setActiveTab('submissions')}>📅 Timeline</button>
-        <button className={`tab ${activeTab === 'directory' ? 'active' : ''}`} onClick={() => setActiveTab('directory')}>📚 Project Directory</button>
+        <button className={`tab ${activeTab === 'guide-search' ? 'active' : ''}`} onClick={() => setActiveTab('guide-search')}>🔍 Search Batches</button>
       </div>
 
       {activeTab === 'problems' && (
@@ -358,7 +358,11 @@ function GuideDashboard() {
 
       {activeTab === 'submissions' && <GuideTimeline />}
 
-      {activeTab === 'directory' && <ProjectDirectory />}
+      {activeTab === 'guide-search' && (
+        <div className="tab-content">
+          <GuideSearch />
+        </div>
+      )}
 
       <ConfirmationDialog
         isOpen={dialog.isOpen}

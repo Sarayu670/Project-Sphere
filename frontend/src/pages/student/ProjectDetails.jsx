@@ -26,8 +26,8 @@ function ProjectDetails({ batch, isPending, isAllotted }) {
             {isAllotted && batch.status === 'Completed' && '✅'}
             {pendingOptedProblems.length === 0 && !isAllotted && '🔍'}
           </div>
-          <span className={`badge badge-${isAllotted && batch.status === 'Completed' ? 'success' : isAllotted && batch.status === 'In Progress' ? 'warning' : pendingOptedProblems.length > 0 ? 'pending' : 'info'}`} style={{ fontSize: '16px', padding: '8px 16px' }}>
-            {pendingOptedProblems.length > 0 && !isAllotted ? `${pendingOptedProblems.length} Pending Request(s)` : isAllotted ? batch.status : 'Select Problem'}
+          <span className={`badge badge-${isAllotted && batch.status === 'Completed' ? 'success' : isAllotted && batch.status === 'In Progress' ? 'warning' : pendingOptedProblems.length > 0 ? 'pending' : 'info'}`} style={{ fontSize: '14px', padding: '6px 12px', display: 'inline-block' }}>
+            {pendingOptedProblems.length > 0 && !isAllotted ? `${pendingOptedProblems.length} Pending` : isAllotted ? batch.status.toUpperCase() : 'SELECT PROBLEM'}
           </span>
         </div>
       </div>

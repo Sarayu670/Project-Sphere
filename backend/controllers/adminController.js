@@ -428,34 +428,61 @@ exports.importBatchData = async (req, res) => {
   }
 };
 
-// @desc    Search batches by guide name
+// @desc    Search batches by guide name or problem title
 // @route   GET /api/admin/search-batches-by-guide
 exports.searchBatchesByGuide = async (req, res) => {
   try {
     const { guideName } = req.query;
+    const Problem = require('../models/ProblemStatement');
 
     if (!guideName || guideName.trim() === '') {
-      return res.status(400).json({ success: false, message: 'Guide name is required' });
+      return res.status(400).json({ success: false, message: 'Search term is required' });
     }
 
-    // Find guide by name (case-insensitive PARTIAL match)
-    // This will match "Leela" in "Mrs. A. Leela Kumari"
-    const guide = await Guide.findOne({
+    // Search for guides by name (case-insensitive PARTIAL match)
+    const guides = await Guide.find({
       name: { $regex: guideName, $options: 'i' }
     });
 
-    if (!guide) {
-      return res.status(404).json({ success: false, message: `Guide "${guideName}" not found` });
+    // Also search for problems by title
+    const problems = await Problem.find({
+      title: { $regex: guideName, $options: 'i' }
+    });
+
+    const guideIds = guides.map(g => g._id);
+    const problemIds = problems.map(p => p._id);
+
+    // Find batches that match either guide OR problem
+    let batches = [];
+    if (guideIds.length > 0 || problemIds.length > 0) {
+      batches = await Batch.find({
+        $or: [
+          { guideId: { $in: guideIds } },
+          { problemId: { $in: problemIds } }
+        ]
+      }).lean();
     }
 
-    // Find all batches for this guide and populate all data
-    const batches = await Batch.find({ guideId: guide._id }).lean();
+    if (batches.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: `No batches found for "${guideName}"`
+      });
+    }
+
+    // Get the primary guide (first match or guide from first batch)
+    let primaryGuide = guides[0];
+    if (!primaryGuide && batches[0]?.guideId) {
+      primaryGuide = await Guide.findById(batches[0].guideId);
+    }
 
     // Get students for each batch
     const batchesWithStudents = await Promise.all(
       batches.map(async (batch) => {
         const students = await Student.find({ batchId: batch._id }).select('name rollNumber');
         const leader = await Student.findById(batch.leaderStudentId).select('name rollNumber');
+        const problem = await Problem.findById(batch.problemId).select('title');
+
         return {
           _id: batch._id,
           teamName: batch.teamName,
@@ -465,7 +492,8 @@ exports.searchBatchesByGuide = async (req, res) => {
           status: batch.status,
           leaderStudent: leader,
           students: students,
-          studentCount: students.length
+          studentCount: students.length,
+          problemTitle: problem?.title || 'N/A'
         };
       })
     );
@@ -474,8 +502,8 @@ exports.searchBatchesByGuide = async (req, res) => {
       success: true,
       data: {
         guide: {
-          id: guide._id,
-          name: guide.name
+          id: primaryGuide?._id,
+          name: primaryGuide?.name || 'Multiple Guides'
         },
         batches: batchesWithStudents,
         totalBatches: batchesWithStudents.length,
@@ -486,3 +514,4 @@ exports.searchBatchesByGuide = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+

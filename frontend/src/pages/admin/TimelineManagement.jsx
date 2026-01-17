@@ -711,6 +711,7 @@ function TimelineManagement() {
                       alignItems: "center",
                       gap: "10px",
                       marginBottom: "10px",
+                      flexWrap: "wrap",
                     }}
                   >
                     <span
@@ -724,11 +725,12 @@ function TimelineManagement() {
                         alignItems: "center",
                         justifyContent: "center",
                         fontWeight: "bold",
+                        flexShrink: 0,
                       }}
                     >
                       {idx + 1}
                     </span>
-                    <h3 style={{ margin: 0 }}>{event.title}</h3>
+                    <h3 style={{ margin: 0, wordBreak: 'break-word', maxWidth: '200px' }}>{event.title}</h3>
                     {getStatusBadge(event.deadline)}
                     <span className="badge badge-info">
                       {event.targetYear === "all"
@@ -740,7 +742,7 @@ function TimelineManagement() {
                     {event.description}
                   </p>
                 </div>
-                <div style={{ display: "flex", gap: "5px" }}>
+                <div style={{ display: "flex", gap: "5px", flexShrink: 0 }}>
                   <button
                     className="btn btn-primary btn-sm"
                     onClick={() => setSelectedEvent(event)}
@@ -1081,8 +1083,7 @@ function TimelineManagement() {
     link.setAttribute("href", encodedUri);
     link.setAttribute(
       "download",
-      `${selectedEvent.title}_report_${
-        new Date().toISOString().split("T")[0]
+      `${selectedEvent.title}_report_${new Date().toISOString().split("T")[0]
       }.csv`
     );
     document.body.appendChild(link);

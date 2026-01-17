@@ -105,25 +105,18 @@ function GuideSearch() {
 
   return (
     <div>
-      <div className="section-header">
-        <h2 className="section-title">🔍 Search Batches by Guide</h2>
-        <p style={{ color: '#718096', marginTop: '8px' }}>
-          Enter guide name to view all batches, students, and imported projects assigned to them (supports partial matching)
-        </p>
-      </div>
-
       <div className="card" style={{ padding: '24px', maxWidth: '100%' }}>
         <form onSubmit={handleSearch} style={{ marginBottom: '24px' }}>
           <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end' }}>
             <div style={{ flex: 1 }}>
               <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', color: '#2d3748' }}>
-                Guide Name
+                Search by Guide or Problem
               </label>
               <input
                 type="text"
                 value={guideName}
                 onChange={(e) => setGuideName(e.target.value)}
-                placeholder="e.g., Mrs. Nanda Devi. D.R"
+                placeholder="e.g., Mrs. Nanda Devi. D.R or Machine Learning"
                 style={{
                   width: '100%',
                   padding: '12px',

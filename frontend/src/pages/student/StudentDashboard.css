@@ -3,8 +3,15 @@
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .dashboard-header {
@@ -12,8 +19,8 @@
   border: 1px solid var(--border);
   border-left: 4px solid var(--accent-gold);
   border-radius: var(--radius-md);
-  padding: 12px 24px;
-  margin-bottom: 12px;
+  padding: 16px 24px;
+  margin-bottom: 16px;
   box-shadow: var(--shadow-sm);
   display: flex;
   justify-content: space-between;
@@ -65,7 +72,8 @@
   gap: 8px;
 }
 
-.chat-btn, .report-btn {
+.chat-btn,
+.report-btn {
   padding: 8px 14px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
@@ -82,7 +90,8 @@
   white-space: nowrap;
 }
 
-.chat-btn:hover:not(:disabled), .report-btn:hover:not(:disabled) {
+.chat-btn:hover:not(:disabled),
+.report-btn:hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
 }
@@ -217,4 +226,3 @@
   color: var(--text);
   margin-bottom: 6px;
 }
-

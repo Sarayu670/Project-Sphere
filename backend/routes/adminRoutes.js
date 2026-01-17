@@ -11,7 +11,7 @@ router.post('/create', createAdmin); // Public for initial setup
 router.get('/dashboard', protect, authorize('admin'), getDashboard);
 router.get('/overview', protect, authorize('admin'), getOverview);
 router.get('/batch-guide-mapping', protect, authorize('admin'), getBatchGuideMapping);
-router.get('/search-batches-by-guide', protect, authorize('admin'), searchBatchesByGuide);
+router.get('/search-batches-by-guide', searchBatchesByGuide);
 router.post('/import-batches', protect, authorize('admin'), importBatches);
 router.post('/import-batch-data', protect, authorize('admin'), upload.single('file'), importBatchData);
 

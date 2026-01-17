@@ -1,5 +1,8 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 const { protect, authorize } = require('../middleware/auth');
 const {
   createOrUpdateSubmission,
@@ -12,8 +15,24 @@ const {
   addAdminRemark
 } = require('../controllers/submissionController');
 
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const dir = 'uploads/submissions';
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    cb(null, dir);
+  },
+  filename: function (req, file, cb) {
+    cb(null, `sub-${Date.now()}${path.extname(file.originalname)}`);
+  }
+});
+
+const upload = multer({ storage: storage });
+
 // Student routes
-router.post('/', protect, authorize('student'), createOrUpdateSubmission);
+router.post('/', protect, authorize('student'), upload.single('file'), createOrUpdateSubmission);
 router.get('/batch/:batchId', protect, getBatchSubmissions);
 
 // Guide routes

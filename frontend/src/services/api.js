@@ -75,12 +75,18 @@ export const searchBatchesByGuide = (guideName) => axios.get(`${API_URL}/admin/s
 // Timeline
 export const getAllTimelineEvents = (year) => axios.get(`${API_URL}/timeline`, { params: { year } });
 export const getTimelineForBatch = (batchId) => axios.get(`${API_URL}/timeline/batch/${batchId}`);
-export const createTimelineEvent = (data) => axios.post(`${API_URL}/timeline`, data);
-export const updateTimelineEvent = (id, data) => axios.put(`${API_URL}/timeline/${id}`, data);
+export const createTimelineEvent = (data) => axios.post(`${API_URL}/timeline`, data, {
+  headers: { 'Content-Type': 'multipart/form-data' }
+});
+export const updateTimelineEvent = (id, data) => axios.put(`${API_URL}/timeline/${id}`, data, {
+  headers: { 'Content-Type': 'multipart/form-data' }
+});
 export const deleteTimelineEvent = (id) => axios.delete(`${API_URL}/timeline/${id}`);
 
 // Submissions
-export const createSubmission = (data) => axios.post(`${API_URL}/submissions`, data);
+export const createSubmission = (data) => axios.post(`${API_URL}/submissions`, data, {
+  headers: { 'Content-Type': 'multipart/form-data' }
+});
 export const getSubmission = (id) => axios.get(`${API_URL}/submissions/${id}`);
 export const getBatchSubmissions = (batchId) => axios.get(`${API_URL}/submissions/batch/${batchId}`);
 export const getGuideSubmissions = () => axios.get(`${API_URL}/submissions/guide`);

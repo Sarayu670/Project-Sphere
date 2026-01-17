@@ -1,15 +1,108 @@
 const Submission = require('../models/Submission');
 const TimelineEvent = require('../models/TimelineEvent');
 const Batch = require('../models/Batch');
+const pdf = require('pdf-parse');
+const fs = require('fs');
+
+async function validateSubmission(filePath, isMandatoryFormat, context = {}) {
+  if (!isMandatoryFormat) return { isValid: true, errors: [] };
+  
+  try {
+    const dataBuffer = fs.readFileSync(filePath);
+    const data = await pdf(dataBuffer);
+    const text = data.text;
+    const errors = [];
+
+    // Base Institutional Rules
+    const rules = [
+      { 
+        pattern: /G\.?\s*Narayanamma\s*Institute\s*of\s*Technology\s*&\s*Science/i, 
+        message: "Institution name 'G. Narayanamma Institute of Technology & Science' not found in header." 
+      },
+      { 
+        pattern: /DEPARTMENT\s*OF\s*COMPUTER\s*SCIENCE\s*AND\s*ENGINEERING/i, 
+        message: "Department name 'DEPARTMENT OF COMPUTER SCIENCE AND ENGINEERING' not found." 
+      },
+      { 
+        pattern: /Abstract:/i, 
+        message: "Section heading 'Abstract:' not found." 
+      },
+      { 
+        pattern: /H\/W\s*&\s*S\/W\s*Requirements/i, 
+        message: "Section heading 'H/W & S/W Requirements' not found." 
+      }
+    ];
+
+    // Context-specific rules (Project Title, Guide, Team)
+    if (context.projectTitle) {
+      rules.push({
+        pattern: new RegExp(context.projectTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'),
+        message: `Project title '${context.projectTitle}' not found in document.`
+      });
+    }
+
+    if (context.guideName) {
+      rules.push({
+        pattern: new RegExp(context.guideName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'),
+        message: `Guide name '${context.guideName}' not found.`
+      });
+    }
+
+    if (context.teamMembers && context.teamMembers.length > 0) {
+      context.teamMembers.forEach(member => {
+        if (member.rollNo) {
+          rules.push({
+            pattern: new RegExp(member.rollNo, 'i'),
+            message: `Team member roll number '${member.rollNo}' not found.`
+          });
+        }
+      });
+    }
+
+    rules.forEach(rule => {
+      if (!rule.pattern.test(text)) {
+        errors.push(rule.message);
+      }
+    });
+
+    // Basic word count check for abstract
+    const abstractMatch = text.match(/Abstract:([\s\S]*?)(H\/W|Requirements|Introduction|$)/i);
+    if (abstractMatch) {
+      const abstractText = abstractMatch[1].trim();
+      const wordCount = abstractText.split(/\s+/).filter(w => w.length > 0).length;
+      if (wordCount > 250) {
+         errors.push(`Abstract section seems too long (${wordCount} words). Requirement is approx 200 words.`);
+      }
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors
+    };
+  } catch (err) {
+    console.error('Validation error:', err);
+    return { isValid: true, errors: ['Warning: Could not perform automated format check on this file type.'] };
+  }
+}
 
 // @desc    Submit or update a submission (Student)
 // @route   POST /api/submissions
 exports.createOrUpdateSubmission = async (req, res) => {
   try {
-    const { batchId, timelineEventId, fileUrl, fileName, description } = req.body;
+    const { batchId, timelineEventId, description } = req.body;
+    let { fileUrl, fileName } = req.body;
+
+    if (req.file) {
+      fileUrl = `/uploads/submissions/${req.file.filename}`;
+      fileName = req.file.originalname;
+    }
+
+    if (!fileUrl) {
+      return res.status(400).json({ success: false, message: 'File is required' });
+    }
 
     // Verify batch exists and student is leader
-    const batch = await Batch.findById(batchId);
+    const batch = await Batch.findById(batchId).populate('guideId').populate('problemId');
     if (!batch) {
       return res.status(404).json({ success: false, message: 'Batch not found' });
     }
@@ -26,6 +119,17 @@ exports.createOrUpdateSubmission = async (req, res) => {
     // Check if deadline has passed
     if (new Date() > event.deadline) {
       return res.status(400).json({ success: false, message: 'Submission deadline has passed' });
+    }
+
+    // Automated format validation
+    let validationResult = { isValid: true, errors: [] };
+    if (event.isMandatoryFormat && req.file && req.file.mimetype === 'application/pdf') {
+      const validationContext = {
+        projectTitle: batch.problemId?.title,
+        guideName: batch.guideId?.name,
+        teamMembers: batch.teamMembers
+      };
+      validationResult = await validateSubmission(req.file.path, true, validationContext);
     }
 
     let submission = await Submission.findOne({ batchId, timelineEventId });
@@ -60,7 +164,11 @@ exports.createOrUpdateSubmission = async (req, res) => {
       });
     }
 
-    res.status(201).json({ success: true, data: submission });
+    res.status(201).json({ 
+      success: true, 
+      data: submission,
+      validation: validationResult
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

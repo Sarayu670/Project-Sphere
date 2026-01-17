@@ -30,7 +30,9 @@ function TimelineManagement() {
     submissionRequirements: "",
     targetYear: "all",
     order: 0,
+    isMandatoryFormat: false,
   });
+  const [referenceFile, setReferenceFile] = useState(null);
 
   // Filters
   const [filterYear, setFilterYear] = useState("");
@@ -127,17 +129,27 @@ function TimelineManagement() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     console.log("Submitting form with data:", formData);
+    
+    const data = new FormData();
+    Object.keys(formData).forEach(key => {
+      data.append(key, formData[key]);
+    });
+    if (referenceFile) {
+      data.append('referenceFile', referenceFile);
+    }
+
     try {
       if (editingEvent) {
         console.log("Updating event:", editingEvent._id);
-        await api.updateTimelineEvent(editingEvent._id, formData);
+        await api.updateTimelineEvent(editingEvent._id, data);
       } else {
         console.log("Creating new event");
-        await api.createTimelineEvent(formData);
+        await api.createTimelineEvent(data);
       }
       console.log("Event saved successfully");
       setShowForm(false);
       setEditingEvent(null);
+      setReferenceFile(null);
       setFormData({
         title: "",
         description: "",
@@ -146,6 +158,7 @@ function TimelineManagement() {
         submissionRequirements: "",
         targetYear: "all",
         order: 0,
+        isMandatoryFormat: false,
       });
       fetchEvents();
     } catch (error) {
@@ -165,7 +178,9 @@ function TimelineManagement() {
       submissionRequirements: event.submissionRequirements || "",
       targetYear: event.targetYear,
       order: event.order || 0,
+      isMandatoryFormat: event.isMandatoryFormat || false,
     });
+    setReferenceFile(null);
     setShowForm(true);
   };
 
@@ -341,6 +356,42 @@ function TimelineManagement() {
                 placeholder="What documents/files need to be submitted"
               />
             </div>
+            
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "15px",
+                marginBottom: "15px"
+              }}
+            >
+              <div className="form-group">
+                <label>Reference File (Optional)</label>
+                <input
+                  type="file"
+                  onChange={(e) => setReferenceFile(e.target.files[0])}
+                  accept=".pdf,.doc,.docx"
+                />
+                {editingEvent?.referenceFile && !referenceFile && (
+                  <small style={{ color: "#667eea" }}>
+                    Current: {editingEvent.referenceFile.name}
+                  </small>
+                )}
+              </div>
+              <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '25px' }}>
+                <input
+                  type="checkbox"
+                  id="isMandatoryFormat"
+                  checked={formData.isMandatoryFormat}
+                  onChange={(e) => setFormData({ ...formData, isMandatoryFormat: e.target.checked })}
+                  style={{ width: 'auto' }}
+                />
+                <label htmlFor="isMandatoryFormat" style={{ marginBottom: 0 }}>
+                  Mandatory Format Checking
+                </label>
+              </div>
+            </div>
+
             <div style={{ display: "flex", gap: "10px" }}>
               <button type="submit" className="btn btn-primary">
                 {editingEvent ? "Update" : "Create"} Event

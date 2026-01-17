@@ -36,6 +36,14 @@ const TimelineEventSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  referenceFile: {
+    url: String,
+    name: String
+  },
+  isMandatoryFormat: {
+    type: Boolean,
+    default: false
+  },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Admin',

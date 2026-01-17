@@ -5,8 +5,9 @@ function TimelineProgress({ batchId }) {
   const [timeline, setTimeline] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState(null);
-  const [submissionForm, setSubmissionForm] = useState({ fileUrl: '', fileName: '', description: '' });
+  const [submissionForm, setSubmissionForm] = useState({ file: null, description: '' });
   const [submitting, setSubmitting] = useState(false);
+  const [validationErrors, setValidationErrors] = useState([]);
 
   const fetchTimeline = async () => {
     try {
@@ -23,22 +24,35 @@ function TimelineProgress({ batchId }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!submissionForm.fileUrl.trim()) {
-      showDialog('Error', 'Please provide a file URL', 'danger');
+    if (!submissionForm.file) {
+      showDialog('Error', 'Please select a file to submit', 'danger');
       return;
     }
     setSubmitting(true);
+    setValidationErrors([]);
+    
+    const data = new FormData();
+    data.append('batchId', batchId);
+    data.append('timelineEventId', selectedEvent._id);
+    data.append('description', submissionForm.description);
+    data.append('file', submissionForm.file);
+
     try {
-      await api.createSubmission({
-        batchId,
-        timelineEventId: selectedEvent._id,
-        ...submissionForm
-      });
-      setSubmissionForm({ fileUrl: '', fileName: '', description: '' });
+      const res = await api.createSubmission(data);
+      
+      if (res.data.validation && !res.data.validation.isValid) {
+        setValidationErrors(res.data.validation.errors);
+        showDialog('Warning', 'Submission received, but format validation failed. Please check the errors below.', 'warning');
+      } else {
+        showDialog('Success', 'File submitted successfully', 'success');
+      }
+
+      setSubmissionForm({ file: null, description: '' });
       fetchTimeline();
+      
       // Update selectedEvent with new submission data
-      const res = await api.getTimelineForBatch(batchId);
-      const updated = res.data.data.find(e => e._id === selectedEvent._id);
+      const timelineRes = await api.getTimelineForBatch(batchId);
+      const updated = timelineRes.data.data.find(e => e._id === selectedEvent._id);
       setSelectedEvent(updated);
     } catch (error) {
       showDialog('Error', error.response?.data?.message || 'Failed to submit', 'danger');
@@ -97,6 +111,16 @@ function TimelineProgress({ batchId }) {
             <span><strong>📅 Deadline:</strong> {new Date(selectedEvent.deadline).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
             <span><strong>🎯 Max Marks:</strong> {selectedEvent.maxMarks}</span>
             {getStatusBadge(selectedEvent.submissionStatus)}
+            {selectedEvent.isMandatoryFormat && (
+              <span className="timeline-badge badge-danger" title="Your submission must follow the college template">📏 Mandatory Format</span>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: '15px', marginTop: '15px' }}>
+            {selectedEvent.referenceFile && (
+              <a href={selectedEvent.referenceFile.url} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm" style={{ background: '#667eea', color: 'white', border: 'none' }}>
+                📥 Download Template: {selectedEvent.referenceFile.name}
+              </a>
+            )}
           </div>
           {selectedEvent.submissionRequirements && (
             <div style={{ marginTop: '15px', padding: '10px', background: '#f8fafc', borderRadius: '8px' }}>
@@ -136,13 +160,29 @@ function TimelineProgress({ batchId }) {
             {selectedEvent.submissionStatus !== 'accepted' && (
               <form onSubmit={handleSubmit} style={{ marginTop: '20px', paddingTop: '15px', borderTop: '1px solid #eee' }}>
                 <h4>{submission?.versions?.length ? 'Submit New Version' : 'Submit'}</h4>
+                
+                {validationErrors.length > 0 && (
+                  <div style={{ marginBottom: '15px', padding: '12px', background: '#fff5f5', border: '1px solid #feb2b2', borderRadius: '6px' }}>
+                    <strong style={{ color: '#c53030', display: 'block', marginBottom: '5px' }}>Format Validation Errors:</strong>
+                    <ul style={{ margin: 0, paddingLeft: '20px', color: '#c53030', fontSize: '13px' }}>
+                      {validationErrors.map((err, i) => <li key={i}>{err}</li>)}
+                    </ul>
+                  </div>
+                )}
+
                 <div className="form-group">
-                  <label>File URL (Google Drive, Dropbox, etc.) *</label>
-                  <input type="url" value={submissionForm.fileUrl} onChange={(e) => setSubmissionForm({...submissionForm, fileUrl: e.target.value})} placeholder="https://drive.google.com/..." required />
-                </div>
-                <div className="form-group">
-                  <label>File Name</label>
-                  <input type="text" value={submissionForm.fileName} onChange={(e) => setSubmissionForm({...submissionForm, fileName: e.target.value})} placeholder="e.g., Abstract_v1.pdf" />
+                  <label>Upload File (PDF) *</label>
+                  <input 
+                    type="file" 
+                    onChange={(e) => setSubmissionForm({...submissionForm, file: e.target.files[0]})} 
+                    accept=".pdf"
+                    required 
+                  />
+                  {selectedEvent.isMandatoryFormat && (
+                    <small style={{ color: '#e53e3e', fontWeight: '500' }}>
+                      ⚠️ This event requires automated format checking. Ensure you use the provided template.
+                    </small>
+                  )}
                 </div>
                 <div className="form-group">
                   <label>Description</label>

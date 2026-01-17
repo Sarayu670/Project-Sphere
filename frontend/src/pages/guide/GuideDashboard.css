@@ -290,8 +290,9 @@
 .batch-action-btn {
   width: 100%;
   padding: 10px 12px;
-  background: var(--accent-maroon);
+  /* background: var(--accent-maroon); */
   color: white;
+  background-color: #2563eb;
   border: none;
   border-radius: 4px;
   font-size: 13px;
@@ -304,10 +305,7 @@
   opacity: 1;
 }
 
-.batch-action-btn:hover {
-  background: #7a1d1d;
-  transform: translateY(-2px);
-}
+
 
 .problem-card {
   display: flex;

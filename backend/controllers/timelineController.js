@@ -10,16 +10,33 @@ exports.createEvent = async (req, res) => {
     console.log('Request body:', req.body);
     console.log('User:', req.user);
 
-    const { title, description, deadline, maxMarks, submissionRequirements, targetYear, order } = req.body;
+    if (!req.body) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Request body is missing. Ensure you are sending valid form data.' 
+      });
+    }
+
+    const { title, description, deadline, maxMarks, submissionRequirements, targetYear, order, isMandatoryFormat } = req.body;
+
+    let referenceFileData = null;
+    if (req.file) {
+      referenceFileData = {
+        url: `/uploads/reference/${req.file.filename}`,
+        name: req.file.originalname
+      };
+    }
 
     const event = await TimelineEvent.create({
       title,
       description,
       deadline,
-      maxMarks,
+      maxMarks: Number(maxMarks),
       submissionRequirements,
       targetYear: targetYear || 'all',
-      order: order || 0,
+      order: Number(order) || 0,
+      isMandatoryFormat: isMandatoryFormat === 'true' || isMandatoryFormat === true,
+      referenceFile: referenceFileData,
       createdBy: req.user._id
     });
 
@@ -70,11 +87,40 @@ exports.getAllEvents = async (req, res) => {
 // @route   PUT /api/timeline/:id
 exports.updateEvent = async (req, res) => {
   try {
-    const { title, description, deadline, maxMarks, submissionRequirements, targetYear, order, isActive } = req.body;
+    if (!req.body) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Request body is missing.' 
+      });
+    }
+
+    const { title, description, deadline, maxMarks, submissionRequirements, targetYear, order, isActive, isMandatoryFormat } = req.body;
+
+    const updateData = { 
+      title, 
+      description, 
+      deadline, 
+      maxMarks: maxMarks !== undefined ? Number(maxMarks) : undefined, 
+      submissionRequirements, 
+      targetYear, 
+      order: order !== undefined ? Number(order) : undefined, 
+      isActive: isActive === 'true' || isActive === true 
+    };
+    
+    if (isMandatoryFormat !== undefined) {
+      updateData.isMandatoryFormat = isMandatoryFormat === 'true' || isMandatoryFormat === true;
+    }
+
+    if (req.file) {
+      updateData.referenceFile = {
+        url: `/uploads/reference/${req.file.filename}`,
+        name: req.file.originalname
+      };
+    }
 
     const event = await TimelineEvent.findByIdAndUpdate(
       req.params.id,
-      { title, description, deadline, maxMarks, submissionRequirements, targetYear, order, isActive },
+      updateData,
       { new: true, runValidators: true }
     );
 

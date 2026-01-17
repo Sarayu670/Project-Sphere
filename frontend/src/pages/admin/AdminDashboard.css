@@ -40,10 +40,12 @@
   background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
   border: none;
   border-radius: var(--radius-md);
-  padding: 24px 20px;
+  padding: 28px 24px;
   text-align: center;
   box-shadow: var(--shadow-sm);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .stat-card:hover {
@@ -53,21 +55,25 @@
 
 .stat-icon {
   font-size: 32px;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
   color: rgba(255, 255, 255, 0.9);
+  line-height: 1.4;
 }
 
 .stat-value {
   font-size: 28px;
   font-weight: 800;
   color: #ffffff;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
+  line-height: 1.4;
 }
 
 .stat-label {
   color: rgba(255, 255, 255, 0.85);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
+  line-height: 1.6;
+  margin-top: 4px;
 }
 
 .tabs {

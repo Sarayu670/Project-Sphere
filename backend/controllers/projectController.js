@@ -132,24 +132,13 @@ exports.importExcelFiles = async (req, res) => {
 
                 const studentIds = await Promise.all(studentPromises);
 
-                // 3. Find or create COE
+                // 3. Find COE (Do not create automatically)
                 let coe = null;
                 if (record.coe && record.coe !== 'N/A') {
                     try {
-                        coe = await COE.findOneAndUpdate(
-                            { name: record.coe },
-                            {
-                                name: record.coe,
-                                description: `Center of Excellence: ${record.coe}`
-                            },
-                            { upsert: true, new: true, setDefaultsOnInsert: true }
-                        );
+                        coe = await COE.findOne({ name: record.coe });
                     } catch (error) {
-                        if (error.code === 11000) {
-                            coe = await COE.findOne({ name: record.coe });
-                        } else {
-                            console.error(`Error creating COE: ${error.message}`);
-                        }
+                        console.error(`Error finding COE: ${error.message}`);
                     }
                 }
 

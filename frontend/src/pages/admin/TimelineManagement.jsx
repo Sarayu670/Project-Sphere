@@ -183,9 +183,23 @@ function TimelineManagement() {
     const now = new Date();
     const dl = new Date(deadline);
     const diff = (dl - now) / (1000 * 60 * 60 * 24);
-    if (diff < 0) return <span className="badge badge-danger">Past Due</span>;
-    if (diff < 3) return <span className="badge badge-warning">Due Soon</span>;
-    return <span className="badge badge-success">Upcoming</span>;
+    if (diff < 0)
+      return (
+        <span className="timeline-badge badge-danger">
+          Past Due
+        </span>
+      );
+    if (diff < 3)
+      return (
+        <span className="timeline-badge badge-warning">
+          Due Soon
+        </span>
+      );
+    return (
+      <span className="timeline-badge badge-success">
+        Upcoming
+      </span>
+    );
   };
 
   if (loading) {
@@ -398,7 +412,7 @@ function TimelineManagement() {
             <div
               style={{
                 display: "flex",
-                gap: "15px",
+                gap: "20px",
                 alignItems: "center",
                 flexWrap: "wrap",
               }}
@@ -708,9 +722,9 @@ function TimelineManagement() {
                   <div
                     style={{
                       display: "flex",
-                      alignItems: "center",
-                      gap: "10px",
-                      marginBottom: "10px",
+                      alignItems: "flex-start",
+                      gap: "18px",
+                      marginBottom: "12px",
                       flexWrap: "wrap",
                     }}
                   >
@@ -719,28 +733,29 @@ function TimelineManagement() {
                         background: "#667eea",
                         color: "white",
                         borderRadius: "50%",
-                        width: "30px",
-                        height: "30px",
+                        width: "36px",
+                        height: "36px",
+                        minWidth: "36px",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
                         fontWeight: "bold",
+                        fontSize: "16px",
                         flexShrink: 0,
                       }}
                     >
                       {idx + 1}
                     </span>
-                    <h3 style={{ margin: 0, wordBreak: 'break-word', maxWidth: '200px' }}>{event.title}</h3>
-                    {getStatusBadge(event.deadline)}
-                    <span className="badge badge-info">
-                      {event.targetYear === "all"
-                        ? "All Years"
-                        : `${event.targetYear} Year`}
-                    </span>
+                    <div style={{ flex: 1, minWidth: '350px' }}>
+                      <h3 style={{ margin: '0 0 6px 0', wordBreak: 'break-word', lineHeight: '1.4', fontSize: '18px', fontWeight: '700' }}>{event.title}</h3>
+                      <div className="title-badges" style={{ marginBottom: '8px' }}>
+                        {getStatusBadge(event.deadline)}
+                      </div>
+                      <p style={{ color: "#666", margin: "0", lineHeight: '1.6', fontSize: '14px' }}>
+                        {event.description}
+                      </p>
+                    </div>
                   </div>
-                  <p style={{ color: "#666", margin: "5px 0" }}>
-                    {event.description}
-                  </p>
                 </div>
                 <div style={{ display: "flex", gap: "5px", flexShrink: 0 }}>
                   <button
@@ -766,32 +781,32 @@ function TimelineManagement() {
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "repeat(3, 1fr)",
-                  gap: "15px",
-                  marginTop: "15px",
-                  padding: "15px",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                  gap: "18px",
+                  marginTop: "18px",
+                  padding: "18px",
                   background: "#f8fafc",
                   borderRadius: "8px",
+                  lineHeight: '1.6',
                 }}
               >
                 <div>
-                  <strong>📅 Deadline:</strong>
-                  <br />
+                  <strong style={{ fontSize: '14px', display: 'block', marginBottom: '6px' }}>📅 Deadline:</strong>
+                  <span style={{ fontSize: '14px', lineHeight: '1.6' }}>
                   {new Date(event.deadline).toLocaleDateString("en-IN", {
                     day: "numeric",
                     month: "short",
                     year: "numeric",
                   })}
+                  </span>
                 </div>
                 <div>
-                  <strong>🎯 Max Marks:</strong>
-                  <br />
-                  {event.maxMarks}
+                  <strong style={{ fontSize: '14px', display: 'block', marginBottom: '6px' }}>🎯 Max Marks:</strong>
+                  <span style={{ fontSize: '14px', lineHeight: '1.6' }}>{event.maxMarks}</span>
                 </div>
                 <div>
-                  <strong>📋 Requirements:</strong>
-                  <br />
-                  <span style={{ fontSize: "13px", color: "#666" }}>
+                  <strong style={{ fontSize: '14px', display: 'block', marginBottom: '6px' }}>📋 Requirements:</strong>
+                  <span style={{ fontSize: "13px", color: "#666", lineHeight: '1.6' }}>
                     {event.submissionRequirements || "Not specified"}
                   </span>
                 </div>

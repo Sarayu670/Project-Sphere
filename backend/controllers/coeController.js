@@ -1,4 +1,6 @@
 const COE = require('../models/COE');
+const Batch = require('../models/Batch');
+const ProblemStatement = require('../models/ProblemStatement');
 
 // @desc    Get all COEs
 // @route   GET /api/coe
@@ -58,10 +60,21 @@ exports.updateCOE = async (req, res) => {
 // @route   DELETE /api/coe/:id
 exports.deleteCOE = async (req, res) => {
   try {
-    const coe = await COE.findByIdAndDelete(req.params.id);
+    const coeId = req.params.id;
+    const coe = await COE.findById(coeId);
+    
     if (!coe) {
       return res.status(404).json({ success: false, message: 'COE not found' });
     }
+
+    // Update Batches to remove reference
+    await Batch.updateMany({ coeId: coeId }, { $set: { coeId: null } });
+    
+    // Update ProblemStatements to remove reference
+    await ProblemStatement.updateMany({ coeId: coeId }, { $set: { coeId: null } });
+
+    await COE.findByIdAndDelete(coeId);
+    
     res.status(200).json({ success: true, data: {} });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

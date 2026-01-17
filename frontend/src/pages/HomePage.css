@@ -122,20 +122,23 @@
 .feature-icon {
   font-size: 40px;
   display: block;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
+  line-height: 1.4;
 }
 
 .feature h3 {
   font-size: 16px;
   color: #333;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
   font-weight: 700;
+  line-height: 1.4;
 }
 
 .feature p {
   font-size: 13px;
   color: #666;
-  line-height: 1.5;
+  line-height: 1.7;
+  margin: 0;
 }
 
 /* COE Section */
@@ -191,14 +194,16 @@
 .coe-card h3 {
   font-size: 16px;
   color: #333;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
   font-weight: 700;
+  line-height: 1.4;
 }
 
 .coe-card p {
   font-size: 13px;
   color: #666;
-  line-height: 1.5;
+  line-height: 1.7;
+  margin: 0;
 }
 
 /* Guide Search Section */
@@ -281,7 +286,7 @@
   background: white;
   border: 1px solid #e0e7ff;
   border-radius: 12px;
-  padding: 20px;
+  padding: 24px;
   cursor: pointer;
   transition: all 0.3s;
   display: flex;
@@ -307,8 +312,9 @@
 .guide-info h3 {
   font-size: 16px;
   color: #333;
-  margin: 0 0 4px 0;
+  margin: 0 0 6px 0;
   font-weight: 700;
+  line-height: 1.4;
 }
 
 .guide-email {

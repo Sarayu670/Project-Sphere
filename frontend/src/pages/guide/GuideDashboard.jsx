@@ -287,7 +287,13 @@ function GuideDashboard() {
                 {filteredProblems.map(p => (
                   <div key={p._id} className="card">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-                      <div><h3>{p.title}</h3><span className="badge badge-info">{p.coeId?.name}</span> <span className="badge badge-warning">{p.targetYear} Year</span></div>
+                      <div>
+                        <h3 style={{ margin: '0 0 10px 0' }}>{p.title}</h3>
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '10px' }}>
+                          <span className="timeline-badge badge-info">{p.coeId?.name}</span> 
+                          <span className="timeline-badge badge-warning">{p.targetYear} Year</span>
+                        </div>
+                      </div>
                       <button className="btn btn-danger btn-sm" onClick={() => handleDeleteProblem(p._id)}>🗑️</button>
                     </div>
                     <p style={{ color: '#666', margin: '10px 0' }}>{p.description}</p>
@@ -336,13 +342,43 @@ function GuideDashboard() {
             <div className="grid grid-3">
               {batches.map(b => (
                 <div key={b._id} className="batch-card">
-                  <div className="batch-status"><span className={`badge badge-${b.status === 'Completed' ? 'success' : b.status === 'In Progress' ? 'warning' : 'info'}`}>{b.status}</span></div>
+                  <div className="batch-status">
+                    <span className={`timeline-badge badge-${b.status === 'Completed' ? 'success' : b.status === 'In Progress' ? 'warning' : 'info'}`}>
+                      {b.status}
+                    </span>
+                  </div>
                   <div className="batch-icon">👥</div>
                   <h3>{b.teamName}</h3>
-                  <p style={{ fontSize: '12px', color: '#718096', marginBottom: '8px' }}><strong>Year:</strong> {b.year}</p>
-                  <p className="batch-leader">Leader: {b.leaderStudentId?.name}</p>
-                  <p className="batch-problem">📋 {b.problemId?.title}</p>
-                  <p className="batch-submissions">✅ Accepted Submissions: {getAcceptedSubmissionsCount(b._id)}</p>
+                  <div style={{ marginBottom: '12px' }}>
+                    <span style={{ fontSize: '12px', color: '#718096' }}>Year: <strong>{b.year}</strong></span>
+                  </div>
+                  <p className="batch-leader">Leader: <strong>{b.leaderStudentId?.name}</strong></p>
+                  <div className="batch-problem" style={{ 
+                    background: '#ebf4ff', 
+                    padding: '8px 12px', 
+                    borderRadius: '6px',
+                    color: '#2b6cb0',
+                    fontWeight: '600',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    justifyContent: 'center',
+                    margin: '10px 0'
+                  }}>
+                    📋 {b.problemId?.title || 'Not Assigned'}
+                  </div>
+                  <div className="batch-submissions" style={{ 
+                    color: '#38a169', 
+                    fontSize: '14px', 
+                    fontWeight: '600',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    justifyContent: 'center',
+                    marginBottom: '15px'
+                  }}>
+                    <span style={{ backgroundColor: '#c6f6d5', padding: '2px 6px', borderRadius: '4px' }}>✅ Accepted Submissions: {getAcceptedSubmissionsCount(b._id)}</span>
+                  </div>
                   <button
                     className="batch-action-btn"
                     onClick={() => setSelectedBatch(b._id)}

@@ -118,7 +118,7 @@
   border: 1px solid var(--border);
   border-top: 3px solid var(--accent-blue);
   border-radius: var(--radius-md);
-  padding: 24px;
+  padding: 16px 12px;
   box-shadow: var(--shadow-sm);
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-top-color 0.2s ease;
@@ -127,6 +127,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  height: 100%;
 }
 
 .batch-card:hover {
@@ -135,20 +136,16 @@
   border-top-color: var(--accent-orange);
 }
 
-.batch-card:active {
-  transform: translateY(-2px);
-}
-
 .batch-status {
   position: absolute;
-  top: 12px;
-  right: 12px;
+  top: 10px;
+  right: 10px;
   z-index: 10;
 }
 
 .batch-icon {
-  font-size: 42px;
-  margin-bottom: 12px;
+  font-size: 32px;
+  margin-bottom: 6px;
 }
 
 .batch-card h3 {
@@ -160,13 +157,15 @@
 .batch-leader {
   color: var(--text-muted);
   font-size: 14px;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
+  line-height: 1.4;
 }
 
 .batch-problem {
   color: var(--primary);
   font-size: 13px;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
+  line-height: 1.4;
 }
 
 .batch-action {
@@ -266,7 +265,7 @@
 }
 
 .grid-3 {
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
 }
 
 .card {
@@ -299,7 +298,10 @@
   cursor: pointer;
   transition: all 0.3s;
   font-weight: 600;
-  margin-top: 12px;
+  margin-top: auto;
+  display: block;
+  visibility: visible;
+  opacity: 1;
 }
 
 .batch-action-btn:hover {
@@ -374,31 +376,36 @@
 .badge {
   display: inline-flex;
   align-items: center;
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-size: 11px;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 13px;
   font-weight: 700;
   white-space: nowrap;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  text-transform: none;
+  letter-spacing: normal;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  line-height: 1;
 }
 
 .badge-info {
-  background: rgba(102, 126, 234, 0.15);
-  color: #667eea;
-  border: 1px solid rgba(102, 126, 234, 0.3);
+  border-color: rgba(102,126,234,0.3);
+  background: rgba(102,126,234,0.08);
+  color: #2563eb;
 }
 
 .badge-warning {
-  background: rgba(217, 119, 6, 0.15);
+  border-color: rgba(217,119,6,0.25);
+  background: rgba(217,119,6,0.08);
   color: #d97706;
-  border: 1px solid rgba(217, 119, 6, 0.3);
 }
 
 .badge-success {
-  background: rgba(22, 163, 74, 0.15);
+  border-color: rgba(22,163,74,0.22);
+  background: rgba(22,163,74,0.08);
   color: #16a34a;
-  border: 1px solid rgba(22, 163, 74, 0.3);
 }
 
 /* Card header with title and badges */
@@ -413,14 +420,19 @@
 
 .card h3 {
   color: var(--text);
-  margin-bottom: 8px;
-  margin: 0 0 8px 0;
+  margin-bottom: 12px;
+  margin: 0 0 12px 0;
   word-break: break-word;
+  line-height: 1.6;
+  font-size: 16px;
 }
 
 .batch-submissions {
   color: #667eea;
   font-weight: 500;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
+  line-height: 1.6;
+  font-size: 14px;
+}
   font-size: 13px;
 }

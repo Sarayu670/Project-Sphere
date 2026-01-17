@@ -1,5 +1,5 @@
 .layout {
-  min-height: 100vh;
+  min-height: 80vh;
   display: flex;
   flex-direction: column;
   background: var(--bg);
@@ -15,7 +15,7 @@
 }
 
 .header-content {
-  max-width: 1400px;
+  max-width: 1600px;
   margin: 0 auto;
   padding: 14px 24px;
   display: flex;

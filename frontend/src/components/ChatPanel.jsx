@@ -163,15 +163,14 @@ const ChatPanel = ({ batchId, teamMemberId, isOpen, onClose, onChatLoaded }) => 
   return (
     <div className="chat-panel">
       <div className="chat-header">
-        <h3>Chat</h3>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <h3 style={{ margin: 0, fontSize: '16px' }}>Chat</h3>
+          {guideInfo && user.role === 'student' && (
+            <span style={{ fontSize: '12px', opacity: 0.9 }}>Guide: {guideInfo.name}</span>
+          )}
+        </div>
         <button className="close-btn" onClick={onClose}>✕</button>
       </div>
-
-      {guideInfo && user.role === 'student' && (
-        <div className="guide-info">
-          <p>Guide: {guideInfo.name}</p>
-        </div>
-      )}
 
       <div className="messages-container">
         {messages.length === 0 && !loading && (

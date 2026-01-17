@@ -54,9 +54,23 @@ function TimelineProgress({ batchId }) {
   };
 
   const getStatusBadge = (status) => {
-    const colors = { not_started: 'secondary', submitted: 'info', under_review: 'warning', needs_revision: 'warning', accepted: 'success', rejected: 'danger' };
-    const labels = { not_started: 'Not Started', submitted: 'Submitted', under_review: 'Under Review', needs_revision: 'Needs Revision', accepted: 'Accepted', rejected: 'Rejected' };
-    return <span className={`badge badge-${colors[status] || 'info'}`}>{labels[status] || status}</span>;
+    const colors = { 
+      not_started: 'secondary', 
+      submitted: 'info', 
+      under_review: 'warning', 
+      needs_revision: 'warning', 
+      accepted: 'success', 
+      rejected: 'danger' 
+    };
+    const labels = { 
+      not_started: 'Not Started', 
+      submitted: 'Submitted', 
+      under_review: 'Under Review', 
+      needs_revision: 'Needs Revision', 
+      accepted: 'Accepted', 
+      rejected: 'Rejected' 
+    };
+    return <span className={`timeline-badge badge-${colors[status] || 'info'}`}>{labels[status] || status}</span>;
   };
 
   const getDeadlineStatus = (deadline) => {
@@ -178,15 +192,30 @@ function TimelineProgress({ batchId }) {
             return (
               <div key={event._id} className="card" style={{ marginBottom: '15px', borderLeft: `4px solid ${event.submissionStatus === 'accepted' ? '#22c55e' : '#667eea'}`, cursor: 'pointer' }} onClick={() => setSelectedEvent(event)}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '5px' }}>
-                      <span style={{ background: event.submissionStatus === 'accepted' ? '#22c55e' : '#667eea', color: 'white', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '14px' }}>{idx + 1}</span>
-                      <h3 style={{ margin: 0 }}>{event.title}</h3>
-                      {getStatusBadge(event.submissionStatus)}
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '15px', flex: 1 }}>
+                    <span style={{ 
+                      background: event.submissionStatus === 'accepted' ? '#22c55e' : '#667eea', 
+                      color: 'white', 
+                      borderRadius: '50%', 
+                      width: '32px', 
+                      height: '32px', 
+                      minWidth: '32px',
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center', 
+                      fontWeight: 'bold', 
+                      fontSize: '14px',
+                      marginTop: '2px'
+                    }}>{idx + 1}</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '5px' }}>
+                        <h3 style={{ margin: 0, fontSize: '18px' }}>{event.title}</h3>
+                        {getStatusBadge(event.submissionStatus)}
+                      </div>
+                      <p style={{ color: '#666', fontSize: '14px', margin: '5px 0' }}>{event.description}</p>
                     </div>
-                    <p style={{ color: '#666', fontSize: '14px', margin: '5px 0' }}>{event.description}</p>
                   </div>
-                  <div style={{ textAlign: 'right' }}>
+                  <div style={{ textAlign: 'right', marginLeft: '15px' }}>
                     <div style={{ color: deadlineStatus.color, fontWeight: '500' }}>{deadlineStatus.text}</div>
                     <small style={{ color: '#888' }}>{new Date(event.deadline).toLocaleDateString()}</small>
                     {event.marks !== null && <div style={{ color: '#22c55e', fontWeight: 'bold', marginTop: '5px' }}>{event.marks}/{event.maxMarks}</div>}

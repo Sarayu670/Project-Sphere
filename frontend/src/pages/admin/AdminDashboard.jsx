@@ -52,7 +52,9 @@ function AdminDashboard() {
     }
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { 
+    fetchData(); 
+  }, [activeTab]);
 
   const getBatchesForCOE = (coeId) => batches.filter(b => b.coeId?._id === coeId || b.coeId === coeId);
   const getStatusColor = (status) => status === 'Completed' ? 'success' : status === 'In Progress' ? 'warning' : 'info';
@@ -148,8 +150,8 @@ function AdminDashboard() {
         <div className="tab-content">
           <h2>🔍 Filter Teams by Year, Branch & Section</h2>
 
-          <div className="card" style={{ marginBottom: '20px' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '15px', alignItems: 'end' }}>
+          <div className="card" style={{ marginBottom: '20px', maxWidth: '100%' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr) auto', gap: '20px', alignItems: 'end' }}>
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label>Year</label>
                 <select value={filterYear} onChange={(e) => setFilterYear(e.target.value)}>

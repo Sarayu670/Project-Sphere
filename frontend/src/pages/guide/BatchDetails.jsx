@@ -72,9 +72,9 @@ function BatchDetails({ batchId, onBack }) {
       <div className="card" style={{ marginBottom: '20px' }}>
         <div className="flex-between">
           <div>
-            <h2 style={{ color: '#2d3748', marginBottom: '8px' }}>👥 {batch.teamName}</h2>
-            <p style={{ color: '#718096' }}>Leader: {batch.leaderStudentId?.name}</p>
-            <p style={{ color: '#667eea', fontWeight: '500', fontSize: '14px' }}>{batch.year ? YEAR_LABELS[batch.year] : 'Year Not Set'}</p>
+            <h2 style={{ color: '#2d3748', marginBottom: '10px', lineHeight: '1.4', fontSize: '20px' }}>👥 {batch.teamName}</h2>
+            <p style={{ color: '#718096', marginBottom: '8px', lineHeight: '1.6', fontSize: '15px' }}>Leader: {batch.leaderStudentId?.name}</p>
+            <p style={{ color: '#667eea', fontWeight: '500', fontSize: '14px', lineHeight: '1.6' }}>{batch.year ? YEAR_LABELS[batch.year] : 'Year Not Set'}</p>
           </div>
           <div>
             <label style={{ fontSize: '14px', color: '#718096', display: 'block', marginBottom: '8px' }}>Update Status:</label>
@@ -95,27 +95,27 @@ function BatchDetails({ batchId, onBack }) {
       <div className="grid grid-2" style={{ marginBottom: '20px' }}>
         <div className="card">
           <h3 style={{ marginBottom: '16px', color: '#2d3748' }}>📋 Problem Details</h3>
-          <h4 style={{ color: '#667eea', marginBottom: '8px' }}>{batch.problemId?.title}</h4>
-          <p style={{ color: '#718096', fontSize: '14px' }}>{batch.problemId?.description}</p>
+          <h4 style={{ color: '#667eea', marginBottom: '10px', fontSize: '16px', lineHeight: '1.6' }}>{batch.problemId?.title}</h4>
+          <p style={{ color: '#718096', fontSize: '14px', marginBottom: '16px', lineHeight: '1.7' }}>{batch.problemId?.description}</p>
         </div>
 
         <div className="card">
           <h3 style={{ marginBottom: '16px', color: '#2d3748' }}>👥 Team Members</h3>
           {batch.leaderStudentId || batch.teamMembers?.length > 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {batch.leaderStudentId && (
-                <div style={{ background: '#e6f2ff', padding: '8px 12px', borderRadius: '8px', fontSize: '14px', borderLeft: '3px solid #667eea' }}>
+                <div style={{ background: '#e6f2ff', padding: '10px 14px', borderRadius: '8px', fontSize: '14px', borderLeft: '3px solid #667eea', lineHeight: '1.6' }}>
                   <strong>{batch.leaderStudentId.name}</strong> - {batch.leaderStudentId.rollNumber || batch.leaderStudentId.rollNo || 'N/A'} ({batch.branch || 'N/A'}-{batch.section || 'N/A'}) <em style={{ color: '#667eea', fontSize: '12px' }}>(Leader)</em>
                 </div>
               )}
               {batch.teamMembers?.filter(member => member.rollNo !== (batch.leaderStudentId?.rollNumber || batch.leaderStudentId?.rollNo)).map((member) => (
-                <div key={member._id} style={{ background: '#f7fafc', padding: '8px 12px', borderRadius: '8px', fontSize: '14px' }}>
+                <div key={member._id} style={{ background: '#f7fafc', padding: '10px 14px', borderRadius: '8px', fontSize: '14px', lineHeight: '1.6' }}>
                   <strong>{member.name}</strong> - {member.rollNo} ({batch.branch || 'N/A'}-{batch.section || 'N/A'})
                 </div>
               ))}
             </div>
           ) : (
-            <p style={{ color: '#718096' }}>No team members added</p>
+            <p style={{ color: '#718096', lineHeight: '1.7' }}>No team members added</p>
           )}
         </div>
       </div>

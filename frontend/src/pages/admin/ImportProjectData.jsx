@@ -75,18 +75,7 @@ function ImportProjectData() {
                     </div>
                 </div>
 
-                <div style={{ marginBottom: '20px', padding: '16px', background: '#e6fffa', borderRadius: '8px' }}>
-                    <p style={{ color: '#2d3748', marginBottom: '8px', fontSize: '14px', fontWeight: '500' }}>
-                        ✨ Features:
-                    </p>
-                    <ul style={{ color: '#2d3748', fontSize: '13px', marginLeft: '20px', lineHeight: '1.8' }}>
-                        <li>Upload up to 10 Excel files at once</li>
-                        <li>Automatic column detection and mapping</li>
-                        <li>Text normalization (trim spaces, case handling)</li>
-                        <li>Duplicate detection and removal</li>
-                        <li>Detailed error reporting</li>
-                    </ul>
-                </div>
+                
 
                 <form onSubmit={handleImport}>
                     <div style={{ marginBottom: '20px' }}>

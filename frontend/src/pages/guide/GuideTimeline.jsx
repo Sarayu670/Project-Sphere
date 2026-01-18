@@ -124,10 +124,16 @@ function GuideTimeline() {
         <div className="card" style={{ marginBottom: '20px', borderLeft: '4px solid #667eea' }}>
           <h2>{selectedEvent.title} - {submission.batchId?.teamName}</h2>
           <p style={{ color: '#666' }}>{selectedEvent.description}</p>
-          <div style={{ display: 'flex', gap: '20px', marginTop: '15px' }}>
-            <span><strong>📅 Deadline:</strong> {new Date(selectedEvent.deadline).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-            <span><strong>🎯 Max Marks:</strong> {selectedEvent.maxMarks}</span>
-            {getStatusBadge(submission.status)}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px', marginTop: '15px', alignItems: 'center' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <strong>📅 Deadline:</strong> {new Date(selectedEvent.deadline).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <strong>🎯 Max Marks:</strong> {selectedEvent.maxMarks}
+            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <strong>Status:</strong> {getStatusBadge(submission.status)}
+            </div>
           </div>
           {selectedEvent.submissionRequirements && (
             <div style={{ marginTop: '15px', padding: '10px', background: '#f8fafc', borderRadius: '8px' }}>
@@ -231,14 +237,17 @@ function GuideTimeline() {
               const batch = batchMap[sub.batchId._id];
               if (!batch) return null;
               return (
-                <div key={sub._id} className="card" style={{ cursor: 'pointer' }} onClick={() => setSelectedSubmission(sub)}>
+                <div key={sub._id} className="card" style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '8px' }} onClick={() => setSelectedSubmission(sub)}>
                   <div className="batch-icon">📄</div>
-                  <h3>{batch.teamName}</h3>
-                  <p>{batch.year} Year • {batch.branch} • Section {batch.section}</p>
-                  <p><strong>Status:</strong> {getStatusBadge(sub.status)}</p>
-                  {sub.marks !== null && <p><strong>Marks:</strong> {sub.marks}/{selectedEvent.maxMarks}</p>}
-                  <p><strong>Submission:</strong> {sub.currentVersion}</p>
-                  <div className="batch-action">Review Submission →</div>
+                  <h3 style={{ margin: '0 0 2px 0', fontSize: '16px' }}>{batch.teamName}</h3>
+                  <p style={{ margin: '0 0 6px 0', fontSize: '12px', color: '#666', lineHeight: '1.4' }}>{batch.year} Year • {batch.branch} • Section {batch.section}</p>
+                  <p style={{ margin: '4px 0', fontSize: '14px', lineHeight: '1.6', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <strong>Status:</strong>
+                    {getStatusBadge(sub.status)}
+                  </p>
+                  {sub.marks !== null && <p style={{ margin: '4px 0', fontSize: '14px', lineHeight: '1.6', display: 'flex', alignItems: 'center', gap: '12px' }}><strong>Marks:</strong> <span>{sub.marks}/{selectedEvent.maxMarks}</span></p>}
+                  <p style={{ margin: '4px 0', fontSize: '14px', lineHeight: '1.6', display: 'flex', alignItems: 'center', gap: '12px' }}><strong>Submission:</strong> <span>{sub.currentVersion}</span></p>
+                  <div className="batch-action" style={{ marginTop: '6px', fontSize: '14px', color: '#667eea', fontWeight: '700' }}>Review Submission →</div>
                 </div>
               );
             })}

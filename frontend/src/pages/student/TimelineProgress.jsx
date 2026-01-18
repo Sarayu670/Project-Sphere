@@ -8,6 +8,7 @@ function TimelineProgress({ batchId }) {
   const [submissionForm, setSubmissionForm] = useState({ file: null, description: '' });
   const [submitting, setSubmitting] = useState(false);
   const [validationErrors, setValidationErrors] = useState([]);
+  const [notification, setNotification] = useState(null);
 
   const fetchTimeline = async () => {
     try {
@@ -25,7 +26,7 @@ function TimelineProgress({ batchId }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!submissionForm.file) {
-      showDialog('Error', 'Please select a file to submit', 'danger');
+      showNotification('Please select a file to submit', 'danger');
       return;
     }
     setSubmitting(true);
@@ -42,9 +43,9 @@ function TimelineProgress({ batchId }) {
       
       if (res.data.validation && !res.data.validation.isValid) {
         setValidationErrors(res.data.validation.errors);
-        showDialog('Warning', 'Submission received, but format validation failed. Please check the errors below.', 'warning');
+        showNotification('Submission received, but format validation failed. Please check the errors below.', 'warning');
       } else {
-        showDialog('Success', 'File submitted successfully', 'success');
+        showNotification('✅ File submitted successfully', 'success');
       }
 
       setSubmissionForm({ file: null, description: '' });
@@ -55,16 +56,15 @@ function TimelineProgress({ batchId }) {
       const updated = timelineRes.data.data.find(e => e._id === selectedEvent._id);
       setSelectedEvent(updated);
     } catch (error) {
-      showDialog('Error', error.response?.data?.message || 'Failed to submit', 'danger');
+      showNotification(error.response?.data?.message || 'Failed to submit', 'danger');
     } finally {
       setSubmitting(false);
     }
   };
 
-  const showDialog = (title, message, type = 'info') => {
-    // For simple alerts, we'll use a basic dialog
-    const dialogMsg = `${title}\\n${message}`;
-    window.alert(dialogMsg);
+  const showNotification = (message, type = 'info') => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 4000);
   };
 
   const getStatusBadge = (status) => {
@@ -218,6 +218,33 @@ function TimelineProgress({ batchId }) {
 
   return (
     <div>
+      {notification && (
+        <div style={{
+          position: 'fixed',
+          top: '20px',
+          right: '20px',
+          padding: '14px 20px',
+          borderRadius: '8px',
+          fontWeight: '600',
+          fontSize: '14px',
+          zIndex: 9999,
+          animation: 'slideIn 0.3s ease',
+          backgroundColor: notification.type === 'success' ? '#d1fae5' : notification.type === 'danger' ? '#fee2e2' : notification.type === 'warning' ? '#fef3c7' : '#dbeafe',
+          color: notification.type === 'success' ? '#065f46' : notification.type === 'danger' ? '#991b1b' : notification.type === 'warning' ? '#92400e' : '#1e40af',
+          border: `1px solid ${notification.type === 'success' ? '#a7f3d0' : notification.type === 'danger' ? '#fca5a5' : notification.type === 'warning' ? '#fde68a' : '#bfdbfe'}`,
+          boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+        }}>
+          {notification.message}
+        </div>
+      )}
+
+      <style>{`
+        @keyframes slideIn {
+          from { transform: translateX(400px); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+      `}</style>
+      
       <h2 className="section-title">📅 Project Timeline</h2>
       <p style={{ color: '#666', marginBottom: '20px' }}>Track deadlines, submit documents, and view feedback</p>
       

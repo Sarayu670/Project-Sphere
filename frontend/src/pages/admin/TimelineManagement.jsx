@@ -798,11 +798,11 @@ function TimelineManagement() {
                       {idx + 1}
                     </span>
                     <div style={{ flex: 1, minWidth: '350px' }}>
-                      <h3 style={{ margin: '0 0 6px 0', wordBreak: 'break-word', lineHeight: '1.4', fontSize: '18px', fontWeight: '700' }}>{event.title}</h3>
-                      <div className="title-badges" style={{ marginBottom: '8px' }}>
+                      <h3 style={{ margin: '0 0 4px 0', wordBreak: 'break-word', lineHeight: '1.4', fontSize: '17px', fontWeight: '700' }}>{event.title}</h3>
+                      <div className="title-badges" style={{ marginBottom: '4px' }}>
                         {getStatusBadge(event.deadline)}
                       </div>
-                      <p style={{ color: "#666", margin: "0", lineHeight: '1.6', fontSize: '14px' }}>
+                      <p style={{ color: "#666", margin: "0", lineHeight: '1.5', fontSize: '13px' }}>
                         {event.description}
                       </p>
                     </div>
@@ -832,18 +832,18 @@ function TimelineManagement() {
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-                  gap: "18px",
-                  marginTop: "18px",
-                  padding: "18px",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                  gap: "12px",
+                  marginTop: "12px",
+                  padding: "12px",
                   background: "#f8fafc",
                   borderRadius: "8px",
-                  lineHeight: '1.6',
+                  lineHeight: '1.5',
                 }}
               >
                 <div>
-                  <strong style={{ fontSize: '14px', display: 'block', marginBottom: '6px' }}>📅 Deadline:</strong>
-                  <span style={{ fontSize: '14px', lineHeight: '1.6' }}>
+                  <strong style={{ fontSize: '13px', display: 'block', marginBottom: '3px' }}>📅 Deadline:</strong>
+                  <span style={{ fontSize: '13px', lineHeight: '1.5', color: '#4a5568' }}>
                   {new Date(event.deadline).toLocaleDateString("en-IN", {
                     day: "numeric",
                     month: "short",
@@ -852,12 +852,12 @@ function TimelineManagement() {
                   </span>
                 </div>
                 <div>
-                  <strong style={{ fontSize: '14px', display: 'block', marginBottom: '6px' }}>🎯 Max Marks:</strong>
-                  <span style={{ fontSize: '14px', lineHeight: '1.6' }}>{event.maxMarks}</span>
+                  <strong style={{ fontSize: '13px', display: 'block', marginBottom: '3px' }}>🎯 Max Marks:</strong>
+                  <span style={{ fontSize: '13px', lineHeight: '1.5', color: '#4a5568' }}>{event.maxMarks}</span>
                 </div>
                 <div>
-                  <strong style={{ fontSize: '14px', display: 'block', marginBottom: '6px' }}>📋 Requirements:</strong>
-                  <span style={{ fontSize: "13px", color: "#666", lineHeight: '1.6' }}>
+                  <strong style={{ fontSize: '13px', display: 'block', marginBottom: '3px' }}>📋 Requirements:</strong>
+                  <span style={{ fontSize: "12px", color: "#4a5568", lineHeight: '1.5' }}>
                     {event.submissionRequirements || "Not specified"}
                   </span>
                 </div>

@@ -460,7 +460,9 @@ exports.searchBatchesByGuide = async (req, res) => {
           { guideId: { $in: guideIds } },
           { problemId: { $in: problemIds } }
         ]
-      }).lean();
+      })
+        .populate('guideId', 'name email')
+        .lean();
     }
 
     if (batches.length === 0) {
@@ -473,7 +475,7 @@ exports.searchBatchesByGuide = async (req, res) => {
     // Get the primary guide (first match or guide from first batch)
     let primaryGuide = guides[0];
     if (!primaryGuide && batches[0]?.guideId) {
-      primaryGuide = await Guide.findById(batches[0].guideId);
+      primaryGuide = batches[0].guideId;
     }
 
     // Get students for each batch
@@ -483,8 +485,13 @@ exports.searchBatchesByGuide = async (req, res) => {
         const leader = await Student.findById(batch.leaderStudentId).select('name rollNumber');
         const problem = await Problem.findById(batch.problemId).select('title');
 
+        const problemDetailed = await Problem.findById(batch.problemId).select('title coeId researchArea');
+        const COE = require('../models/COE');
+        const coe = batch.coeId ? await COE.findById(batch.coeId) : (problemDetailed?.coeId ? await COE.findById(problemDetailed.coeId) : null);
+
         return {
           _id: batch._id,
+          batchId: batch.batchId,
           teamName: batch.teamName,
           year: batch.year,
           branch: batch.branch,
@@ -493,7 +500,10 @@ exports.searchBatchesByGuide = async (req, res) => {
           leaderStudent: leader,
           students: students,
           studentCount: students.length,
-          problemTitle: problem?.title || 'N/A'
+          guideName: batch.guideId?.name || 'N/A',
+          projectTitle: problemDetailed?.title || 'N/A',
+          researchArea: problemDetailed?.researchArea || 'N/A',
+          coe: coe?.name || 'N/A'
         };
       })
     );

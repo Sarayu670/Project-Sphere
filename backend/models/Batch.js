@@ -1,6 +1,12 @@
 const mongoose = require('mongoose');
 
 const BatchSchema = new mongoose.Schema({
+  batchId: {
+    type: String,
+    unique: true,
+    sparse: true, // Allows null values while maintaining uniqueness for non-null values
+    trim: true
+  },
   leaderStudentId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Student',

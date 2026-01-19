@@ -6,6 +6,11 @@ const mongoose = require('mongoose');
  * Fields: Team Name, Student Names, Guide Name, Project Title, COE
  */
 const ProjectSchema = new mongoose.Schema({
+  batchId: {
+    type: String,
+    trim: true,
+    default: 'N/A'
+  },
   teamName: {
     type: String,
     required: [true, 'Team name is required'],
@@ -28,6 +33,11 @@ const ProjectSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Project title is required'],
     trim: true
+  },
+  researchArea: {
+    type: String,
+    trim: true,
+    default: 'N/A'
   },
   coe: {
     type: String,

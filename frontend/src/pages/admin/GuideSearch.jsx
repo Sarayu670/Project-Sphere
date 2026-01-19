@@ -48,14 +48,19 @@ function GuideSearch() {
     // First, add all batches from results
     if (results.batches) {
       results.batches.forEach(batch => {
-        teamMap.set(batch.teamName.toLowerCase(), {
+        // Use a unique key combining BatchID and TeamName to avoid collisions
+        const key = `${batch.batchId || 'N/A'}-${batch.teamName.toLowerCase()}`;
+        teamMap.set(key, {
           _id: batch._id,
+          batchId: batch.batchId || 'N/A',
           teamName: batch.teamName,
           students: batch.students,
           studentCount: batch.studentCount,
           leaderStudent: batch.leaderStudent,
-          guideName: results.guide.name,
+          // Use the populated guide name if available, otherwise fallback
+          guideName: batch.guideId?.name || results.guide.name,
           projectTitle: 'N/A',
+          researchArea: 'N/A',
           coe: 'N/A',
           isProject: false
         });
@@ -64,17 +69,21 @@ function GuideSearch() {
 
     // Then, merge or add projects
     projects.forEach(project => {
-      const key = project.teamName.toLowerCase();
-      const existing = teamMap.get(key);
+      // Try to find matching team in the existing map
+      const key = `${project.batchId || 'N/A'}-${project.teamName.toLowerCase()}`;
+      const existing = teamMap.get(key) || teamMap.get(project.teamName.toLowerCase());
 
       if (existing) {
-        // Project exists, update metadata and prefer its student list if it has one
+        // Project exists, update metadata
+        existing.batchId = project.batchId || existing.batchId;
         existing.projectTitle = project.projectTitle;
+        existing.researchArea = project.researchArea || 'N/A';
         existing.coe = project.coe;
+        existing.guideName = project.guideName || existing.guideName;
         existing.isProject = true;
 
-        // Use project's student list if it looks more authoritative
-        if (project.students && project.students.length > 0) {
+        // Use project's student list if it looks more authoritative (longer)
+        if (project.students && project.students.length > (existing.students?.length || 0)) {
           existing.students = project.students.map((s, idx) => ({
             name: s,
             rollNumber: project.rollNumbers?.[idx] || 'N/A'
@@ -84,6 +93,7 @@ function GuideSearch() {
       } else {
         teamMap.set(key, {
           _id: project._id,
+          batchId: project.batchId || 'N/A',
           teamName: project.teamName,
           students: project.students.map((s, idx) => ({
             name: s,
@@ -92,6 +102,7 @@ function GuideSearch() {
           studentCount: project.students.length,
           guideName: project.guideName,
           projectTitle: project.projectTitle,
+          researchArea: project.researchArea || 'N/A',
           coe: project.coe,
           isProject: true
         });
@@ -156,7 +167,9 @@ function GuideSearch() {
         {results && (
           <div>
             <div style={{ marginBottom: '24px', padding: '16px', background: '#edf2f7', borderRadius: '8px' }}>
-              <h3 style={{ color: '#2d3748', marginBottom: '12px' }}>👨‍🏫 Guide: {results.guide.name}</h3>
+              <h3 style={{ color: '#2d3748', marginBottom: '12px' }}>
+                👨‍🏫 {unifiedTeams.some(t => t.guideName !== results.guide.name) ? 'Search Results' : `Guide: ${results.guide.name}`}
+              </h3>
               <div style={{ maxWidth: '240px' }}>
                 <div style={{ padding: '16px', background: 'white', borderRadius: '8px', border: '1px solid #cbd5e0', textAlign: 'center' }}>
                   <p style={{ fontSize: '14px', color: '#718096', marginBottom: '8px' }}>Total Batches</p>
@@ -188,7 +201,8 @@ function GuideSearch() {
                         <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', fontSize: '14px' }}>Student Name</th>
                         <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', fontSize: '14px' }}>Guide</th>
                         <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', fontSize: '14px' }}>Project Title</th>
-                        <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', fontSize: '14px' }}>COE/Domain</th>
+                        <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', fontSize: '14px' }}>Research Area</th>
+                        <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', fontSize: '14px' }}>COE/RC</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -226,19 +240,6 @@ function GuideSearch() {
                             </td>
                             <td style={{ padding: '12px', fontSize: '13px', color: '#2d3748', fontWeight: '500' }}>
                               {student.name}
-                              {team.leaderStudent && student._id === team.leaderStudent._id && (
-                                <span style={{
-                                  marginLeft: '8px',
-                                  padding: '2px 8px',
-                                  background: '#667eea',
-                                  color: 'white',
-                                  borderRadius: '4px',
-                                  fontSize: '10px',
-                                  fontWeight: '600'
-                                }}>
-                                  LEADER
-                                </span>
-                              )}
                             </td>
                             {studentIdx === 0 ? (
                               <>
@@ -247,6 +248,9 @@ function GuideSearch() {
                                 </td>
                                 <td rowSpan={team.students.length} style={{ padding: '12px', fontSize: '13px', color: '#4a5568', verticalAlign: 'top' }}>
                                   {team.projectTitle}
+                                </td>
+                                <td rowSpan={team.students.length} style={{ padding: '12px', fontSize: '13px', color: '#4a5568', verticalAlign: 'top' }}>
+                                  {team.researchArea || 'N/A'}
                                 </td>
                                 <td rowSpan={team.students.length} style={{
                                   padding: '12px',

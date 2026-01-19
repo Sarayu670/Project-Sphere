@@ -32,7 +32,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 // Student routes
-router.post('/', protect, authorize('student'), upload.single('file'), createOrUpdateSubmission);
+router.post('/', protect, authorize('student'), createOrUpdateSubmission);
 router.get('/batch/:batchId', protect, getBatchSubmissions);
 
 // Guide routes

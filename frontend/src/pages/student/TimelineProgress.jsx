@@ -5,7 +5,7 @@ function TimelineProgress({ batchId }) {
   const [timeline, setTimeline] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState(null);
-  const [submissionForm, setSubmissionForm] = useState({ file: null, description: '' });
+  const [submissionForm, setSubmissionForm] = useState({ driveLink: '', description: '' });
   const [submitting, setSubmitting] = useState(false);
   const [validationErrors, setValidationErrors] = useState([]);
   const [notification, setNotification] = useState(null);
@@ -25,37 +25,45 @@ function TimelineProgress({ batchId }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!submissionForm.file) {
-      showNotification('Please select a file to submit', 'danger');
+    console.log('🚀 Submitting Drive link...', submissionForm);
+
+    if (!submissionForm.driveLink || !submissionForm.driveLink.trim()) {
+      showNotification('Please enter a Google Drive link', 'danger');
       return;
     }
     setSubmitting(true);
     setValidationErrors([]);
-    
-    const data = new FormData();
-    data.append('batchId', batchId);
-    data.append('timelineEventId', selectedEvent._id);
-    data.append('description', submissionForm.description);
-    data.append('file', submissionForm.file);
+
+    const data = {
+      batchId,
+      timelineEventId: selectedEvent._id,
+      description: submissionForm.description,
+      driveLink: submissionForm.driveLink
+    };
+
+    console.log('📤 Sending data:', data);
 
     try {
       const res = await api.createSubmission(data);
-      
+      console.log('✅ Submission response:', res.data);
+
       if (res.data.validation && !res.data.validation.isValid) {
         setValidationErrors(res.data.validation.errors);
         showNotification('Submission received, but format validation failed. Please check the errors below.', 'warning');
       } else {
-        showNotification('✅ File submitted successfully', 'success');
+        showNotification('✅ Drive link submitted successfully', 'success');
       }
 
-      setSubmissionForm({ file: null, description: '' });
+      setSubmissionForm({ driveLink: '', description: '' });
       fetchTimeline();
-      
+
       // Update selectedEvent with new submission data
       const timelineRes = await api.getTimelineForBatch(batchId);
       const updated = timelineRes.data.data.find(e => e._id === selectedEvent._id);
       setSelectedEvent(updated);
     } catch (error) {
+      console.error('❌ Submission error:', error);
+      console.error('❌ Error response:', error.response?.data);
       showNotification(error.response?.data?.message || 'Failed to submit', 'danger');
     } finally {
       setSubmitting(false);
@@ -68,21 +76,21 @@ function TimelineProgress({ batchId }) {
   };
 
   const getStatusBadge = (status) => {
-    const colors = { 
-      not_started: 'secondary', 
-      submitted: 'info', 
-      under_review: 'warning', 
-      needs_revision: 'warning', 
-      accepted: 'success', 
-      rejected: 'danger' 
+    const colors = {
+      not_started: 'secondary',
+      submitted: 'info',
+      under_review: 'warning',
+      needs_revision: 'warning',
+      accepted: 'success',
+      rejected: 'danger'
     };
-    const labels = { 
-      not_started: 'Not Started', 
-      submitted: 'Submitted', 
-      under_review: 'Under Review', 
-      needs_revision: 'Needs Revision', 
-      accepted: 'Accepted', 
-      rejected: 'Rejected' 
+    const labels = {
+      not_started: 'Not Started',
+      submitted: 'Submitted',
+      under_review: 'Under Review',
+      needs_revision: 'Needs Revision',
+      accepted: 'Accepted',
+      rejected: 'Rejected'
     };
     return <span className={`timeline-badge badge-${colors[status] || 'info'}`}>{labels[status] || status}</span>;
   };
@@ -103,7 +111,7 @@ function TimelineProgress({ batchId }) {
     return (
       <div>
         <button className="btn btn-secondary" onClick={() => setSelectedEvent(null)} style={{ marginBottom: '20px' }}>← Back to Timeline</button>
-        
+
         <div className="card" style={{ marginBottom: '20px', borderLeft: '4px solid #667eea' }}>
           <h2>{selectedEvent.title}</h2>
           <p style={{ color: '#666' }}>{selectedEvent.description}</p>
@@ -124,7 +132,7 @@ function TimelineProgress({ batchId }) {
           </div>
           {selectedEvent.submissionRequirements && (
             <div style={{ marginTop: '15px', padding: '10px', background: '#f8fafc', borderRadius: '8px' }}>
-              <strong>📋 What to Submit:</strong><br/>
+              <strong>📋 What to Submit:</strong><br />
               <span style={{ color: '#666' }}>{selectedEvent.submissionRequirements}</span>
             </div>
           )}
@@ -151,6 +159,7 @@ function TimelineProgress({ batchId }) {
                       <small>{new Date(v.submittedAt).toLocaleString()}</small>
                     </div>
                     {v.description && <p style={{ color: '#666', fontSize: '14px', margin: '5px 0' }}>{v.description}</p>}
+                    {v.driveLink && <a href={v.driveLink} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm">📁 View on Drive</a>}
                     {v.fileUrl && <a href={v.fileUrl} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm">📁 View File</a>}
                   </div>
                 ))}
@@ -160,7 +169,7 @@ function TimelineProgress({ batchId }) {
             {selectedEvent.submissionStatus !== 'accepted' && (
               <form onSubmit={handleSubmit} style={{ marginTop: '20px', paddingTop: '15px', borderTop: '1px solid #eee' }}>
                 <h4>{submission?.versions?.length ? 'Submit New Version' : 'Submit'}</h4>
-                
+
                 {validationErrors.length > 0 && (
                   <div style={{ marginBottom: '15px', padding: '12px', background: '#fff5f5', border: '1px solid #feb2b2', borderRadius: '6px' }}>
                     <strong style={{ color: '#c53030', display: 'block', marginBottom: '5px' }}>Format Validation Errors:</strong>
@@ -171,22 +180,21 @@ function TimelineProgress({ batchId }) {
                 )}
 
                 <div className="form-group">
-                  <label>Upload File (PDF) *</label>
-                  <input 
-                    type="file" 
-                    onChange={(e) => setSubmissionForm({...submissionForm, file: e.target.files[0]})} 
-                    accept=".pdf"
-                    required 
+                  <label>Google Drive Link *</label>
+                  <input
+                    type="url"
+                    value={submissionForm.driveLink}
+                    onChange={(e) => setSubmissionForm({ ...submissionForm, driveLink: e.target.value })}
+                    placeholder="https://drive.google.com/file/d/..."
+                    required
                   />
-                  {selectedEvent.isMandatoryFormat && (
-                    <small style={{ color: '#e53e3e', fontWeight: '500' }}>
-                      ⚠️ This event requires automated format checking. Ensure you use the provided template.
-                    </small>
-                  )}
+                  <small style={{ color: '#666', display: 'block', marginTop: '5px' }}>
+                    💡 Make sure the Drive link has "Anyone with the link can view" permission
+                  </small>
                 </div>
                 <div className="form-group">
                   <label>Description</label>
-                  <textarea value={submissionForm.description} onChange={(e) => setSubmissionForm({...submissionForm, description: e.target.value})} rows={2} placeholder="Brief description of changes..." />
+                  <textarea value={submissionForm.description} onChange={(e) => setSubmissionForm({ ...submissionForm, description: e.target.value })} rows={2} placeholder="Brief description of changes..." />
                 </div>
                 <button type="submit" className="btn btn-primary" disabled={submitting}>{submitting ? 'Submitting...' : 'Submit'}</button>
               </form>
@@ -244,10 +252,10 @@ function TimelineProgress({ batchId }) {
           to { transform: translateX(0); opacity: 1; }
         }
       `}</style>
-      
+
       <h2 className="section-title">📅 Project Timeline</h2>
       <p style={{ color: '#666', marginBottom: '20px' }}>Track deadlines, submit documents, and view feedback</p>
-      
+
       {timeline.length === 0 ? (
         <div className="card empty-state"><h3>No Timeline Events</h3><p>Timeline events will appear here once admin creates them</p></div>
       ) : (
@@ -255,22 +263,22 @@ function TimelineProgress({ batchId }) {
           {timeline.map((event, idx) => {
             const deadlineStatus = getDeadlineStatus(event.deadline);
             const progress = event.marks !== null ? (event.marks / event.maxMarks * 100) : (event.submissionStatus === 'accepted' ? 100 : event.submissionStatus === 'submitted' ? 50 : 0);
-            
+
             return (
               <div key={event._id} className="card" style={{ marginBottom: '15px', borderLeft: `4px solid ${event.submissionStatus === 'accepted' ? '#22c55e' : '#667eea'}`, cursor: 'pointer' }} onClick={() => setSelectedEvent(event)}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: '15px', flex: 1 }}>
-                    <span style={{ 
-                      background: event.submissionStatus === 'accepted' ? '#22c55e' : '#667eea', 
-                      color: 'white', 
-                      borderRadius: '50%', 
-                      width: '32px', 
-                      height: '32px', 
+                    <span style={{
+                      background: event.submissionStatus === 'accepted' ? '#22c55e' : '#667eea',
+                      color: 'white',
+                      borderRadius: '50%',
+                      width: '32px',
+                      height: '32px',
                       minWidth: '32px',
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      justifyContent: 'center', 
-                      fontWeight: 'bold', 
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: 'bold',
                       fontSize: '14px',
                       marginTop: '2px'
                     }}>{idx + 1}</span>

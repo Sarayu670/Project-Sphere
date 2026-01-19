@@ -84,9 +84,7 @@ export const updateTimelineEvent = (id, data) => axios.put(`${API_URL}/timeline/
 export const deleteTimelineEvent = (id) => axios.delete(`${API_URL}/timeline/${id}`);
 
 // Submissions
-export const createSubmission = (data) => axios.post(`${API_URL}/submissions`, data, {
-  headers: { 'Content-Type': 'multipart/form-data' }
-});
+export const createSubmission = (data) => axios.post(`${API_URL}/submissions`, data);
 export const getSubmission = (id) => axios.get(`${API_URL}/submissions/${id}`);
 export const getBatchSubmissions = (batchId) => axios.get(`${API_URL}/submissions/batch/${batchId}`);
 export const getGuideSubmissions = () => axios.get(`${API_URL}/submissions/guide`);

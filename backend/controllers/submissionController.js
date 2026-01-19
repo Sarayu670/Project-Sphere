@@ -6,7 +6,7 @@ const fs = require('fs');
 
 async function validateSubmission(filePath, isMandatoryFormat, context = {}) {
   if (!isMandatoryFormat) return { isValid: true, errors: [] };
-  
+
   try {
     const dataBuffer = fs.readFileSync(filePath);
     const data = await pdf(dataBuffer);
@@ -15,21 +15,21 @@ async function validateSubmission(filePath, isMandatoryFormat, context = {}) {
 
     // Base Institutional Rules
     const rules = [
-      { 
-        pattern: /G\.?\s*Narayanamma\s*Institute\s*of\s*Technology\s*&\s*Science/i, 
-        message: "Institution name 'G. Narayanamma Institute of Technology & Science' not found in header." 
+      {
+        pattern: /G\.?\s*Narayanamma\s*Institute\s*of\s*Technology\s*&\s*Science/i,
+        message: "Institution name 'G. Narayanamma Institute of Technology & Science' not found in header."
       },
-      { 
-        pattern: /DEPARTMENT\s*OF\s*COMPUTER\s*SCIENCE\s*AND\s*ENGINEERING/i, 
-        message: "Department name 'DEPARTMENT OF COMPUTER SCIENCE AND ENGINEERING' not found." 
+      {
+        pattern: /DEPARTMENT\s*OF\s*COMPUTER\s*SCIENCE\s*AND\s*ENGINEERING/i,
+        message: "Department name 'DEPARTMENT OF COMPUTER SCIENCE AND ENGINEERING' not found."
       },
-      { 
-        pattern: /Abstract:/i, 
-        message: "Section heading 'Abstract:' not found." 
+      {
+        pattern: /Abstract:/i,
+        message: "Section heading 'Abstract:' not found."
       },
-      { 
-        pattern: /H\/W\s*&\s*S\/W\s*Requirements/i, 
-        message: "Section heading 'H/W & S/W Requirements' not found." 
+      {
+        pattern: /H\/W\s*&\s*S\/W\s*Requirements/i,
+        message: "Section heading 'H/W & S/W Requirements' not found."
       }
     ];
 
@@ -71,7 +71,7 @@ async function validateSubmission(filePath, isMandatoryFormat, context = {}) {
       const abstractText = abstractMatch[1].trim();
       const wordCount = abstractText.split(/\s+/).filter(w => w.length > 0).length;
       if (wordCount > 250) {
-         errors.push(`Abstract section seems too long (${wordCount} words). Requirement is approx 200 words.`);
+        errors.push(`Abstract section seems too long (${wordCount} words). Requirement is approx 200 words.`);
       }
     }
 
@@ -89,16 +89,10 @@ async function validateSubmission(filePath, isMandatoryFormat, context = {}) {
 // @route   POST /api/submissions
 exports.createOrUpdateSubmission = async (req, res) => {
   try {
-    const { batchId, timelineEventId, description } = req.body;
-    let { fileUrl, fileName } = req.body;
+    const { batchId, timelineEventId, description, driveLink } = req.body;
 
-    if (req.file) {
-      fileUrl = `/uploads/submissions/${req.file.filename}`;
-      fileName = req.file.originalname;
-    }
-
-    if (!fileUrl) {
-      return res.status(400).json({ success: false, message: 'File is required' });
+    if (!driveLink || !driveLink.trim()) {
+      return res.status(400).json({ success: false, message: 'Google Drive link is required' });
     }
 
     // Verify batch exists and student is leader
@@ -121,17 +115,6 @@ exports.createOrUpdateSubmission = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Submission deadline has passed' });
     }
 
-    // Automated format validation
-    let validationResult = { isValid: true, errors: [] };
-    if (event.isMandatoryFormat && req.file && req.file.mimetype === 'application/pdf') {
-      const validationContext = {
-        projectTitle: batch.problemId?.title,
-        guideName: batch.guideId?.name,
-        teamMembers: batch.teamMembers
-      };
-      validationResult = await validateSubmission(req.file.path, true, validationContext);
-    }
-
     let submission = await Submission.findOne({ batchId, timelineEventId });
 
     if (submission) {
@@ -139,8 +122,7 @@ exports.createOrUpdateSubmission = async (req, res) => {
       const newVersion = submission.currentVersion + 1;
       submission.versions.push({
         version: newVersion,
-        fileUrl,
-        fileName,
+        driveLink: driveLink.trim(),
         description,
         submittedAt: new Date()
       });
@@ -154,8 +136,7 @@ exports.createOrUpdateSubmission = async (req, res) => {
         timelineEventId,
         versions: [{
           version: 1,
-          fileUrl,
-          fileName,
+          driveLink: driveLink.trim(),
           description,
           submittedAt: new Date()
         }],
@@ -164,10 +145,10 @@ exports.createOrUpdateSubmission = async (req, res) => {
       });
     }
 
-    res.status(201).json({ 
-      success: true, 
+    res.status(201).json({
+      success: true,
       data: submission,
-      validation: validationResult
+      validation: { isValid: true, errors: [] }
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -243,12 +224,12 @@ exports.addComment = async (req, res) => {
       comment,
       createdAt: new Date()
     });
-    
+
     // Only update status to needs_revision if it's not already accepted or rejected
     if (submission.status !== 'accepted' && submission.status !== 'rejected') {
       submission.status = 'needs_revision';
     }
-    
+
     await submission.save();
 
     const updated = await Submission.findById(req.params.id).populate('comments.guideId', 'name');
@@ -291,7 +272,7 @@ exports.assignMarks = async (req, res) => {
 exports.getAllSubmissions = async (req, res) => {
   try {
     console.log('📡 Getting all submissions...');
-    
+
     const submissions = await Submission.find({})
       .populate('batchId')
       .populate('timelineEventId')
@@ -302,7 +283,7 @@ exports.getAllSubmissions = async (req, res) => {
 
     console.log(`✅ Found ${submissions.length} submissions`);
     console.log('📋 Sample submission:', submissions[0]);
-    
+
     res.status(200).json({ success: true, data: submissions });
   } catch (error) {
     console.error('❌ Error getting submissions:', error.message);
@@ -332,7 +313,7 @@ exports.addAdminRemark = async (req, res) => {
     const updated = await Submission.findById(req.params.id)
       .populate('adminRemarks.adminId', 'name')
       .populate('comments.guideId', 'name');
-    
+
     res.status(200).json({ success: true, data: updated });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

@@ -11,9 +11,9 @@ exports.createEvent = async (req, res) => {
     console.log('User:', req.user);
 
     if (!req.body) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Request body is missing. Ensure you are sending valid form data.' 
+      return res.status(400).json({
+        success: false,
+        message: 'Request body is missing. Ensure you are sending valid form data.'
       });
     }
 
@@ -72,10 +72,10 @@ exports.getAllEvents = async (req, res) => {
 
     console.log('Found events:', events.length);
     console.log('Returning events:', JSON.stringify(events, null, 2));
-    
-    res.status(200).json({ 
-      success: true, 
-      data: events 
+
+    res.status(200).json({
+      success: true,
+      data: events
     });
   } catch (error) {
     console.error('Error getting events:', error);
@@ -88,25 +88,25 @@ exports.getAllEvents = async (req, res) => {
 exports.updateEvent = async (req, res) => {
   try {
     if (!req.body) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Request body is missing.' 
+      return res.status(400).json({
+        success: false,
+        message: 'Request body is missing.'
       });
     }
 
     const { title, description, deadline, maxMarks, submissionRequirements, targetYear, order, isActive, isMandatoryFormat } = req.body;
 
-    const updateData = { 
-      title, 
-      description, 
-      deadline, 
-      maxMarks: maxMarks !== undefined ? Number(maxMarks) : undefined, 
-      submissionRequirements, 
-      targetYear, 
-      order: order !== undefined ? Number(order) : undefined, 
-      isActive: isActive === 'true' || isActive === true 
+    const updateData = {
+      title,
+      description,
+      deadline,
+      maxMarks: maxMarks !== undefined ? Number(maxMarks) : undefined,
+      submissionRequirements,
+      targetYear,
+      order: order !== undefined ? Number(order) : undefined,
+      isActive: isActive === 'true' || isActive === true
     };
-    
+
     if (isMandatoryFormat !== undefined) {
       updateData.isMandatoryFormat = isMandatoryFormat === 'true' || isMandatoryFormat === true;
     }
@@ -157,10 +157,15 @@ exports.deleteEvent = async (req, res) => {
 // @route   GET /api/timeline/batch/:batchId
 exports.getTimelineForBatch = async (req, res) => {
   try {
+    console.log('🔍 Getting timeline for batch:', req.params.batchId);
+    console.log('👤 Requested by user:', req.user?.email, 'Role:', req.user?.role);
+
     const batch = await Batch.findById(req.params.batchId);
     if (!batch) {
       return res.status(404).json({ success: false, message: 'Batch not found' });
     }
+
+    console.log('📦 Batch found:', batch.teamName, 'Year:', batch.year);
 
     const query = { isActive: true };
     if (batch.year) {
@@ -169,6 +174,11 @@ exports.getTimelineForBatch = async (req, res) => {
 
     const events = await TimelineEvent.find(query).sort({ order: 1, deadline: 1 });
     const submissions = await Submission.find({ batchId: req.params.batchId });
+
+    console.log('📄 Found', submissions.length, 'submissions for batch', req.params.batchId);
+    submissions.forEach(sub => {
+      console.log('  - Submission for event:', sub.timelineEventId, 'Versions:', sub.versions.length, 'Status:', sub.status);
+    });
 
     const timelineWithStatus = events.map(event => {
       const submission = submissions.find(s => s.timelineEventId.toString() === event._id.toString());
@@ -181,9 +191,10 @@ exports.getTimelineForBatch = async (req, res) => {
       };
     });
 
+    console.log('✅ Returning', timelineWithStatus.length, 'timeline events with submission status');
     res.status(200).json({ success: true, data: timelineWithStatus });
   } catch (error) {
+    console.error('❌ Error in getTimelineForBatch:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
-

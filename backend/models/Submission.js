@@ -39,6 +39,12 @@ const VersionSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
+  // New field for Drive links
+  driveLink: {
+    type: String,
+    trim: true
+  },
+  // Old fields for backward compatibility
   fileUrl: {
     type: String,
     trim: true

@@ -43,6 +43,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
 // Routes
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/coe', require('./routes/coeRoutes'));
+app.use('/api/rc', require('./routes/rcRoutes'));
 app.use('/api/guides', require('./routes/guideRoutes'));
 app.use('/api/problems', require('./routes/problemRoutes'));
 app.use('/api/batches', require('./routes/batchRoutes'));

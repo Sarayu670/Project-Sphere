@@ -14,7 +14,7 @@ const ProjectEntrySchema = new mongoose.Schema({
     trim: true
   },
   
-  // Students information
+  // Students information (SEPARATE FROM GUIDE)
   students: [{
     name: {
       type: String,
@@ -33,15 +33,51 @@ const ProjectEntrySchema = new mongoose.Schema({
     }
   }],
   
-  // Guide information
+  // Guide information (KEPT SEPARATE - NOT IN STUDENTS ARRAY)
   internalGuide: {
+    name: {
+      type: String,
+      required: [true, 'Guide name is required'],
+      trim: true
+    },
+    email: {
+      type: String,
+      trim: true
+    },
+    guideId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Guide'
+    }
+  },
+  
+  // Project domain (e.g., Deep Learning, Image Processing)
+  domain: {
     type: String,
-    required: [true, 'Internal guide is required'],
     trim: true
   },
-  guideId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Guide'
+  
+  // COE (Center of Excellence)
+  coe: {
+    name: {
+      type: String,
+      trim: true
+    },
+    coeId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'COE'
+    }
+  },
+  
+  // RC (Resource Coordinator)
+  rc: {
+    name: {
+      type: String,
+      trim: true
+    },
+    rcId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'RC'
+    }
   },
   
   // Batch mapping (created when importing)
@@ -83,8 +119,8 @@ const ProjectEntrySchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
-// Index for search functionality
-ProjectEntrySchema.index({ projectTitle: 'text', internalGuide: 'text' });
-ProjectEntrySchema.index({ projectId: 1, guideId: 1 });
+// Index for multi-field search functionality
+ProjectEntrySchema.index({ projectTitle: 'text', 'internalGuide.name': 'text', domain: 'text', 'coe.name': 'text', 'rc.name': 'text', 'students.name': 'text' });
+ProjectEntrySchema.index({ projectId: 1, 'internalGuide.guideId': 1 });
 
 module.exports = mongoose.model('ProjectEntry', ProjectEntrySchema);

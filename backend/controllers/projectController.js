@@ -1,9 +1,11 @@
 const Project = require('../models/Project');
+const ProjectEntry = require('../models/ProjectEntry');
 const Batch = require('../models/Batch');
 const Student = require('../models/Student');
 const Guide = require('../models/Guide');
-const TeamMember = require('../models/TeamMember');
+const RC = require('../models/RC');
 const COE = require('../models/COE');
+const TeamMember = require('../models/TeamMember');
 const ProblemStatement = require('../models/ProblemStatement');
 const { parseExcelFile, mergeRecords, validateRecord } = require('../utils/excelParser');
 
@@ -97,7 +99,30 @@ exports.importExcelFiles = async (req, res) => {
                 }
 
 
-                // 2. Find or create Students (optimized with parallel processing and error handling)
+                // 2. Find or create RC (Resource Coordinator) - from Excel import data
+                let rc = null;
+                if (record.rc && record.rc !== 'N/A') {
+                    try {
+                        rc = await RC.findOneAndUpdate(
+                            { name: record.rc },
+                            {
+                                name: record.rc,
+                                department: record.department || 'GNITS',
+                                isActive: true
+                            },
+                            { upsert: true, new: true, setDefaultsOnInsert: true }
+                        );
+                    } catch (error) {
+                        if (error.code === 11000) {
+                            console.log(`[Import] RC already exists: ${record.rc}, fetching...`);
+                            rc = await RC.findOne({ name: record.rc });
+                        } else {
+                            console.error(`Error managing RC: ${error.message}`);
+                        }
+                    }
+                }
+
+                // 3. Find or create Students (optimized with parallel processing)
                 const studentPromises = record.students.map(async (sName, j) => {
                     const sRoll = record.rollNumbers[j] || `TEMP_${record.teamName}_${j}`;
                     const email = sRoll.toLowerCase() + '@gmail.com';
@@ -167,7 +192,7 @@ exports.importExcelFiles = async (req, res) => {
                     }
                 }
 
-                // 5. Find or create Batch
+                // 5. Find or create Batch (NO LEADER REQUIRED)
                 let batch = await Batch.findOne({ teamName: record.teamName });
 
                 // CRITICAL: If batch exists, unlink old members to prevent cumulative growth
@@ -179,7 +204,7 @@ exports.importExcelFiles = async (req, res) => {
                     if (guide) batch.guideId = guide._id;
                     if (problem) batch.problemId = problem._id;
                     if (coe) batch.coeId = coe._id;
-                    if (studentIds.length > 0) batch.leaderStudentId = studentIds[0];
+                    // NO leaderStudentId assignment
                     if (record.year) batch.year = record.year;
                     if (record.branch) batch.branch = record.branch;
                     if (record.section) batch.section = record.section;
@@ -187,7 +212,7 @@ exports.importExcelFiles = async (req, res) => {
                 } else {
                     batch = await Batch.create({
                         teamName: record.teamName,
-                        leaderStudentId: studentIds[0] || null,
+                        leaderStudentId: null, // NOT REQUIRED
                         guideId: guide ? guide._id : null,
                         problemId: problem ? problem._id : null,
                         coeId: coe ? coe._id : null,
@@ -218,38 +243,89 @@ exports.importExcelFiles = async (req, res) => {
                     await Promise.all(linkingPromises);
                 }
 
-                // Create or Update project (Deduplicate by teamName)
-                let project = await Project.findOne({ teamName: record.teamName });
+                // 7. Create ProjectEntry with proper guide separation and COE/RC info
+                let projectEntry = await ProjectEntry.findOne({ projectId: record.projectId || record.teamName });
 
-                if (project) {
-                    // Update existing project
-                    project.students = record.students;
-                    project.rollNumbers = record.rollNumbers || [];
-                    project.guideName = record.guideName;
-                    project.projectTitle = record.projectTitle !== 'N/A' ? record.projectTitle : project.projectTitle;
-                    project.coe = record.coe;
-                    await project.save();
+                if (projectEntry) {
+                    // Update existing project entry
+                    projectEntry.projectTitle = record.projectTitle !== 'N/A' ? record.projectTitle : projectEntry.projectTitle;
+                    projectEntry.domain = record.domain || projectEntry.domain;
+                    projectEntry.internalGuide = {
+                        name: record.guideName,
+                        email: guide ? guide.email : '',
+                        guideId: guide ? guide._id : null
+                    };
+                    projectEntry.coe = {
+                        name: record.coe,
+                        coeId: coe ? coe._id : null
+                    };
+                    projectEntry.rc = {
+                        name: record.rc,
+                        rcId: rc ? rc._id : null
+                    };
+                    projectEntry.batchId = batch ? batch._id : null;
+                    projectEntry.students = studentIds.map((id, idx) => ({
+                        studentId: id,
+                        name: record.students[idx],
+                        rollNumber: record.rollNumbers[idx]
+                    }));
+                    await projectEntry.save();
                 } else {
-                    // Create new project
-                    await Project.create({
-                        teamName: record.teamName,
-                        students: record.students,
-                        rollNumbers: record.rollNumbers || [],
-                        guideName: record.guideName,
-                        projectTitle: record.projectTitle,
-                        coe: record.coe,
-                        source: 'excel_import'
+                    // Create new project entry with proper structure
+                    projectEntry = await ProjectEntry.create({
+                        projectId: record.projectId || record.teamName,
+                        projectTitle: record.projectTitle !== 'N/A' ? record.projectTitle : '',
+                        domain: record.domain || '',
+                        internalGuide: {
+                            name: record.guideName,
+                            email: guide ? guide.email : '',
+                            guideId: guide ? guide._id : null
+                        },
+                        coe: {
+                            name: record.coe,
+                            coeId: coe ? coe._id : null
+                        },
+                        rc: {
+                            name: record.rc,
+                            rcId: rc ? rc._id : null
+                        },
+                        students: studentIds.map((id, idx) => ({
+                            studentId: id,
+                            name: record.students[idx],
+                            rollNumber: record.rollNumbers[idx]
+                        })),
+                        batchId: batch ? batch._id : null,
+                        year: record.year || '4th',
+                        branch: record.branch || 'CSE',
+                        section: record.section || 'A',
+                        department: record.department || 'CSE',
+                        importedBy: req.user._id
                     });
+                }
+
+                // Update Batch with new fields
+                if (batch) {
+                    batch.domain = record.domain || batch.domain;
+                    batch.coe = {
+                        name: record.coe,
+                        coeId: coe ? coe._id : null
+                    };
+                    batch.rc = {
+                        name: record.rc,
+                        rcId: rc ? rc._id : null
+                    };
+                    await batch.save();
                 }
 
                 results.success++;
             } catch (error) {
                 results.failed++;
                 results.errors.push({
-                    teamName: record.teamName,
+                    projectId: record.projectId || record.teamName,
                     projectTitle: record.projectTitle,
                     error: error.message
                 });
+                console.error(`[Import Error]`, error);
             }
         }
 

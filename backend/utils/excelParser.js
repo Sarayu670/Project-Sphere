@@ -1,24 +1,21 @@
 const XLSX = require('xlsx');
 
 /**
- * Excel Parser Utility
- * Handles feature extraction and normalization from Excel files with different schemas
+ * Excel Parser Utility - Updated for Domain, COE, RC extraction
+ * Handles feature extraction and normalization from Excel files
  */
 
 /**
  * Column mapping patterns for intelligent field detection
- * Uses regex patterns to match various column name formats
  */
 const COLUMN_PATTERNS = {
-    teamName: /team|batch|group|squad/i,
-    students: /student.*name|name|member|participant/i,
-    rollNumbers: /roll.*number|roll.*no|roll|htno/i,
-    guideName: /guide|mentor|supervisor|faculty|advisor|internal\s*guide/i,
-    projectTitle: /project|title|problem|topic|statement/i,
-    coe: /coe|domain|area|thrust|center|excellence|research/i,
-    year: /year|class.*year/i,
-    branch: /branch|department|dept/i,
-    section: /section|sec/i
+    projectId: /proj\s*id|batch|proj.*batch/i,
+    rollNumbers: /roll.*number|roll.*no|roll|htno|roll\s*no\(s\)/i,
+    students: /student.*name|name|member|participant|student\s*name\(s\)/i,
+    guideName: /guide|mentor|supervisor|faculty|advisor|internal\s*guide|name\s*of\s*guide/i,
+    projectTitle: /project|title|problem|topic|statement|project\s*title/i,
+    domain: /domain|research\s*area|area/i,
+    coeRc: /coe|rc|center|excellence|within\s*gnits|gnits/i
 };
 
 /**
@@ -39,16 +36,34 @@ function findColumnIndex(headers, pattern) {
 }
 
 /**
- * Find all column indices matching a pattern
+ * Extract COE from "GNITS, CoE-Deep Learning in Eye Disease Prognosis" format
  */
-function findAllColumnIndices(headers, pattern) {
-    const indices = [];
-    headers.forEach((header, index) => {
-        if (header && pattern.test(String(header))) {
-            indices.push(index);
+function extractCOE(coeRcString) {
+    if (!coeRcString || coeRcString === 'N/A') return 'N/A';
+    const parts = coeRcString.split(',').map(p => p.trim());
+    // Return first part (usually organization name)
+    for (const part of parts) {
+        if (!part.toLowerCase().includes('coe-') && !part.toLowerCase().includes('rc-')) {
+            return part || 'N/A';
         }
-    });
-    return indices;
+    }
+    return parts[0] || 'N/A';
+}
+
+/**
+ * Extract RC from "GNITS, CoE-Deep Learning in Eye Disease Prognosis" format
+ */
+function extractRC(coeRcString) {
+    if (!coeRcString || coeRcString === 'N/A') return 'N/A';
+    const parts = coeRcString.split(',').map(p => p.trim());
+    // Return part with CoE- or RC- prefix, or the longer descriptive part
+    for (const part of parts) {
+        if (part.toLowerCase().includes('coe-') || part.toLowerCase().includes('rc-')) {
+            return part || 'N/A';
+        }
+    }
+    // Return last part if no prefix found
+    return parts[parts.length - 1] || 'N/A';
 }
 
 /**
@@ -71,29 +86,29 @@ function parseExcelFile(fileBuffer) {
         }
 
         const headers = jsonData[0].map(h => normalizeText(h));
+        console.log('[Parser] Headers detected:', headers);
 
         // Find column indices
-        const teamNameIndex = findColumnIndex(headers, COLUMN_PATTERNS.teamName);
+        const projectIdIndex = findColumnIndex(headers, COLUMN_PATTERNS.projectId);
+        const rollNumberIndex = findColumnIndex(headers, COLUMN_PATTERNS.rollNumbers);
+        const studentNameIndex = findColumnIndex(headers, COLUMN_PATTERNS.students);
         const guideNameIndex = findColumnIndex(headers, COLUMN_PATTERNS.guideName);
         const projectTitleIndex = findColumnIndex(headers, COLUMN_PATTERNS.projectTitle);
-        const coeIndex = findColumnIndex(headers, COLUMN_PATTERNS.coe);
-        const yearIndex = findColumnIndex(headers, COLUMN_PATTERNS.year);
-        const branchIndex = findColumnIndex(headers, COLUMN_PATTERNS.branch);
-        const sectionIndex = findColumnIndex(headers, COLUMN_PATTERNS.section);
+        const domainIndex = findColumnIndex(headers, COLUMN_PATTERNS.domain);
+        const coeRcIndex = findColumnIndex(headers, COLUMN_PATTERNS.coeRc);
 
-        // Find all student name and roll number columns
-        const studentNameIndices = findAllColumnIndices(headers, COLUMN_PATTERNS.students);
-        const rollNumberIndices = findAllColumnIndices(headers, COLUMN_PATTERNS.rollNumbers);
+        console.log('[Parser] Column indices:', {
+            projectIdIndex, rollNumberIndex, studentNameIndex, guideNameIndex,
+            projectTitleIndex, domainIndex, coeRcIndex
+        });
 
-        // Group rows by team/batch name
-        const teamGroups = {};
-        let lastTeamName = '';
+        // Group rows by project ID
+        const projectGroups = {};
+        let lastProjectId = '';
         let lastGuideName = '';
         let lastProjectTitle = '';
-        let lastCoe = 'N/A';
-        let lastYear = '4th';
-        let lastBranch = 'CSE';
-        let lastSection = 'A';
+        let lastDomain = 'N/A';
+        let lastCoeRc = 'N/A';
 
         for (let i = 1; i < jsonData.length; i++) {
             const row = jsonData[i];
@@ -103,145 +118,130 @@ function parseExcelFile(fileBuffer) {
                 continue;
             }
 
-            // Extract team name
-            let teamName = teamNameIndex >= 0 ? normalizeText(row[teamNameIndex]) : '';
+            // Extract fields
+            const projectId = projectIdIndex >= 0 ? normalizeText(row[projectIdIndex]) : '';
+            const rollNumber = rollNumberIndex >= 0 ? normalizeText(row[rollNumberIndex]) : '';
+            const studentName = studentNameIndex >= 0 ? normalizeText(row[studentNameIndex]) : '';
+            const guideName = guideNameIndex >= 0 ? normalizeText(row[guideNameIndex]) : '';
+            const projectTitle = projectTitleIndex >= 0 ? normalizeText(row[projectTitleIndex]) : '';
+            const domain = domainIndex >= 0 ? normalizeText(row[domainIndex]) : '';
+            const coeRc = coeRcIndex >= 0 ? normalizeText(row[coeRcIndex]) : '';
 
-            // Extract all student names and roll numbers from multiple columns on this row
-            const rowStudents = [];
-            const rowRolls = [];
+            // Fill down values (for merged cells in Excel)
+            const currentProjectId = projectId || lastProjectId;
+            const currentGuideName = guideName || lastGuideName;
+            const currentProjectTitle = projectTitle || lastProjectTitle;
+            const currentDomain = domain || lastDomain;
+            const currentCoeRc = coeRc || lastCoeRc;
 
-            studentNameIndices.forEach((idx, sIdx) => {
-                const name = normalizeText(row[idx]);
-                // Try to find matching roll number in the same relative position if multiple roll columns exist
-                const rollIdx = rollNumberIndices[sIdx] !== undefined ? rollNumberIndices[sIdx] : (rollNumberIndices[0] || -1);
-                const roll = rollIdx >= 0 ? normalizeText(row[rollIdx]) : '';
-
-                if (name && name !== 'N/A' && name !== '-') {
-                    rowStudents.push(name);
-                    rowRolls.push(roll);
-                }
-            });
-
-            // Fill down team name if empty (MERGED CELLS)
-            if (!teamName && lastTeamName && rowStudents.length > 0) {
-                teamName = lastTeamName;
-            }
-
-            if (!teamName) continue;
-            lastTeamName = teamName;
-
-            // Extract other fields
-            let guideName = guideNameIndex >= 0 ? normalizeText(row[guideNameIndex]) : '';
-            let projectTitle = projectTitleIndex >= 0 ? normalizeText(row[projectTitleIndex]) : '';
-            let coe = coeIndex >= 0 ? normalizeText(row[coeIndex]) : '';
-            let year = yearIndex >= 0 ? normalizeText(row[yearIndex]) : '';
-            let branch = branchIndex >= 0 ? normalizeText(row[branchIndex]) : '';
-            let section = sectionIndex >= 0 ? normalizeText(row[sectionIndex]) : '';
-
-            // Fill down other fields if they are merged too
-            if (!guideName && lastGuideName) guideName = lastGuideName;
-            if (!projectTitle && lastProjectTitle) projectTitle = lastProjectTitle;
-            if (!coe && lastCoe !== 'N/A') coe = lastCoe;
-            if (!year && lastYear) year = lastYear;
-            if (!branch && lastBranch) branch = lastBranch;
-            if (!section && lastSection) section = lastSection;
-
+            // Update last values
+            if (projectId) lastProjectId = projectId;
             if (guideName) lastGuideName = guideName;
             if (projectTitle) lastProjectTitle = projectTitle;
-            if (coe) lastCoe = coe;
-            if (year) lastYear = year;
-            if (branch) lastBranch = branch;
-            if (section) lastSection = section;
+            if (domain) lastDomain = domain;
+            if (coeRc) lastCoeRc = coeRc;
 
-            // Initialize team group if not exists
-            if (!teamGroups[teamName]) {
-                teamGroups[teamName] = {
-                    teamName,
-                    guideName: guideName || 'N/A',
-                    projectTitle: projectTitle || 'N/A',
-                    coe: coe || 'N/A',
-                    year: year || '4th',
-                    branch: branch || 'CSE',
-                    section: section || 'A',
+            // Skip if no project ID
+            if (!currentProjectId) continue;
+
+            // Initialize project group if not exists
+            if (!projectGroups[currentProjectId]) {
+                projectGroups[currentProjectId] = {
+                    projectId: currentProjectId,
+                    guideName: currentGuideName || 'N/A',
+                    projectTitle: currentProjectTitle || 'N/A',
+                    domain: currentDomain || 'N/A',
+                    coeRc: currentCoeRc || 'N/A',
                     students: [],
-                    rollNumbers: []
+                    rollNumbers: [],
+                    // Parse COE and RC
+                    coe: extractCOE(currentCoeRc),
+                    rc: extractRC(currentCoeRc)
                 };
             }
 
-            // Add students found on this row
-            rowStudents.forEach((s, idx) => {
-                // Prevent duplicate students in the SAME team (if row has redundant data)
-                if (!teamGroups[teamName].students.includes(s)) {
-                    teamGroups[teamName].students.push(s);
-                    if (rowRolls[idx]) {
-                        teamGroups[teamName].rollNumbers.push(rowRolls[idx]);
-                    }
+            // Add student if both name and roll are present
+            if (studentName && rollNumber) {
+                // Prevent duplicate students
+                if (!projectGroups[currentProjectId].students.includes(studentName)) {
+                    projectGroups[currentProjectId].students.push(studentName);
+                    projectGroups[currentProjectId].rollNumbers.push(rollNumber);
                 }
-            });
+            }
 
-            // Update fields if they were N/A before but now have values
-            if (teamGroups[teamName].guideName === 'N/A' && guideName) teamGroups[teamName].guideName = guideName;
-            if (teamGroups[teamName].projectTitle === 'N/A' && projectTitle) teamGroups[teamName].projectTitle = projectTitle;
-            if (teamGroups[teamName].coe === 'N/A' && coe && coe !== 'N/A') teamGroups[teamName].coe = coe;
+            // Update group fields
+            if (projectGroups[currentProjectId].guideName === 'N/A' && currentGuideName) {
+                projectGroups[currentProjectId].guideName = currentGuideName;
+            }
+            if (projectGroups[currentProjectId].projectTitle === 'N/A' && currentProjectTitle) {
+                projectGroups[currentProjectId].projectTitle = currentProjectTitle;
+            }
+            if (projectGroups[currentProjectId].domain === 'N/A' && currentDomain) {
+                projectGroups[currentProjectId].domain = currentDomain;
+            }
         }
 
         // Convert grouped data to records array
-        const records = Object.values(teamGroups).map(group => {
-            console.log(`[Parser] Team "${group.teamName}": Extracted ${group.students.length} students`);
+        const records = Object.values(projectGroups).map(group => {
+            console.log(`[Parser] Project "${group.projectId}": ${group.students.length} students, Domain: "${group.domain}", COE: "${group.coe}", RC: "${group.rc}"`);
             return {
-                teamName: group.teamName || 'N/A',
+                projectId: group.projectId || 'N/A',
+                teamName: group.projectId || 'N/A', // Use projectId as teamName for compatibility
                 students: group.students.length > 0 ? group.students : ['N/A'],
                 rollNumbers: group.rollNumbers.length > 0 ? group.rollNumbers : [],
                 guideName: group.guideName || 'N/A',
                 projectTitle: group.projectTitle || 'N/A',
+                domain: group.domain || 'N/A',
                 coe: group.coe || 'N/A',
-                year: group.year,
-                branch: group.branch,
-                section: group.section
+                rc: group.rc || 'N/A',
+                year: '3rd', // Default year
+                branch: 'CSE', // Default branch
+                section: 'A', // Default section
+                department: 'CSE' // Default department
             };
         });
 
+        console.log(`[Parser] Successfully parsed ${records.length} projects`);
         return records;
     } catch (error) {
+        console.error('[Parser] Error:', error);
         throw new Error(`Failed to parse Excel file: ${error.message}`);
     }
 }
 
 /**
  * Merge records from multiple Excel files
- * Removes duplicates based on teamName + projectTitle
- * @param {Array} recordsArray - Array of record arrays
- * @returns {Array} Merged and deduplicated records
  */
 function mergeRecords(...recordsArray) {
     const merged = [];
     const seen = new Set();
 
     recordsArray.forEach(records => {
-        records.forEach(record => {
-            // Create unique key
-            const key = `${record.teamName.toLowerCase()}|${record.projectTitle.toLowerCase()}`;
+        if (Array.isArray(records)) {
+            records.forEach(record => {
+                // Create unique key
+                const key = `${record.projectId.toLowerCase()}|${record.projectTitle.toLowerCase()}`;
 
-            if (!seen.has(key)) {
-                seen.add(key);
-                merged.push(record);
-            }
-        });
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    merged.push(record);
+                }
+            });
+        }
     });
 
+    console.log(`[Parser] Merged ${merged.length} unique records from all files`);
     return merged;
 }
 
 /**
  * Validate extracted record
- * @param {Object} record - Record to validate
- * @returns {Object} Validation result { valid: boolean, errors: Array }
  */
 function validateRecord(record) {
     const errors = [];
 
-    if (!record.teamName || record.teamName === 'N/A') {
-        errors.push('Team name is missing');
+    if (!record.projectId || record.projectId === 'N/A') {
+        errors.push('Project ID is missing');
     }
 
     if (!record.guideName || record.guideName === 'N/A') {
@@ -266,5 +266,7 @@ module.exports = {
     parseExcelFile,
     mergeRecords,
     validateRecord,
-    normalizeText
+    normalizeText,
+    extractCOE,
+    extractRC
 };

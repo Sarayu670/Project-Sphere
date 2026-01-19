@@ -36,6 +36,7 @@ export const deleteProblem = (id) => axios.delete(`${API_URL}/problems/${id}`);
 // Batches
 export const getAllBatches = () => axios.get(`${API_URL}/batches`);
 export const searchBatches = (query) => axios.get(`${API_URL}/batches/search`, { params: { query } });
+export const searchAllBatches = (query) => axios.get(`${API_URL}/batches/search-all`, { params: { q: query } });
 export const getMyBatch = () => axios.get(`${API_URL}/batches/my-batch`);
 export const getBatch = (id) => axios.get(`${API_URL}/batches/${id}`);
 export const createBatch = (data) => axios.post(`${API_URL}/batches`, data);
@@ -106,3 +107,27 @@ export const importProjectExcelFiles = (files) => {
   });
 };
 export const deleteAllProjects = () => axios.delete(`${API_URL}/projects/all`);
+
+// New ProjectEntry search endpoints
+export const searchProjectEntries = (query) => axios.get(`${API_URL}/projects/search-projects`, { params: { q: query } });
+export const getAllProjectEntries = (page = 1, limit = 10) => axios.get(`${API_URL}/projects/all-entries`, { params: { page, limit } });
+export const getProjectEntry = (id) => axios.get(`${API_URL}/projects/entry/${id}`);
+
+// Filter endpoints
+export const filterProjectsByDomain = (domain) => axios.get(`${API_URL}/projects/filter/domain`, { params: { domain } });
+export const filterProjectsByCOE = (coe) => axios.get(`${API_URL}/projects/filter/coe`, { params: { coe } });
+export const filterProjectsByRC = (rc) => axios.get(`${API_URL}/projects/filter/rc`, { params: { rc } });
+export const filterProjectsByGuide = (guide) => axios.get(`${API_URL}/projects/filter/guide`, { params: { guide } });
+
+// Metadata endpoints
+export const getProjectDomains = () => axios.get(`${API_URL}/projects/meta/domains`);
+export const getProjectCOEs = () => axios.get(`${API_URL}/projects/meta/coes`);
+export const getProjectRCs = () => axios.get(`${API_URL}/projects/meta/rcs`);
+
+// RC endpoints
+export const getAllRCs = () => axios.get(`${API_URL}/rc`);
+export const getRC = (id) => axios.get(`${API_URL}/rc/${id}`);
+export const searchRCs = (query) => axios.get(`${API_URL}/rc/search`, { params: { q: query } });
+export const createRC = (data) => axios.post(`${API_URL}/rc`, data);
+export const updateRC = (id, data) => axios.put(`${API_URL}/rc/${id}`, data);
+export const deleteRC = (id) => axios.delete(`${API_URL}/rc/${id}`);

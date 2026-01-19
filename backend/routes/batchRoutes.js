@@ -11,12 +11,14 @@ const {
   getOptedTeams,
   allotProblem,
   rejectProblem,
-  searchBatches
+  searchBatches,
+  searchAllBatches
 } = require('../controllers/batchController');
 const { protect, authorize } = require('../middleware/auth');
 
 router.get('/', protect, getAllBatches);
 router.get('/search', searchBatches);
+router.get('/search-all', searchAllBatches); // NEW: Search with full team member details
 router.get('/guide/:guideId', getBatchesByGuide);
 router.get('/my-batch', protect, authorize('student'), getMyBatch);
 router.get('/opted-teams', protect, authorize('guide'), getOptedTeams);

@@ -3,8 +3,163 @@ const ProblemStatement = require('../models/ProblemStatement');
 const Guide = require('../models/Guide');
 const TeamMember = require('../models/TeamMember');
 
-// @desc    Get all batches
-// @route   GET /api/batches
+// @desc    Search batches by query (team, guide, domain, COE, RC, student)
+// @route   GET /api/batches/search-all?q=query
+exports.searchAllBatches = async (req, res) => {
+  try {
+    const { q } = req.query;
+
+    if (!q || q.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        message: 'Search query is required'
+      });
+    }
+
+    const searchRegex = new RegExp(q.trim(), 'i');
+
+    // Find matching batches
+    let batches = await Batch.find({
+      $or: [
+        { teamName: searchRegex },
+        { domain: searchRegex },
+        { 'coe.name': searchRegex },
+        { 'rc.name': searchRegex },
+        { 'guideId.name': searchRegex }
+      ]
+    })
+    .populate('leaderStudentId', 'name rollNumber email branch')
+    .populate({
+      path: 'problemId',
+      select: 'title description coeId guideId targetYear',
+      populate: {
+        path: 'coeId',
+        select: 'name'
+      }
+    })
+    .populate('optedProblemId', 'title description')
+    .populate('coeId', 'name')
+    .populate('guideId', 'name email');
+
+    // Get team members for each batch
+    batches = await Promise.all(
+      batches.map(async (batch) => {
+        const batchObj = batch.toObject();
+
+        // Get team members
+        const [students, teamMembersList] = await Promise.all([
+          require('../models/Student').find({ batchId: batch._id }).select('name rollNumber branch'),
+          require('../models/TeamMember').find({ batchId: batch._id }).select('name rollNo branch')
+        ]);
+
+        // Merge and deduplicate
+        const combinedMembers = new Map();
+
+        students.forEach(s => {
+          if (s.rollNumber) combinedMembers.set(s.rollNumber.toLowerCase(), {
+            _id: s._id,
+            name: s.name,
+            rollNo: s.rollNumber,
+            branch: s.branch
+          });
+        });
+
+        teamMembersList.forEach(tm => {
+          if (tm.rollNo && !combinedMembers.has(tm.rollNo.toLowerCase())) {
+            combinedMembers.set(tm.rollNo.toLowerCase(), {
+              _id: tm._id,
+              name: tm.name,
+              rollNo: tm.rollNo,
+              branch: tm.branch
+            });
+          }
+        });
+
+        batchObj.teamMembers = Array.from(combinedMembers.values());
+        return batchObj;
+      })
+    );
+
+    // Also search by team member names (without modifying guide names)
+    const batchesWithMembers = await Batch.find()
+      .populate('guideId', 'name email')
+      .populate('problemId', 'title')
+      .populate('coeId', 'name');
+
+    const additionalMatches = await Promise.all(
+      batchesWithMembers.map(async (batch) => {
+        const students = await require('../models/Student').find({ batchId: batch._id });
+        const hasMatch = students.some(s => 
+          searchRegex.test(s.name) || searchRegex.test(s.rollNumber)
+        );
+        
+        if (hasMatch) {
+          return batch;
+        }
+        return null;
+      })
+    );
+
+    const additionalBatches = additionalMatches.filter(b => b !== null);
+
+    // Combine and deduplicate
+    const batchIds = new Set();
+    const allMatches = [];
+
+    batches.forEach(b => {
+      batchIds.add(b._id.toString());
+      allMatches.push(b);
+    });
+
+    for (const batch of additionalBatches) {
+      if (!batchIds.has(batch._id.toString())) {
+        const batchObj = batch.toObject();
+        const [students, teamMembersList] = await Promise.all([
+          require('../models/Student').find({ batchId: batch._id }).select('name rollNumber branch'),
+          require('../models/TeamMember').find({ batchId: batch._id }).select('name rollNo branch')
+        ]);
+
+        const combinedMembers = new Map();
+        students.forEach(s => {
+          if (s.rollNumber) combinedMembers.set(s.rollNumber.toLowerCase(), {
+            _id: s._id,
+            name: s.name,
+            rollNo: s.rollNumber,
+            branch: s.branch
+          });
+        });
+
+        teamMembersList.forEach(tm => {
+          if (tm.rollNo && !combinedMembers.has(tm.rollNo.toLowerCase())) {
+            combinedMembers.set(tm.rollNo.toLowerCase(), {
+              _id: tm._id,
+              name: tm.name,
+              rollNo: tm.rollNo,
+              branch: tm.branch
+            });
+          }
+        });
+
+        batchObj.teamMembers = Array.from(combinedMembers.values());
+        allMatches.push(batchObj);
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      count: allMatches.length,
+      data: allMatches
+    });
+  } catch (error) {
+    console.error('Search batches error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to search batches',
+      error: error.message
+    });
+  }
+};
+
 exports.getAllBatches = async (req, res) => {
   try {
     let batches = await Batch.find()

@@ -4,7 +4,7 @@ const BatchSchema = new mongoose.Schema({
   leaderStudentId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Student',
-    required: [true, 'Leader student is required']
+    default: null  // CHANGED: No longer required
   },
   teamName: {
     type: String,
@@ -27,6 +27,42 @@ const BatchSchema = new mongoose.Schema({
     enum: ['A', 'B', 'C', 'D', 'E'],
     required: [true, 'Section is required']
   },
+  
+  // Project Domain (from Excel import)
+  domain: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  
+  // COE (Center of Excellence) - from Excel import
+  coe: {
+    name: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    coeId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'COE',
+      default: null
+    }
+  },
+  
+  // RC (Resource Coordinator) - from Excel import
+  rc: {
+    name: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    rcId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'RC',
+      default: null
+    }
+  },
+  
   // Multiple opted problems (up to 3)
   optedProblems: [{
     problemId: {
@@ -79,6 +115,9 @@ const BatchSchema = new mongoose.Schema({
     default: 'Not Started'
   }
 }, { timestamps: true });
+
+// Index for search
+BatchSchema.index({ teamName: 'text', domain: 'text', 'coe.name': 'text', 'rc.name': 'text' });
 
 module.exports = mongoose.model('Batch', BatchSchema);
 

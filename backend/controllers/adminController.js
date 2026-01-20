@@ -432,38 +432,62 @@ exports.importBatchData = async (req, res) => {
 // @route   GET /api/admin/search-batches-by-guide
 exports.searchBatchesByGuide = async (req, res) => {
   try {
-    const { guideName } = req.query;
+    const { guideName, type = 'all' } = req.query; // 'guideName' is the query term
     const Problem = require('../models/ProblemStatement');
+    const COE = require('../models/COE');
 
     if (!guideName || guideName.trim() === '') {
       return res.status(400).json({ success: false, message: 'Search term is required' });
     }
 
-    // Search for guides by name (case-insensitive PARTIAL match)
-    const guides = await Guide.find({
-      name: { $regex: guideName, $options: 'i' }
-    });
+    const searchRegex = { $regex: guideName, $options: 'i' };
 
-    // Also search for problems by title
-    const problems = await Problem.find({
-      title: { $regex: guideName, $options: 'i' }
-    });
+    let guides = [];
+    let guideIds = [];
+    let coeIds = [];
+    let problemIds = [];
 
-    const guideIds = guides.map(g => g._id);
-    const problemIds = problems.map(p => p._id);
+    // 1. Search Guides
+    if (type === 'all' || type === 'guide') {
+      guides = await Guide.find({ name: searchRegex });
+      guideIds = guides.map(g => g._id);
+    }
 
-    // Find batches that match either guide OR problem
+    // 2. Search COEs
+    if (type === 'all' || type === 'coe') {
+      const coes = await COE.find({ name: searchRegex });
+      coeIds = coes.map(c => c._id);
+    }
+
+    // 3. Search Problems
+    const problemQuery = [];
+    if (type === 'all' || type === 'problem') problemQuery.push({ title: searchRegex });
+    if (type === 'all' || type === 'research') problemQuery.push({ researchArea: searchRegex });
+    // If searching by COE, find problems linked to those COEs
+    if (coeIds.length > 0) problemQuery.push({ coeId: { $in: coeIds } });
+
+    if (problemQuery.length > 0) {
+      const problems = await Problem.find({ $or: problemQuery });
+      problemIds = problems.map(p => p._id);
+    }
+
+    // 4. Find Batches matching specific criteria
+    let batchQuery = [];
+    if (guideIds.length > 0) batchQuery.push({ guideId: { $in: guideIds } });
+    if (problemIds.length > 0) batchQuery.push({ problemId: { $in: problemIds } });
+    if (coeIds.length > 0) batchQuery.push({ coeId: { $in: coeIds } });
+
+    console.log(`[Search] Query: "${guideName}", Type: "${type}"`);
+    console.log(`[Search] Found: Guides=${guideIds.length}, Problems=${problemIds.length}, COEs=${coeIds.length}`);
+
     let batches = [];
-    if (guideIds.length > 0 || problemIds.length > 0) {
-      batches = await Batch.find({
-        $or: [
-          { guideId: { $in: guideIds } },
-          { problemId: { $in: problemIds } }
-        ]
-      })
+    if (batchQuery.length > 0) {
+      batches = await Batch.find({ $or: batchQuery })
         .populate('guideId', 'name email')
         .lean();
     }
+
+    console.log(`[Search] Batches found: ${batches.length}`);
 
     if (batches.length === 0) {
       return res.status(404).json({
@@ -472,10 +496,20 @@ exports.searchBatchesByGuide = async (req, res) => {
       });
     }
 
-    // Get the primary guide (first match or guide from first batch)
-    let primaryGuide = guides[0];
-    if (!primaryGuide && batches[0]?.guideId) {
+    // Determine what to show as the "Header Name"
+    let displayHeader = 'Search Results';
+    let primaryGuide = null;
+
+    if ((type === 'all' || type === 'guide') && guides.length > 0) {
+      primaryGuide = guides[0];
+      displayHeader = primaryGuide.name;
+    } else if (batches[0]?.guideId && type === 'all' && guides.length === 0) {
+      // Fallback for "All" search if it matched a problem but not a guide name directly
       primaryGuide = batches[0].guideId;
+      displayHeader = primaryGuide.name;
+    } else {
+      // For COE/Research/Problem search, use the search term itself as header
+      displayHeader = `Results for "${guideName}"`;
     }
 
     // Get students for each batch
@@ -513,7 +547,7 @@ exports.searchBatchesByGuide = async (req, res) => {
       data: {
         guide: {
           id: primaryGuide?._id,
-          name: primaryGuide?.name || 'Multiple Guides'
+          name: displayHeader // Use the smart header we calculated
         },
         batches: batchesWithStudents,
         totalBatches: batchesWithStudents.length,
@@ -523,5 +557,5 @@ exports.searchBatchesByGuide = async (req, res) => {
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
-};
 
+};

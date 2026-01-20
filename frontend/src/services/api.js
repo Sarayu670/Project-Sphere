@@ -36,6 +36,7 @@ export const deleteProblem = (id) => axios.delete(`${API_URL}/problems/${id}`);
 // Batches
 export const getAllBatches = () => axios.get(`${API_URL}/batches`);
 export const searchBatches = (query) => axios.get(`${API_URL}/batches/search`, { params: { query } });
+export const searchBatchesByGuide = (guideName, type = 'all') => axios.get(`${API_URL}/admin/search-batches-by-guide`, { params: { guideName, type } });
 export const searchAllBatches = (query) => axios.get(`${API_URL}/batches/search-all`, { params: { q: query } });
 export const getMyBatch = () => axios.get(`${API_URL}/batches/my-batch`);
 export const getBatch = (id) => axios.get(`${API_URL}/batches/${id}`);
@@ -71,7 +72,7 @@ export const importBatchData = (file) => {
     headers: { 'Content-Type': 'multipart/form-data' }
   });
 };
-export const searchBatchesByGuide = (guideName) => axios.get(`${API_URL}/admin/search-batches-by-guide`, { params: { guideName } });
+
 
 // Timeline
 export const getAllTimelineEvents = (year) => axios.get(`${API_URL}/timeline`, { params: { year } });

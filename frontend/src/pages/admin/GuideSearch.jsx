@@ -3,6 +3,7 @@ import * as api from '../../services/api';
 
 function GuideSearch() {
   const [guideName, setGuideName] = useState('');
+  const [searchType, setSearchType] = useState('all');
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState(null);
   const [projects, setProjects] = useState([]);
@@ -24,7 +25,7 @@ function GuideSearch() {
     try {
       // Search both batches and imported projects
       const [batchesResponse, projectsResponse] = await Promise.all([
-        api.searchBatchesByGuide(guideName),
+        api.searchBatchesByGuide(guideName, searchType),
         api.searchProjects(guideName) // Search projects by guide name
       ]);
 
@@ -58,10 +59,10 @@ function GuideSearch() {
           studentCount: batch.studentCount,
           leaderStudent: batch.leaderStudent,
           // Use the populated guide name if available, otherwise fallback
-          guideName: batch.guideId?.name || results.guide.name,
-          projectTitle: 'N/A',
-          researchArea: 'N/A',
-          coe: 'N/A',
+          guideName: batch.guideName || results.guide.name,
+          projectTitle: batch.projectTitle || 'N/A',
+          researchArea: batch.researchArea || 'N/A',
+          coe: batch.coe || 'N/A',
           isProject: false
         });
       });
@@ -119,15 +120,39 @@ function GuideSearch() {
       <div className="card" style={{ padding: '24px', maxWidth: '100%' }}>
         <form onSubmit={handleSearch} style={{ marginBottom: '24px' }}>
           <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end' }}>
+            {/* New Search Type Dropdown */}
+            <div style={{ width: '200px' }}>
+              <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', color: '#2d3748' }}>
+                Search By
+              </label>
+              <select
+                value={searchType}
+                onChange={(e) => setSearchType(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  border: '2px solid #cbd5e0',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  backgroundColor: 'white'
+                }}
+              >
+                <option value="all">All Fields</option>
+                <option value="guide">Guide Name</option>
+                <option value="problem">Problem Title</option>
+                <option value="research">Research Area</option>
+                <option value="coe">COE / RC</option>
+              </select>
+            </div>
             <div style={{ flex: 1 }}>
               <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', color: '#2d3748' }}>
-                Search by Guide or Problem
+                Search Term
               </label>
               <input
                 type="text"
                 value={guideName}
                 onChange={(e) => setGuideName(e.target.value)}
-                placeholder="e.g., Mrs. Nanda Devi. D.R or Machine Learning"
+                placeholder="e.g., Deep Learning, IOT, or Guide Name"
                 style={{
                   width: '100%',
                   padding: '12px',

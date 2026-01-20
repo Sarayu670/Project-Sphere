@@ -15,6 +15,11 @@ const ProblemStatementSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  researchArea: {
+    type: String,
+    trim: true,
+    index: true
+  },
   // Target year of study for this problem statement
   targetYear: {
     type: String,

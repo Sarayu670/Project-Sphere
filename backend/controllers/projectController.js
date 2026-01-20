@@ -155,6 +155,7 @@ exports.importExcelFiles = async (req, res) => {
                             {
                                 title: record.projectTitle,
                                 description: `Project: ${record.projectTitle}`,
+                                researchArea: record.researchArea || 'N/A',
                                 coeId: coe ? coe._id : null,
                                 guideId: guide ? guide._id : null,
                                 targetYear: record.year || '4th',

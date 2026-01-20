@@ -95,7 +95,12 @@ export const addSubmissionComment = (id, comment) => axios.post(`${API_URL}/subm
 export const assignSubmissionMarks = (id, marks, status) => axios.post(`${API_URL}/submissions/${id}/marks`, { marks, status });
 export const addAdminRemark = (id, remark) => axios.post(`${API_URL}/submissions/${id}/admin-remark`, { remark });
 
-// Projects (Excel Import & Smart Search)
+// Chat
+export const getGuideChats = () => axios.get(`${API_URL}/chat/guide/chats`);
+export const summarizeProject = (projectId) => axios.post(`${API_URL}/chat/summarize/${projectId}`);
+export const getProjectSummaries = (projectId) => axios.get(`${API_URL}/chat/summaries/${projectId}`);
+export const summarizeBatch = (batchId) => axios.post(`${API_URL}/chat/summarize-batch/${batchId}`);
+export const getBatchSummaries = (batchId) => axios.get(`${API_URL}/chat/summaries-batch/${batchId}`);
 export const getAllProjects = () => axios.get(`${API_URL}/projects`);
 export const searchProjects = (query) => axios.get(`${API_URL}/projects/search`, { params: { q: query } });
 export const importProjectExcelFiles = (files) => {
@@ -113,6 +118,7 @@ export const deleteAllProjects = () => axios.delete(`${API_URL}/projects/all`);
 export const searchProjectEntries = (query) => axios.get(`${API_URL}/projects/search-projects`, { params: { q: query } });
 export const getAllProjectEntries = (page = 1, limit = 10) => axios.get(`${API_URL}/projects/all-entries`, { params: { page, limit } });
 export const getProjectEntry = (id) => axios.get(`${API_URL}/projects/entry/${id}`);
+export const getProjectEntryByBatchId = (batchId) => axios.get(`${API_URL}/projects/entry/batch/${batchId}`);
 
 // Filter endpoints
 export const filterProjectsByDomain = (domain) => axios.get(`${API_URL}/projects/filter/domain`, { params: { domain } });

@@ -11,6 +11,7 @@ const {
     searchProjectEntries,
     getAllProjectEntries,
     getProjectEntry,
+    getProjectEntryByBatchId,
     filterByDomain,
     filterByCOE,
     filterByRC,
@@ -51,6 +52,7 @@ router.get('/', getAllProjects);
 // Public routes - New (ProjectEntry model with multi-field search)
 router.get('/search-projects', searchProjectEntries);
 router.get('/all-entries', getAllProjectEntries);
+router.get('/entry/batch/:batchId', getProjectEntryByBatchId);
 router.get('/entry/:id', getProjectEntry);
 
 // Filter endpoints

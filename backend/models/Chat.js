@@ -16,6 +16,10 @@ const ChatSchema = new mongoose.Schema({
     ref: 'Guide',
     required: true
   },
+  projectId: {
+    type: String,
+    index: true
+  },
   messages: [{
     senderId: {
       type: mongoose.Schema.Types.ObjectId,

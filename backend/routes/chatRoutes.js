@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
-const { protect } = require('../middleware/auth');
+const { protect, authorize } = require('../middleware/auth');
 const {
   getGuideChats,
   getStudentChat,
@@ -13,6 +13,13 @@ const {
   markChatAsRead,
   uploadChatFile
 } = require('../controllers/chatController');
+
+const {
+  generateProjectSummaries,
+  getProjectSummaries,
+  generateBatchSummaries,
+  getBatchSummaries
+} = require('../controllers/chatSummaryController');
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -42,6 +49,12 @@ const upload = multer({
 
 // Chat routes - protected
 router.use(protect);
+
+// Summary routes - accessible by admin, student, and guide
+router.post('/summarize/:projectId', authorize('admin', 'student', 'guide'), generateProjectSummaries);
+router.get('/summaries/:projectId', authorize('admin', 'student', 'guide'), getProjectSummaries);
+router.post('/summarize-batch/:batchId', authorize('admin', 'student', 'guide'), generateBatchSummaries);
+router.get('/summaries-batch/:batchId', authorize('admin', 'student', 'guide'), getBatchSummaries);
 
 // More specific routes first
 router.get('/guide/chats', getGuideChats);

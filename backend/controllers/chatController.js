@@ -2,6 +2,7 @@ const Chat = require('../models/Chat');
 const TeamMember = require('../models/TeamMember');
 const Batch = require('../models/Batch');
 const Guide = require('../models/Guide');
+const ProjectEntry = require('../models/ProjectEntry');
 
 // Get all chats for a guide (all batches and teams)
 exports.getGuideChats = async (req, res) => {
@@ -88,10 +89,18 @@ exports.sendMessage = async (req, res) => {
         guideId = batch.guideId;
       }
 
+      // Try to find projectId from ProjectEntry
+      let projectId = null;
+      const projectEntry = await ProjectEntry.findOne({ batchId });
+      if (projectEntry) {
+        projectId = projectEntry.projectId;
+      }
+
       chat = new Chat({
         batchId,
         teamMemberId,
         guideId,
+        projectId,
         messages: []
       });
     }

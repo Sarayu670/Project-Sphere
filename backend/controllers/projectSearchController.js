@@ -294,6 +294,41 @@ exports.filterByGuide = async (req, res) => {
 };
 
 /**
+ * @desc    Get project entry by batch ID
+ * @route   GET /api/projects/entry/batch/:batchId
+ * @access  Public
+ */
+exports.getProjectEntryByBatchId = async (req, res) => {
+  try {
+    const project = await ProjectEntry.findOne({ batchId: req.params.batchId })
+      .populate('internalGuide.guideId', 'name email')
+      .populate('coe.coeId', 'name')
+      .populate('rc.rcId', 'name')
+      .populate('batchId')
+      .lean();
+
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        message: 'Project not found for this batch'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: project
+    });
+  } catch (error) {
+    console.error('Get project by batch error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get project',
+      error: error.message
+    });
+  }
+};
+
+/**
  * @desc    Get available domains
  * @route   GET /api/projects/meta/domains
  * @access  Public

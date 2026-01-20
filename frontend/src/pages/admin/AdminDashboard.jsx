@@ -52,8 +52,8 @@ function AdminDashboard() {
     }
   };
 
-  useEffect(() => { 
-    fetchData(); 
+  useEffect(() => {
+    fetchData();
   }, [activeTab]);
 
   const getBatchesForCOE = (coeId) => batches.filter(b => b.coeId?._id === coeId || b.coeId === coeId);
@@ -196,8 +196,7 @@ function AdminDashboard() {
                   <tr>
                     <th>Team Name</th>
                     <th>Team Members</th>
-                    <th>Class</th>
-                    <th>COE</th>
+                    <th>COE/RC</th>
                     <th>Guide</th>
                     <th>Problem</th>
                     <th>Actions</th>
@@ -216,7 +215,7 @@ function AdminDashboard() {
                           ))}
                         </div>
                       </td>
-                      <td>{batch.year} {batch.branch}-{batch.section}</td>
+
                       <td>{batch.coeId?.name || 'Not Assigned'}</td>
                       <td>{batch.guideId?.name || 'Not Assigned'}</td>
                       <td>{batch.problemId?.title || 'Not Assigned'}</td>
@@ -403,7 +402,6 @@ function AdminDashboard() {
                 <thead>
                   <tr>
                     <th>Team Name</th>
-                    <th>Class</th>
                     <th>Leader</th>
                     <th>Problem Statement</th>
                     <th>Guide/Mentor</th>
@@ -414,7 +412,7 @@ function AdminDashboard() {
                   {getBatchesForCOE(selectedCOE._id).map(batch => (
                     <tr key={batch._id}>
                       <td><strong>{batch.teamName}</strong></td>
-                      <td>{batch.year} {batch.branch}-{batch.section}</td>
+
                       <td>{batch.leaderStudentId?.name}<br /><small style={{ color: '#888' }}>{batch.leaderStudentId?.email}</small></td>
                       <td>{batch.problemId?.title || batch.optedProblemId?.title || '-'}</td>
                       <td>{batch.guideId?.name || <span style={{ color: '#f59e0b' }}>Pending</span>}<br /><small style={{ color: '#888' }}>{batch.guideId?.email}</small></td>

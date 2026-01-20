@@ -102,7 +102,7 @@ export const getProjectSummaries = (projectId) => axios.get(`${API_URL}/chat/sum
 export const summarizeBatch = (batchId) => axios.post(`${API_URL}/chat/summarize-batch/${batchId}`);
 export const getBatchSummaries = (batchId) => axios.get(`${API_URL}/chat/summaries-batch/${batchId}`);
 export const getAllProjects = () => axios.get(`${API_URL}/projects`);
-export const searchProjects = (query) => axios.get(`${API_URL}/projects/search`, { params: { q: query } });
+export const searchProjects = (query, type = 'all') => axios.get(`${API_URL}/projects/search`, { params: { q: query, type } });
 export const importProjectExcelFiles = (files) => {
   const formData = new FormData();
   files.forEach((file, index) => {

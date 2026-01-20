@@ -301,7 +301,7 @@ exports.importExcelFiles = async (req, res) => {
  */
 exports.searchProjects = async (req, res) => {
     try {
-        const { q } = req.query;
+        const { q, type = 'all' } = req.query;
 
         if (!q || q.trim() === '') {
             return res.status(400).json({
@@ -311,17 +311,30 @@ exports.searchProjects = async (req, res) => {
         }
 
         const searchTerm = q.trim();
-
-        // Create case-insensitive regex pattern for partial matching
         const searchRegex = new RegExp(searchTerm, 'i');
 
-        // Search in both guideName and projectTitle fields
-        const projects = await Project.find({
-            $or: [
-                { guideName: searchRegex },
-                { projectTitle: searchRegex }
-            ]
-        }).sort({ createdAt: -1 });
+        // Build restrictive query based on type
+        let query = {};
+        if (type === 'all') {
+            query = {
+                $or: [
+                    { guideName: searchRegex },
+                    { projectTitle: searchRegex },
+                    { researchArea: searchRegex },
+                    { coe: searchRegex }
+                ]
+            };
+        } else if (type === 'guide') {
+            query = { guideName: searchRegex };
+        } else if (type === 'problem') {
+            query = { projectTitle: searchRegex };
+        } else if (type === 'research') {
+            query = { researchArea: searchRegex };
+        } else if (type === 'coe') {
+            query = { coe: searchRegex };
+        }
+
+        const projects = await Project.find(query).sort({ createdAt: -1 });
 
         res.status(200).json({
             success: true,

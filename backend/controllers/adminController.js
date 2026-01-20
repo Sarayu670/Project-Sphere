@@ -433,6 +433,9 @@ exports.importBatchData = async (req, res) => {
 exports.searchBatchesByGuide = async (req, res) => {
   try {
     const { guideName, type = 'all' } = req.query; // 'guideName' is the query term
+
+    console.log('[API] searchBatchesByGuide Params:', req.query); // DEBUG LOG
+
     const Problem = require('../models/ProblemStatement');
     const COE = require('../models/COE');
 

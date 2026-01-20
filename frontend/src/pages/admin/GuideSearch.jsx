@@ -26,7 +26,7 @@ function GuideSearch() {
       // Search both batches and imported projects
       const [batchesResponse, projectsResponse] = await Promise.all([
         api.searchBatchesByGuide(guideName, searchType),
-        api.searchProjects(guideName) // Search projects by guide name
+        api.searchProjects(guideName, searchType) // Pass searchType filter
       ]);
 
       setResults(batchesResponse.data.data);

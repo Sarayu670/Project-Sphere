@@ -19,12 +19,11 @@ export const generateChatReport = (chatData, teamName, guideName) => {
   const tableData = chatData.messages.map(msg => [
     new Date(msg.timestamp).toLocaleString(),
     msg.senderName,
-    msg.text || (msg.fileName ? `[File: ${msg.fileName}]` : ''),
-    msg.fileName ? 'Yes' : 'No'
+    msg.text || (msg.fileName ? `[File: ${msg.fileName}]` : '')
   ]);
   
   doc.autoTable({
-    head: [['Timestamp', 'Sender', 'Message', 'Attachment']],
+    head: [['Timestamp', 'Sender', 'Message']],
     body: tableData,
     startY: 55,
     margin: { top: 55 },
@@ -45,8 +44,7 @@ export const generateChatReport = (chatData, teamName, guideName) => {
     columnStyles: {
       0: { cellWidth: 45 },
       1: { cellWidth: 35 },
-      2: { cellWidth: 70 },
-      3: { cellWidth: 20 }
+      2: { cellWidth: 90 }
     }
   });
   

@@ -73,21 +73,104 @@ function BatchDisplayComponent() {
     }
   };
 
-  if (loading) {
-    return <div className="batch-display"><p>Loading batches...</p></div>;
-  }
+  // Download filtered batches as Excel with ALL columns
+  const downloadAsExcel = () => {
+    if (filtered.length === 0) {
+      alert('No results to download');
+      return;
+    }
+
+    try {
+      // Group batches and prepare CSV data with ALL columns
+      let csvContent = 'data:text/csv;charset=utf-8,';
+      csvContent += 'S.No,Proj ID/Batch,Roll No(s),Student Name(s),Guide,Project Title,Research Area,Year,Branch,Section,COE/RC\n';
+
+      let sNo = 1;
+      filtered.forEach((batch) => {
+        const batchName = batch.teamName || '-';
+        const guide = batch.guideId?.name || 'Not Assigned';
+        const domain = batch.domain || '-';
+        const year = batch.year || '-';
+        const branch = batch.branch || '-';
+        const section = batch.section || '-';
+        const coe = batch.coe?.name || batch.coeId?.name || '-';
+        const students = batch.teamMembers || [];
+        
+        if (students.length === 0) {
+          // If no students, show batch with empty student fields
+          const row = [
+            sNo,
+            `"${batchName.replace(/"/g, '""')}"`,
+            '-',
+            '-',
+            `"${guide.replace(/"/g, '""')}"`,
+            `"${domain.replace(/"/g, '""')}"`,
+            `"${domain.replace(/"/g, '""')}"`,
+            year,
+            branch,
+            section,
+            `"${coe.replace(/"/g, '""')}"`
+          ];
+          csvContent += row.join(',') + '\n';
+          sNo++;
+        } else {
+          // Show batch info on first student row, leave empty for subsequent students
+          students.forEach((student, idx) => {
+            const rollNo = student.rollNo || '-';
+            const studentName = student.name || '-';
+            const row = [
+              idx === 0 ? sNo : '',  // S.No only on first student
+              idx === 0 ? `"${batchName.replace(/"/g, '""')}"` : '',  // Batch only on first
+              rollNo,
+              `"${studentName.replace(/"/g, '""')}"`,
+              idx === 0 ? `"${guide.replace(/"/g, '""')}"` : '',  // Guide only on first
+              idx === 0 ? `"${domain.replace(/"/g, '""')}"` : '',  // Domain only on first
+              idx === 0 ? `"${domain.replace(/"/g, '""')}"` : '',  // Research Area only on first
+              idx === 0 ? year : '',  // Year only on first
+              idx === 0 ? branch : '',  // Branch only on first
+              idx === 0 ? section : '',  // Section only on first
+              idx === 0 ? `"${coe.replace(/"/g, '""')}"` : ''  // COE only on first
+            ];
+            csvContent += row.join(',') + '\n';
+          });
+          sNo++;
+        }
+      });
+
+      // Create download link
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement('a');
+      link.setAttribute('href', encodedUri);
+      link.setAttribute('download', `batches_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Failed to download:', error);
+      alert('Failed to download file');
+    }
+  };
 
   return (
     <div className="batch-display">
       <div className="batch-header">
         <h2>?? All Teams & Projects</h2>
-        <input
-          type="text"
-          placeholder="Search by Team, Guide, Domain, COE, RC, or Student..."
-          value={searchQuery}
-          onChange={handleSearch}
-          className="search-input"
-        />
+        <div className="header-controls">
+          <input
+            type="text"
+            placeholder="Search by Team, Guide, Domain, COE, RC, or Student..."
+            value={searchQuery}
+            onChange={handleSearch}
+            className="search-input"
+          />
+          <button 
+            className="btn btn-success"
+            onClick={downloadAsExcel}
+            title="Download search results as CSV"
+          >
+            ?? Download Results
+          </button>
+        </div>
       </div>
 
       <div className="batch-count">

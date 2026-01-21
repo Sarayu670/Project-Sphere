@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import * as api from '../../services/api';
-import COEManagement from './COEManagement';
+import COEandRCManagement from '../../components/COEandRCManagement';
 import TimelineManagement from './TimelineManagement';
 import BatchImport from './BatchImport';
 
@@ -17,7 +17,6 @@ function AdminDashboard() {
   const [coes, setCoes] = useState([]);
   const [batches, setBatches] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedCOE, setSelectedCOE] = useState(null);
   const [selectedBatch, setSelectedBatch] = useState(null);
   const [activeTab, setActiveTab] = useState('timeline');
 
@@ -114,8 +113,7 @@ function AdminDashboard() {
         <button className={`tab ${activeTab === 'import' ? 'active' : ''}`} onClick={() => setActiveTab('import')}>📤 Batch Import</button>
 
         <button className={`tab ${activeTab === 'project-import' ? 'active' : ''}`} onClick={() => setActiveTab('project-import')}>📊 Import Projects</button>
-        <button className={`tab ${activeTab === 'coes' ? 'active' : ''}`} onClick={() => { setActiveTab('coes'); setSelectedCOE(null); }}>🏛️ COE Overview</button>
-        <button className={`tab ${activeTab === 'manage' ? 'active' : ''}`} onClick={() => setActiveTab('manage')}>⚙️ Manage COEs</button>
+        <button className={`tab ${activeTab === 'manage-coe-rc' ? 'active' : ''}`} onClick={() => setActiveTab('manage-coe-rc')}>🏛️ Manage COEs & RCs</button>
       </div>
 
       {activeTab === 'timeline' && <TimelineManagement />}
@@ -364,73 +362,13 @@ function AdminDashboard() {
         </div>
       )}
 
-      {activeTab === 'coes' && !selectedCOE && (
-        <div className="tab-content">
-          <h2>🏛️ Centers of Excellence</h2>
-          <p style={{ color: '#666', marginBottom: '20px' }}>Click on a COE to view teams and their progress</p>
-          <div className="grid grid-3">
-            {coes.map(coe => {
-              const coeBatches = getBatchesForCOE(coe._id);
-              const completed = coeBatches.filter(b => b.status === 'Completed').length;
-              const inProgress = coeBatches.filter(b => b.status === 'In Progress').length;
-              return (
-                <div key={coe._id} className="coe-card" onClick={() => setSelectedCOE(coe)}>
-                  <div className="coe-icon">🏛️</div>
-                  <h3>{coe.name}</h3>
-                  <p style={{ color: '#666', fontSize: '14px' }}>{coe.description || 'No description'}</p>
-                  <div className="coe-stats">
-                    <div><strong>{coeBatches.length}</strong> Teams</div>
-                    <div><strong>{inProgress}</strong> In Progress</div>
-                    <div><strong>{completed}</strong> Completed</div>
-                  </div>
-                  <div className="coe-action">View Teams →</div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'coes' && selectedCOE && (
-        <div className="tab-content">
-          <button className="btn btn-secondary" onClick={() => setSelectedCOE(null)} style={{ marginBottom: '20px' }}>← Back to COEs</button>
-          <h2>🏛️ {selectedCOE.name}</h2>
-          <p style={{ color: '#666', marginBottom: '20px' }}>{selectedCOE.description}</p>
-
-          {getBatchesForCOE(selectedCOE._id).length === 0 ? (
-            <div className="card empty-state"><h3>No Teams Yet</h3><p>No teams have been assigned to this COE</p></div>
-          ) : (
-            <div className="table-container">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Team Name</th>
-                    <th>Class</th>
-                    <th>Leader</th>
-                    <th>Problem Statement</th>
-                    <th>Guide/Mentor</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {getBatchesForCOE(selectedCOE._id).map(batch => (
-                    <tr key={batch._id}>
-                      <td><strong>{batch.teamName}</strong></td>
-                      <td>{batch.year} {batch.branch}-{batch.section}</td>
-                      <td>{batch.leaderStudentId?.name}<br /><small style={{ color: '#888' }}>{batch.leaderStudentId?.email}</small></td>
-                      <td>{batch.problemId?.title || batch.optedProblemId?.title || '-'}</td>
-                      <td>{batch.guideId?.name || <span style={{ color: '#f59e0b' }}>Pending</span>}<br /><small style={{ color: '#888' }}>{batch.guideId?.email}</small></td>
-                      <td><span className={`badge badge-${getStatusColor(batch.status)}`}>{batch.status}</span></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
-
       {activeTab === 'manage' && <COEManagement onUpdate={fetchData} />}
+
+      {activeTab === 'manage-coe-rc' && (
+        <div className="tab-content">
+          <COEandRCManagement />
+        </div>
+      )}
     </div>
   );
 }

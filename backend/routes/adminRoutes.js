@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const { getDashboard, getOverview, createAdmin, getBatchGuideMapping, importBatches, importBatchData, searchBatchesByGuide } = require('../controllers/adminController');
+const { getDashboard, getOverview, createAdmin, getBatchGuideMapping, importBatches, importBatchData, searchBatchesByGuide, fixCOEandRCClassification } = require('../controllers/adminController');
 const { protect, authorize } = require('../middleware/auth');
 
 // Configure multer for file uploads
@@ -14,6 +14,7 @@ router.get('/batch-guide-mapping', protect, authorize('admin'), getBatchGuideMap
 router.get('/search-batches-by-guide', searchBatchesByGuide);
 router.post('/import-batches', protect, authorize('admin'), importBatches);
 router.post('/import-batch-data', protect, authorize('admin'), upload.single('file'), importBatchData);
+router.post('/fix-coe-rc-classification', protect, authorize('admin'), fixCOEandRCClassification);
 
 module.exports = router;
 

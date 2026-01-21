@@ -115,6 +115,76 @@ function GuideSearch() {
 
   const unifiedTeams = getUnifiedTeams();
 
+  // Download search results as Excel with ALL columns
+  const downloadAsExcel = () => {
+    if (unifiedTeams.length === 0) {
+      alert('No results to download');
+      return;
+    }
+
+    try {
+      // Prepare CSV data with all columns
+      let csvContent = 'data:text/csv;charset=utf-8,';
+      csvContent += 'S.No,Proj ID/Batch,Roll No(s),Student Name(s),Guide,Project Title,Research Area,COE/RC\n';
+
+      let sNo = 1;
+      unifiedTeams.forEach((team) => {
+        const teamName = team.teamName || '-';
+        const guide = team.guideName || '-';
+        const projectTitle = team.projectTitle || '-';
+        const researchArea = team.researchArea || '-';
+        const coe = team.coe || '-';
+        const students = team.students || [];
+
+        if (students.length === 0) {
+          // If no students, show team with empty student fields
+          const row = [
+            sNo,
+            `"${teamName.replace(/"/g, '""')}"`,
+            '-',
+            '-',
+            `"${guide.replace(/"/g, '""')}"`,
+            `"${projectTitle.replace(/"/g, '""')}"`,
+            `"${researchArea.replace(/"/g, '""')}"`,
+            `"${coe.replace(/"/g, '""')}"`
+          ];
+          csvContent += row.join(',') + '\n';
+          sNo++;
+        } else {
+          // Show team info on first student row, leave empty for subsequent students
+          students.forEach((student, idx) => {
+            const rollNumber = student.rollNumber || '-';
+            const studentName = student.name || '-';
+            const row = [
+              idx === 0 ? sNo : '',  // S.No only on first student
+              idx === 0 ? `"${teamName.replace(/"/g, '""')}"` : '',  // Team only on first
+              rollNumber,
+              `"${studentName.replace(/"/g, '""')}"`,
+              idx === 0 ? `"${guide.replace(/"/g, '""')}"` : '',  // Guide only on first
+              idx === 0 ? `"${projectTitle.replace(/"/g, '""')}"` : '',  // Project only on first
+              idx === 0 ? `"${researchArea.replace(/"/g, '""')}"` : '',  // Research area only on first
+              idx === 0 ? `"${coe.replace(/"/g, '""')}"` : ''  // COE only on first
+            ];
+            csvContent += row.join(',') + '\n';
+          });
+          sNo++;
+        }
+      });
+
+      // Create download link
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement('a');
+      link.setAttribute('href', encodedUri);
+      link.setAttribute('download', `guide_search_results_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Failed to download:', error);
+      alert('Failed to download file');
+    }
+  };
+
   return (
     <div>
       <div className="card" style={{ padding: '24px', maxWidth: '100%' }}>
@@ -180,6 +250,26 @@ function GuideSearch() {
             >
               {loading ? 'Searching...' : 'Search'}
             </button>
+            {results && unifiedTeams.length > 0 && (
+              <button
+                type="button"
+                onClick={downloadAsExcel}
+                style={{
+                  padding: '12px 24px',
+                  background: '#10b981',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  whiteSpace: 'nowrap'
+                }}
+                title="Download search results as CSV"
+              >
+                📥 Download Results
+              </button>
+            )}
           </div>
         </form>
 

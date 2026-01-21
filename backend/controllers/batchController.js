@@ -7,6 +7,7 @@ const TeamMember = require('../models/TeamMember');
 // @route   GET /api/batches/search-all?q=query
 exports.searchAllBatches = async (req, res) => {
   try {
+    const RC = require('../models/RC');
     const { q } = req.query;
 
     if (!q || q.trim() === '') {
@@ -44,39 +45,70 @@ exports.searchAllBatches = async (req, res) => {
     // Get team members for each batch
     batches = await Promise.all(
       batches.map(async (batch) => {
-        const batchObj = batch.toObject();
+        try {
+          const batchObj = batch.toObject();
 
-        // Get team members
-        const [students, teamMembersList] = await Promise.all([
-          require('../models/Student').find({ batchId: batch._id }).select('name rollNumber branch'),
-          require('../models/TeamMember').find({ batchId: batch._id }).select('name rollNo branch')
-        ]);
-
-        // Merge and deduplicate
-        const combinedMembers = new Map();
-
-        students.forEach(s => {
-          if (s.rollNumber) combinedMembers.set(s.rollNumber.toLowerCase(), {
-            _id: s._id,
-            name: s.name,
-            rollNo: s.rollNumber,
-            branch: s.branch
-          });
-        });
-
-        teamMembersList.forEach(tm => {
-          if (tm.rollNo && !combinedMembers.has(tm.rollNo.toLowerCase())) {
-            combinedMembers.set(tm.rollNo.toLowerCase(), {
-              _id: tm._id,
-              name: tm.name,
-              rollNo: tm.rollNo,
-              branch: tm.branch
-            });
+          // Handle RC lookup from batch.rc.rcId
+          if (batchObj.rc && batchObj.rc.rcId) {
+            try {
+              const rc = await RC.findById(batchObj.rc.rcId).select('name');
+              if (rc) {
+                batchObj.rcId = rc;
+              }
+            } catch (err) {
+              console.warn('Failed to fetch RC for batch', batch._id, err.message);
+            }
+          } else if (batchObj.rc && batchObj.rc.name && batchObj.rc.name !== '--') {
+            // Try to find RC by name if not found by ID
+            try {
+              const rc = await RC.findOne({
+                name: { $regex: `^${batchObj.rc.name}$`, $options: 'i' }
+              }).select('name _id');
+              if (rc) {
+                batchObj.rcId = rc;
+              }
+            } catch (err) {
+              console.warn('Failed to find RC by name:', batchObj.rc.name);
+            }
           }
-        });
 
-        batchObj.teamMembers = Array.from(combinedMembers.values());
-        return batchObj;
+          // Get team members
+          const [students, teamMembersList] = await Promise.all([
+            require('../models/Student').find({ batchId: batch._id }).select('name rollNumber branch'),
+            require('../models/TeamMember').find({ batchId: batch._id }).select('name rollNo branch')
+          ]);
+
+          // Merge and deduplicate
+          const combinedMembers = new Map();
+
+          students.forEach(s => {
+            if (s.rollNumber) combinedMembers.set(s.rollNumber.toLowerCase(), {
+              _id: s._id,
+              name: s.name,
+              rollNo: s.rollNumber,
+              branch: s.branch
+            });
+          });
+
+          teamMembersList.forEach(tm => {
+            if (tm.rollNo && !combinedMembers.has(tm.rollNo.toLowerCase())) {
+              combinedMembers.set(tm.rollNo.toLowerCase(), {
+                _id: tm._id,
+                name: tm.name,
+                rollNo: tm.rollNo,
+                branch: tm.branch
+              });
+            }
+          });
+
+          batchObj.teamMembers = Array.from(combinedMembers.values());
+          return batchObj;
+        } catch (err) {
+          console.error('Error processing batch in searchAllBatches', batch._id, ':', err.message);
+          const batchObj = batch.toObject();
+          batchObj.teamMembers = [];
+          return batchObj;
+        }
       })
     );
 
@@ -113,35 +145,52 @@ exports.searchAllBatches = async (req, res) => {
 
     for (const batch of additionalBatches) {
       if (!batchIds.has(batch._id.toString())) {
-        const batchObj = batch.toObject();
-        const [students, teamMembersList] = await Promise.all([
-          require('../models/Student').find({ batchId: batch._id }).select('name rollNumber branch'),
-          require('../models/TeamMember').find({ batchId: batch._id }).select('name rollNo branch')
-        ]);
-
-        const combinedMembers = new Map();
-        students.forEach(s => {
-          if (s.rollNumber) combinedMembers.set(s.rollNumber.toLowerCase(), {
-            _id: s._id,
-            name: s.name,
-            rollNo: s.rollNumber,
-            branch: s.branch
-          });
-        });
-
-        teamMembersList.forEach(tm => {
-          if (tm.rollNo && !combinedMembers.has(tm.rollNo.toLowerCase())) {
-            combinedMembers.set(tm.rollNo.toLowerCase(), {
-              _id: tm._id,
-              name: tm.name,
-              rollNo: tm.rollNo,
-              branch: tm.branch
-            });
+        try {
+          const batchObj = batch.toObject();
+          
+          // Handle RC lookup for additional batches
+          if (batchObj.rc && batchObj.rc.rcId) {
+            try {
+              const rc = await RC.findById(batchObj.rc.rcId).select('name');
+              if (rc) {
+                batchObj.rcId = rc;
+              }
+            } catch (err) {
+              console.warn('Failed to fetch RC for batch', batch._id, err.message);
+            }
           }
-        });
 
-        batchObj.teamMembers = Array.from(combinedMembers.values());
-        allMatches.push(batchObj);
+          const [students, teamMembersList] = await Promise.all([
+            require('../models/Student').find({ batchId: batch._id }).select('name rollNumber branch'),
+            require('../models/TeamMember').find({ batchId: batch._id }).select('name rollNo branch')
+          ]);
+
+          const combinedMembers = new Map();
+          students.forEach(s => {
+            if (s.rollNumber) combinedMembers.set(s.rollNumber.toLowerCase(), {
+              _id: s._id,
+              name: s.name,
+              rollNo: s.rollNumber,
+              branch: s.branch
+            });
+          });
+
+          teamMembersList.forEach(tm => {
+            if (tm.rollNo && !combinedMembers.has(tm.rollNo.toLowerCase())) {
+              combinedMembers.set(tm.rollNo.toLowerCase(), {
+                _id: tm._id,
+                name: tm.name,
+                rollNo: tm.rollNo,
+                branch: tm.branch
+              });
+            }
+          });
+
+          batchObj.teamMembers = Array.from(combinedMembers.values());
+          allMatches.push(batchObj);
+        } catch (err) {
+          console.error('Error processing additional batch', batch._id, ':', err.message);
+        }
       }
     }
 
@@ -162,66 +211,126 @@ exports.searchAllBatches = async (req, res) => {
 
 exports.getAllBatches = async (req, res) => {
   try {
+    const RC = require('../models/RC');
     let batches = await Batch.find()
       .populate('leaderStudentId', 'name rollNumber email branch')
       .populate({
         path: 'problemId',
-        select: 'title description coeId guideId targetYear',
+        select: 'title description coeId guideId targetYear researchArea',
         populate: {
           path: 'coeId',
           select: 'name'
         }
       })
-      .populate('optedProblemId', 'title description')
+      .populate({
+        path: 'optedProblemId',
+        select: 'title description researchArea'
+      })
       .populate('coeId', 'name')
-      .populate('guideId', 'name email');
+      .select('+coe +rc +domain'); // Ensure COE, RC, Domain are included
 
     // Get team members for each batch
     batches = await Promise.all(
       batches.map(async (batch) => {
-        const batchObj = batch.toObject();
+        try {
+          const batchObj = batch.toObject();
 
-        // Ensure problemId.coeId is properly set
-        if (batchObj.problemId && batchObj.problemId.coeId) {
-          console.log('✅ Found COE in problemId:', batchObj.problemId.coeId);
-        } else if (batchObj.coeId) {
-          console.log('✅ Found COE in batch.coeId:', batchObj.coeId);
-        } else {
-          console.log('⚠️ No COE found for batch:', batchObj.teamName);
-        }
-
-        // Get team members from BOTH Student and TeamMember collections to handle different import histories
-        const [students, teamMembersList] = await Promise.all([
-          require('../models/Student').find({ batchId: batch._id }).select('name rollNumber branch'),
-          require('../models/TeamMember').find({ batchId: batch._id }).select('name rollNo branch')
-        ]);
-
-        // Merge and deduplicate by roll number
-        const combinedMembers = new Map();
-
-        students.forEach(s => {
-          if (s.rollNumber) combinedMembers.set(s.rollNumber.toLowerCase(), {
-            _id: s._id,
-            name: s.name,
-            rollNo: s.rollNumber,
-            branch: s.branch
-          });
-        });
-
-        teamMembersList.forEach(tm => {
-          if (tm.rollNo && !combinedMembers.has(tm.rollNo.toLowerCase())) {
-            combinedMembers.set(tm.rollNo.toLowerCase(), {
-              _id: tm._id,
-              name: tm.name,
-              rollNo: tm.rollNo,
-              branch: tm.branch
-            });
+          // Handle RC lookup from batch.rc.rcId
+          if (batchObj.rc && batchObj.rc.rcId) {
+            try {
+              const rc = await RC.findById(batchObj.rc.rcId).select('name');
+              if (rc) {
+                batchObj.rcId = rc;
+              }
+            } catch (err) {
+              console.warn('Failed to fetch RC for batch', batch._id, err.message);
+            }
+          } else if (batchObj.rc && batchObj.rc.name && batchObj.rc.name !== '--') {
+            // Try to find RC by name if not found by ID
+            try {
+              const rc = await RC.findOne({
+                name: { $regex: `^${batchObj.rc.name}$`, $options: 'i' }
+              }).select('name _id');
+              if (rc) {
+                batchObj.rcId = rc;
+                // Update batch RC data if it's missing the ID
+                if (!batchObj.rc.rcId) {
+                  batchObj.rc.rcId = rc._id;
+                }
+              }
+            } catch (err) {
+              console.warn('Failed to find RC by name:', batchObj.rc.name);
+            }
           }
-        });
 
-        batchObj.teamMembers = Array.from(combinedMembers.values());
+          // Ensure problemId.coeId is properly set
+          if (batchObj.problemId && batchObj.problemId.coeId) {
+            console.log('✅ Found COE in problemId:', batchObj.problemId.coeId);
+          } else if (batchObj.coeId) {
+            console.log('✅ Found COE in batch.coeId:', batchObj.coeId);
+          } else {
+            console.log('⚠️ No COE found for batch:', batchObj.teamName);
+          }
 
-        return batchObj;
+          // Get team members from BOTH Student and TeamMember collections to handle different import histories
+          let students = [];
+          let teamMembersList = [];
+          
+          try {
+            students = await require('../models/Student').find({ batchId: batch._id }).select('name rollNumber branch');
+          } catch (err) {
+            console.warn('Failed to fetch students for batch', batch._id, err.message);
+          }
+          
+          try {
+            teamMembersList = await require('../models/TeamMember').find({ batchId: batch._id }).select('name rollNo branch');
+          } catch (err) {
+            console.warn('Failed to fetch team members for batch', batch._id, err.message);
+          }
+
+          // Merge and deduplicate by roll number
+          const combinedMembers = new Map();
+
+          students.forEach(s => {
+            if (s.rollNumber) combinedMembers.set(s.rollNumber.toLowerCase(), {
+              _id: s._id,
+              name: s.name,
+              rollNo: s.rollNumber,
+              branch: s.branch
+            });
+          });
+
+          teamMembersList.forEach(tm => {
+            if (tm.rollNo && !combinedMembers.has(tm.rollNo.toLowerCase())) {
+              combinedMembers.set(tm.rollNo.toLowerCase(), {
+                _id: tm._id,
+                name: tm.name,
+                rollNo: tm.rollNo,
+                branch: tm.branch
+              });
+            }
+          });
+
+          batchObj.teamMembers = Array.from(combinedMembers.values());
+
+          // Populate guide info
+          if (batch.guideId) {
+            try {
+              const guide = await require('../models/Guide').findById(batch.guideId).select('name email');
+              batchObj.guideId = guide;
+            } catch (err) {
+              console.warn('Failed to fetch guide for batch', batch._id, err.message);
+            }
+          }
+
+          return batchObj;
+        } catch (err) {
+          console.error('Error processing batch', batch._id, ':', err.message);
+          // Return batch with minimal data instead of failing completely
+          const batchObj = batch.toObject();
+          batchObj.teamMembers = [];
+          return batchObj;
+        }
       })
     );
 
@@ -229,14 +338,14 @@ exports.getAllBatches = async (req, res) => {
     if (batches.length > 0) {
       console.log('📌 Sample batch:', {
         teamName: batches[0].teamName,
+        domain: batches[0].domain,
+        coe: batches[0].coe,
+        rc: batches[0].rc,
+        coeId: batches[0].coeId,
+        rcId: batches[0].rcId,
         leaderName: batches[0].leaderStudentId?.name,
         leaderRollNumber: batches[0].leaderStudentId?.rollNumber,
-        leaderStudentId: JSON.stringify(batches[0].leaderStudentId),
-        teamMembers: batches[0].teamMembers?.map(m => ({ name: m.name, rollNo: m.rollNo })),
-        problemId: batches[0].problemId?._id,
-        problemTitle: batches[0].problemId?.title,
-        coeFromProblem: batches[0].problemId?.coeId,
-        coeFromBatch: batches[0].coeId
+        problemTitle: batches[0].problemId?.title
       });
     }
     res.status(200).json({ success: true, data: batches });

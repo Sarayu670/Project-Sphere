@@ -72,6 +72,7 @@ export const importBatchData = (file) => {
     headers: { 'Content-Type': 'multipart/form-data' }
   });
 };
+export const fixCOEandRCClassification = () => axios.post(`${API_URL}/admin/fix-coe-rc-classification`);
 
 
 // Timeline

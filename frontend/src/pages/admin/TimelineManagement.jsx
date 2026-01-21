@@ -11,6 +11,7 @@ const ALL_COLUMNS = [
   { key: "coe", label: "COE" },
   { key: "guide", label: "Guide" },
   { key: "marks", label: "Marks" },
+  { key: "guidesFeedback", label: "Guide's Feedback" },
   { key: "adminRemarks", label: "Admin Remarks" },
 ];
 
@@ -515,6 +516,7 @@ function TimelineManagement() {
                   <th>COE</th>
                   <th>Guide</th>
                   <th>Marks</th>
+                  <th>Guide's Feedback</th>
                   <th>Remarks</th>
                   <th>Actions</th>
                 </tr>
@@ -620,6 +622,49 @@ function TimelineManagement() {
                           {sub.marks !== null
                             ? `${sub.marks}/${selectedEvent.maxMarks}`
                             : "-"}
+                        </td>
+                        <td>
+                          <div
+                            style={{
+                              width: "250px",
+                              minHeight: "60px",
+                              display: "flex",
+                              alignItems: "center",
+                            }}
+                          >
+                            {sub.comments && sub.comments.length > 0 ? (
+                              <div
+                                style={{
+                                  fontSize: "12px",
+                                  cursor: "pointer",
+                                  padding: "8px",
+                                  background: "#e8f4f8",
+                                  borderRadius: "4px",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  display: "-webkit-box",
+                                  WebkitLineClamp: 2,
+                                  WebkitBoxOrient: "vertical",
+                                  width: "100%",
+                                  borderLeft: "3px solid #0ea5e9",
+                                }}
+                                title="Click to expand"
+                              >
+                                <strong>👨‍🏫:</strong>{" "}
+                                {sub.comments[sub.comments.length - 1].comment.substring(0, 50)}...
+                                <br />
+                                <small style={{ color: "#666" }}>
+                                  {new Date(
+                                    sub.comments[sub.comments.length - 1].createdAt
+                                  ).toLocaleDateString("en-IN")}
+                                </small>
+                              </div>
+                            ) : (
+                              <span style={{ color: "#999", fontSize: "12px" }}>
+                                No feedback
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td>
                           <div
@@ -1064,35 +1109,40 @@ function TimelineManagement() {
 
     // Data rows
     eventSubmissions.forEach((sub) => {
-      const batchId =
-        typeof sub.batchId === "string" ? sub.batchId : sub.batchId?._id;
-      const batch = batches.find((b) => b._id === batchId);
-      const latestAdminRemark =
-        sub.adminRemarks?.length > 0
-          ? sub.adminRemarks[sub.adminRemarks.length - 1].remark
-          : "N/A";
-      const leaderRollNo = batch?.leaderStudentId?.rollNumber || "N/A";
-      const otherMembers =
-        batch?.teamMembers?.length > 0
-          ? batch.teamMembers.map((m) => m.rollNo).join("; ")
-          : "";
-      const allMembers = otherMembers
-        ? `${leaderRollNo}; ${otherMembers}`
-        : leaderRollNo;
-      const coe = batch?.problemId?.coeId?.name || batch?.coeId?.name || "N/A";
-      const guide = batch?.guideId?.name || "Not Assigned";
-      const rowData = {
-        teamName: batch?.teamName || "Unknown",
-        teamMembers: allMembers,
-        year: batch?.year || "N/A",
-        branch: batch?.branch || "N/A",
-        section: batch?.section || "N/A",
-        coe,
-        guide,
-        marks:
-          sub.marks !== null ? `${sub.marks}/${selectedEvent.maxMarks}` : "N/A",
-        adminRemarks: `"${latestAdminRemark.replace(/"/g, '""')}"`,
-      };
+       const batchId =
+         typeof sub.batchId === "string" ? sub.batchId : sub.batchId?._id;
+       const batch = batches.find((b) => b._id === batchId);
+       const latestAdminRemark =
+         sub.adminRemarks?.length > 0
+           ? sub.adminRemarks[sub.adminRemarks.length - 1].remark
+           : "N/A";
+       const latestGuideFeedback =
+         sub.comments?.length > 0
+           ? sub.comments[sub.comments.length - 1].comment
+           : "N/A";
+       const leaderRollNo = batch?.leaderStudentId?.rollNumber || "N/A";
+       const otherMembers =
+         batch?.teamMembers?.length > 0
+           ? batch.teamMembers.map((m) => m.rollNo).join("; ")
+           : "";
+       const allMembers = otherMembers
+         ? `${leaderRollNo}; ${otherMembers}`
+         : leaderRollNo;
+       const coe = batch?.problemId?.coeId?.name || batch?.coeId?.name || "N/A";
+       const guide = batch?.guideId?.name || "Not Assigned";
+       const rowData = {
+         teamName: batch?.teamName || "Unknown",
+         teamMembers: allMembers,
+         year: batch?.year || "N/A",
+         branch: batch?.branch || "N/A",
+         section: batch?.section || "N/A",
+         coe,
+         guide,
+         marks:
+           sub.marks !== null ? `${sub.marks}/${selectedEvent.maxMarks}` : "N/A",
+         guidesFeedback: `"${latestGuideFeedback.replace(/"/g, '""')}"`,
+         adminRemarks: `"${latestAdminRemark.replace(/"/g, '""')}"`,
+       };
       const row = ALL_COLUMNS.filter((col) =>
         selectedColumns.includes(col.key)
       ).map((col) => rowData[col.key]);

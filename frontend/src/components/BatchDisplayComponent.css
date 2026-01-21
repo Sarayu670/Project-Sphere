@@ -18,9 +18,17 @@
   margin: 0;
 }
 
+.header-controls {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex: 1;
+  min-width: 400px;
+}
+
 .search-input {
   flex: 1;
-  min-width: 300px;
+  min-width: 250px;
   padding: 10px 16px;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -33,6 +41,27 @@
   outline: none;
   border-color: var(--accent-blue);
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.btn {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.btn-success {
+  background-color: #10b981;
+  color: white;
+}
+
+.btn-success:hover {
+  background-color: #059669;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
 }
 
 .batch-count {

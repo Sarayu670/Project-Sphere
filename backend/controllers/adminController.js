@@ -224,6 +224,7 @@ exports.importBatches = async (req, res) => {
 exports.importBatchData = async (req, res) => {
   try {
     const XLSX = require('xlsx');
+    const RC = require('../models/RC');
 
     if (!req.file) {
       return res.status(400).json({ success: false, message: 'No file provided' });
@@ -234,7 +235,7 @@ exports.importBatchData = async (req, res) => {
     const worksheet = workbook.Sheets[sheetName];
     const data = XLSX.utils.sheet_to_json(worksheet);
 
-    const results = { success: 0, failed: 0, errors: [], batchCount: 0, studentCount: 0 };
+    const results = { success: 0, failed: 0, errors: [], batchCount: 0, studentCount: 0, coeCreated: 0, rcCreated: 0 };
 
     // Group data by batch ID with fill-down logic for merged cells
     const batchGroups = {};
@@ -264,9 +265,77 @@ exports.importBatchData = async (req, res) => {
       try {
         // Get batch details from first row
         const firstRow = batchRows[0];
-        const guideName = firstRow['Internal Guide'] || '';
-        const projectTitle = firstRow['Project Title'] || '';
+        const guideName = firstRow['Internal Guide'] || firstRow['Guide'] || '';
+        const projectTitle = firstRow['Project Title'] || firstRow['Project'] || '';
+
+        // Collect possible COE/RC values from header-insensitive keys
+        let coeName = '';
+        let rcName = '';
+        for (const key of Object.keys(firstRow)) {
+          const keyLower = key.toLowerCase().trim();
+          const val = firstRow[key];
+          if (!val) continue;
+          if (/(^|\b)coe(\b|$)|center.*excellence|centre.*excellence/i.test(keyLower)) {
+            coeName = val;
+          }
+          if (/(^|\b)rc(\b|$)|resource coordinator|resource center|research center|research centre/i.test(keyLower)) {
+            rcName = val;
+          }
+          // If header ambiguous (e.g. column named "COE/RC"), still capture both candidates
+          if (!coeName && /(coe|center)/i.test(keyLower) && !rcName) coeName = val;
+          if (!rcName && /(rc|resource|research)/i.test(keyLower) && !coeName) rcName = val;
+        }
+
         const teamName = projId;
+
+        // Helper to extract proper name from a cell value
+        const extractNameFromCell = (cell, type) => {
+          if (!cell) return '';
+          let str = String(cell).trim();
+          
+          // Remove common prefixes
+          str = str.replace(/^gnits\s*,\s*/i, '');
+          str = str.replace(/^(?:center of excellence|centre of excellence|coe|research center|research centre|resource center|resource centre|rc)[-:\s]*/i, '');
+          
+          return str.trim();
+        };
+
+        // Improved content-based correction and segregation
+        const isRCContent = (val) => /(?:\brc\b|resource coordinator|resource center|research center|research centre|\brc[-])/i.test(String(val));
+        const isCOEContent = (val) => /(?:\bcoe\b|center of excellence|centre of excellence)/i.test(String(val));
+
+        // Case 1: Both are set
+        if (coeName && rcName) {
+          // If coeName actually looks like RC content and rcName doesn't
+          if (isRCContent(coeName) && !isRCContent(rcName)) {
+            rcName = coeName;
+            coeName = '';
+          } 
+          // If they are the same value, prioritize RC if it looks like RC, otherwise COE
+          else if (coeName.trim() === rcName.trim()) {
+            if (isRCContent(coeName)) {
+              coeName = '';
+            } else {
+              rcName = '';
+            }
+          }
+        }
+
+        // Case 2: Only coeName set but looks like RC
+        if (coeName && !rcName && isRCContent(coeName)) {
+          rcName = coeName;
+          coeName = '';
+        }
+
+        // Case 3: Only rcName set but looks like COE
+        if (rcName && !coeName && isCOEContent(rcName)) {
+          coeName = rcName;
+          rcName = '';
+        }
+
+        // Final cleanup of names
+        if (coeName) coeName = extractNameFromCell(coeName, 'coe');
+        if (rcName) rcName = extractNameFromCell(rcName, 'rc');
 
         if (!guideName || !projectTitle) {
           results.errors.push({
@@ -310,6 +379,50 @@ exports.importBatchData = async (req, res) => {
               continue;
             }
           }
+        }
+
+        // Auto-create COE if it doesn't exist
+        let coeId = null;
+        if (coeName && coeName.trim() !== '') {
+          let coe = await COE.findOne({
+            name: { $regex: `^${coeName.trim()}$`, $options: 'i' }
+          });
+
+          if (!coe) {
+            try {
+              coe = await COE.create({
+                name: coeName.trim(),
+                description: `Auto-created from Excel import - Project: ${projectTitle}`
+              });
+              results.coeCreated++;
+              console.log(`[Import] Created new COE: ${coeName}`);
+            } catch (err) {
+              console.error(`[Import] Failed to create COE "${coeName}":`, err.message);
+            }
+          }
+          coeId = coe?._id;
+        }
+
+        // Auto-create RC if it doesn't exist
+        let rcId = null;
+        if (rcName && rcName.trim() !== '') {
+          let rc = await RC.findOne({
+            name: { $regex: `^${rcName.trim()}$`, $options: 'i' }
+          });
+
+          if (!rc) {
+            try {
+              rc = await RC.create({
+                name: rcName.trim(),
+                description: `Auto-created from Excel import - Project: ${projectTitle}`
+              });
+              results.rcCreated++;
+              console.log(`[Import] Created new RC: ${rcName}`);
+            } catch (err) {
+              console.error(`[Import] Failed to create RC "${rcName}":`, err.message);
+            }
+          }
+          rcId = rc?._id;
         }
 
         // Process students in this batch first to create leader
@@ -367,12 +480,13 @@ exports.importBatchData = async (req, res) => {
           }
         }
 
-        // Create batch with leader student
+        // Create batch with leader student and COE/RC information
         if (leaderStudentId && studentIds.length > 0) {
           let batch = await Batch.findOne({ teamName: teamName });
 
           if (!batch) {
-            batch = await Batch.create({
+            // Build batch data object conditionally
+            const batchData = {
               leaderStudentId: leaderStudentId,
               teamName: teamName,
               guideId: guide._id,
@@ -381,16 +495,47 @@ exports.importBatchData = async (req, res) => {
               section: 'A',
               status: 'Not Started',
               allotmentStatus: 'none'
-            });
+            };
+            
+            // Only add COE if coeName exists
+            if (coeName && coeName.trim()) {
+              batchData.coeId = coeId || null;
+              batchData.coe = {
+                name: coeName.trim(),
+                coeId: coeId
+              };
+            }
+            
+            // Only add RC if rcName exists
+            if (rcName && rcName.trim()) {
+              batchData.rcId = rcId || null;
+              batchData.rc = {
+                name: rcName.trim(),
+                rcId: rcId
+              };
+            }
+            
+            batch = await Batch.create(batchData);
             results.batchCount++;
+          } else {
+            // Update existing batch with COE/RC info if not already set
+            if ((coeName || rcName) && !batch.coe && !batch.rc) {
+              if (coeName && coeName.trim()) {
+                batch.coeId = coeId || batch.coeId;
+                batch.coe = { name: coeName.trim(), coeId: coeId };
+              }
+              if (rcName && rcName.trim()) {
+                batch.rcId = rcId || batch.rcId;
+                batch.rc = { name: rcName.trim(), rcId: rcId };
+              }
+              await batch.save();
+            }
           }
 
           // Update all students with batch ID
           for (const studentId of studentIds) {
             const updatedStudent = await Student.findByIdAndUpdate(studentId, { batchId: batch._id }, { new: true });
 
-            // Allow duplicate TeamMember creation just in case, or check first
-            // But since this is inside importBatchData and we grouped by batch, we can assume we need to create them.
             // Check if TeamMember exists
             const existingMember = await TeamMember.findOne({ rollNo: updatedStudent.rollNumber });
             if (!existingMember) {
@@ -421,7 +566,7 @@ exports.importBatchData = async (req, res) => {
     res.status(200).json({
       success: true,
       data: results,
-      message: `Import completed: ${results.batchCount} batches, ${results.studentCount} students (${results.success} succeeded, ${results.failed} failed)`
+      message: `Import completed: ${results.batchCount} batches, ${results.studentCount} students, ${results.coeCreated} COEs created, ${results.rcCreated} RCs created (${results.success} succeeded, ${results.failed} failed)`
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -558,4 +703,87 @@ exports.searchBatchesByGuide = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 
+};
+
+// @desc    Fix COE/RC classification for batches
+// @route   POST /api/admin/fix-coe-rc-classification
+exports.fixCOEandRCClassification = async (req, res) => {
+  try {
+    const RC = require('../models/RC');
+    const COE = require('../models/COE');
+    const rcNames = ['Cloud Computing', 'Data Analytics'];
+    const results = { updated: 0, errors: [] };
+
+    for (const batchName of rcNames) {
+      try {
+        // Find RC by name
+        const rc = await RC.findOne({
+          name: { $regex: `^${batchName}$`, $options: 'i' }
+        });
+
+        if (!rc) {
+          results.errors.push(`RC "${batchName}" not found`);
+          continue;
+        }
+
+        // Find all batches that have this name in their coe field
+        const batches = await Batch.find({
+          'coe.name': { $regex: `^${batchName}$`, $options: 'i' }
+        });
+
+        // Move each batch from COE to RC
+        for (const batch of batches) {
+          try {
+            // Store the COE name if it exists
+            const oldCoeName = batch.coe?.name;
+
+            // Clear COE reference
+            batch.coe = { name: '', coeId: null };
+            batch.coeId = null;
+
+            // Set RC reference
+            batch.rc = { name: batchName, rcId: rc._id };
+
+            await batch.save();
+            results.updated++;
+            console.log(`[Fix] Moved batch "${batch.teamName}" from COE "${oldCoeName}" to RC "${batchName}"`);
+          } catch (err) {
+            results.errors.push(`Failed to update batch ${batch.teamName}: ${err.message}`);
+          }
+        }
+      } catch (err) {
+        results.errors.push(`Error processing RC "${batchName}": ${err.message}`);
+      }
+    }
+
+    // Also handle "--" entries to move them to unassigned
+    try {
+      const unassignedBatches = await Batch.find({
+        'rc.name': '--'
+      });
+
+      for (const batch of unassignedBatches) {
+        try {
+          batch.rc = { name: '', rcId: null };
+          batch.coe = { name: '', coeId: null };
+          batch.coeId = null;
+          await batch.save();
+          results.updated++;
+          console.log(`[Fix] Moved batch "${batch.teamName}" to unassigned (removed "--")`);
+        } catch (err) {
+          results.errors.push(`Failed to unassign batch ${batch.teamName}: ${err.message}`);
+        }
+      }
+    } catch (err) {
+      results.errors.push(`Error handling unassigned batches: ${err.message}`);
+    }
+
+    res.status(200).json({
+      success: true,
+      data: results,
+      message: `Fixed ${results.updated} batches. ${results.errors.length} errors occurred.`
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 };

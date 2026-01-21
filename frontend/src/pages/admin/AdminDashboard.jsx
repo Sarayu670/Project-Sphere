@@ -111,9 +111,8 @@ function AdminDashboard() {
         <button className={`tab ${activeTab === 'filter' ? 'active' : ''}`} onClick={() => { setActiveTab('filter'); setSelectedBatch(null); }}>🔍 Filter by Class</button>
         <button className={`tab ${activeTab === 'guide-search' ? 'active' : ''}`} onClick={() => setActiveTab('guide-search')}>👨‍🏫 Search Batches</button>
         <button className={`tab ${activeTab === 'import' ? 'active' : ''}`} onClick={() => setActiveTab('import')}>📤 Batch Import</button>
-
         <button className={`tab ${activeTab === 'project-import' ? 'active' : ''}`} onClick={() => setActiveTab('project-import')}>📊 Import Projects</button>
-        <button className={`tab ${activeTab === 'manage-coe-rc' ? 'active' : ''}`} onClick={() => setActiveTab('manage-coe-rc')}>🏛️ Manage COEs & RCs</button>
+        <button className={`tab ${activeTab === 'manage-coe-rc' ? 'active' : ''}`} onClick={() => setActiveTab('manage-coe-rc')}>🏛️ Manage COE/RC</button>
       </div>
 
       {activeTab === 'timeline' && <TimelineManagement />}

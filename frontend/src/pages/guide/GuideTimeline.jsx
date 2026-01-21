@@ -164,6 +164,7 @@ function GuideTimeline() {
                       <small>{new Date(v.submittedAt).toLocaleString()}</small>
                     </div>
                     {v.description && <p style={{ color: '#666', fontSize: '14px', margin: '5px 0' }}>{v.description}</p>}
+                    {v.driveLink && <a href={v.driveLink} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm">📁 View on Drive</a>}
                     {v.fileUrl && <a href={v.fileUrl} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm">📁 View File</a>}
                   </div>
                 ))}
@@ -171,19 +172,19 @@ function GuideTimeline() {
             )}
           </div>
 
-          <div className="card">
+          <div className="card" style={{ maxWidth: '100%', minWidth: '0', overflow: 'hidden' }}>
             <h3>💬 Guide Feedback</h3>
             {!submission.comments?.length ? (
               <p style={{ color: '#888' }}>No feedback yet</p>
             ) : (
               <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
                 {submission.comments.map((c, idx) => (
-                  <div key={idx} style={{ padding: '10px', background: '#fef3c7', borderRadius: '8px', marginBottom: '10px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <strong>👨‍🏫 {c.guideId?.name || 'Guide'}</strong>
-                      <small>{new Date(c.createdAt).toLocaleString()}</small>
+                  <div key={idx} style={{ padding: '10px', background: '#fef3c7', borderRadius: '8px', marginBottom: '10px', maxWidth: '100%', minWidth: '0', wordWrap: 'break-word', overflowWrap: 'break-word', overflow: 'hidden', wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px', minWidth: '0' }}>
+                      <strong style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>👨‍🏫 {c.guideId?.name || 'Guide'}</strong>
+                      <small style={{ whiteSpace: 'nowrap', marginLeft: '10px' }}>{new Date(c.createdAt).toLocaleString()}</small>
                     </div>
-                    <p style={{ margin: '5px 0 0', color: '#92400e' }}>{c.comment}</p>
+                    <p style={{ margin: '0', color: '#92400e', maxWidth: '100%', wordWrap: 'break-word', overflowWrap: 'break-word', whiteSpace: 'pre-wrap', wordBreak: 'break-word', minWidth: '0' }}>{c.comment}</p>
                   </div>
                 ))}
               </div>

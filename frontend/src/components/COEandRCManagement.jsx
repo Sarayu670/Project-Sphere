@@ -300,9 +300,15 @@ const [selectedRCId, setSelectedRCId] = useState(null);
       }
       
       // Fallback for embedded data
-      if (project.coe?.name && typeof project.coe.name === 'string') return project.coe.name;
-      if (project.rc?.name && typeof project.rc.name === 'string') return project.rc.name;
-      return 'N/A';
+      if (project.coe?.name && typeof project.coe.name === 'string') {
+        const name = project.coe.name;
+        return name === '--' ? 'Others' : name;
+      }
+      if (project.rc?.name && typeof project.rc.name === 'string') {
+        const name = project.rc.name;
+        return name === '--' ? 'Others' : name;
+      }
+      return 'Others';
     };
 
     return (
@@ -310,7 +316,7 @@ const [selectedRCId, setSelectedRCId] = useState(null);
         <div className="details-modal-content" onClick={(e) => e.stopPropagation()}>
           <div className="details-modal-header">
             <h3>{title}</h3>
-            <button className="modal-close" onClick={() => { setSelectedCOEId(null); setSelectedRCId(null); }}>×</button>
+            <button className="modal-close" onClick={() => { setSelectedCOEId(null); setSelectedRCId(null); }}>&times;</button>
           </div>
 
           <div className="details-table-container">
@@ -322,9 +328,6 @@ const [selectedRCId, setSelectedRCId] = useState(null);
                   <th>Guide</th>
                   <th>Research Area</th>
                   <th>COE/RC</th>
-                  <th>Year</th>
-                  <th>Branch</th>
-                  <th>Section</th>
                 </tr>
               </thead>
               <tbody>
@@ -335,9 +338,6 @@ const [selectedRCId, setSelectedRCId] = useState(null);
                     <td>{project.guideId?.name || 'N/A'}</td>
                     <td>{project.problemId?.researchArea || project.optedProblemId?.researchArea || 'N/A'}</td>
                     <td className="coe-rc-cell">{getCoeRcValue(project)}</td>
-                    <td>{project.year || 'N/A'}</td>
-                    <td>{project.branch || 'N/A'}</td>
-                    <td>{project.section || 'N/A'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -356,33 +356,20 @@ const [selectedRCId, setSelectedRCId] = useState(null);
         </div>
       )}
 
-      <div className="sub-tabs">
+      <div className="sub-tabs" style={{ display: 'none' }}>
         <button
           className={`sub-tab ${activeSubTab === 'coe' ? 'active' : ''}`}
           onClick={() => setActiveSubTab('coe')}
         >
           [COE] Centers of Excellence
         </button>
-        <button
-          className={`sub-tab ${activeSubTab === 'rc' ? 'active' : ''}`}
-          onClick={() => setActiveSubTab('rc')}
-        >
-          [RC] Research Centers
-        </button>
-        <button
-          className={`sub-tab ${activeSubTab === 'other' ? 'active' : ''}`}
-          onClick={() => setActiveSubTab('other')}
-        >
-          [OTHERS] Projects ({getUnassignedProjects().length})
-        </button>
       </div>
 
       {activeSubTab === 'coe' && (
         <div className="tab-content">
-          <div className="section-header">
-            <h3>Centers of Excellence</h3>
+          <div className="section-header" style={{ justifyContent: 'flex-end' }}>
             <button className="btn btn-primary" onClick={openCOEModal}>
-              + Add COE
+              + Add COE/RC
             </button>
           </div>
 
@@ -402,11 +389,12 @@ const [selectedRCId, setSelectedRCId] = useState(null);
                     style={{ cursor: 'pointer' }}
                   >
                     <div className="card-body">
-                      <h4>{coe.name}</h4>
+                      <h4>{coe.name === '--' ? 'Others' : coe.name}</h4>
                       <div className="project-count">{projectCount} Projects</div>
                     </div>
                     <button
                       className="btn btn-danger btn-sm"
+                      style={{ backgroundColor: 'white', color: 'black', border: '1px solid #e2e8f0' }}
                       onClick={(e) => {
                         e.stopPropagation();
                         handleDeleteCOE(coe._id);
@@ -422,133 +410,8 @@ const [selectedRCId, setSelectedRCId] = useState(null);
         </div>
       )}
 
-      {activeSubTab === 'rc' && (
-        <div className="tab-content">
-          <div className="section-header">
-            <h3>Research Centers</h3>
-            <button className="btn btn-primary" onClick={openRCModal}>
-              + Add RC
-            </button>
-          </div>
-
-          {rcs.length === 0 ? (
-            <div className="empty-state">
-              <p>No RCs created yet.</p>
-            </div>
-          ) : (
-            <div className="coe-rc-grid">
-              {rcs.map((rc) => {
-                const projectCount = getProjectsForRC(rc).length;
-                return (
-                  <div 
-                    key={rc._id} 
-                    className="coe-rc-card"
-                    onClick={() => setSelectedRCId(rc._id)}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    <div className="card-body">
-                      <h4>{rc.name}</h4>
-                      <div className="project-count">{projectCount} Projects</div>
-                    </div>
-                    <div className="card-actions">
-                      <button
-                        className="btn btn-secondary btn-sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleEditRC(rc);
-                        }}
-                      >
-                        EDIT
-                      </button>
-                      <button
-                        className="btn btn-danger btn-sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteRC(rc._id);
-                        }}
-                      >
-                        DELETE
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
-      {activeSubTab === 'other' && (
-        <div className="tab-content">
-          <div className="section-header">
-            <h3>Other Projects ({getUnassignedProjects().length})</h3>
-          </div>
-
-          {getUnassignedProjects().length === 0 ? (
-            <div className="empty-state">
-              <p>All projects are assigned to COEs or Research Centers!</p>
-            </div>
-          ) : (
-            <div className="details-table-container">
-              <table className="details-table">
-                <thead>
-                  <tr>
-                    <th>Team Name</th>
-                    <th>Project Title</th>
-                    <th>Guide</th>
-                    <th>Research Area</th>
-                    <th>COE/RC</th>
-                    <th>Year</th>
-                    <th>Branch</th>
-                    <th>Section</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {getUnassignedProjects().map((project) => {
-                    // Get COE/RC display value
-                    let coeRcDisplay = 'N/A';
-                    
-                    // Try coeId first
-                    if (project.coeId) {
-                      if (typeof project.coeId === 'object' && project.coeId.name) {
-                        coeRcDisplay = project.coeId.name;
-                      }
-                    }
-                    // Then try rcId
-                    else if (project.rcId) {
-                      if (typeof project.rcId === 'object' && project.rcId.name) {
-                        coeRcDisplay = project.rcId.name;
-                      }
-                    }
-                    // Try embedded coe/rc as fallback
-                    else if (project.coe?.name) {
-                      coeRcDisplay = project.coe.name;
-                    } else if (project.rc?.name) {
-                      coeRcDisplay = project.rc.name;
-                    }
-                    
-                    return (
-                      <tr key={project._id}>
-                        <td>{project.teamName || project.batchId || 'N/A'}</td>
-                        <td>{project.problemId?.title || project.optedProblemId?.title || 'N/A'}</td>
-                        <td>{project.guideId?.name || 'N/A'}</td>
-                        <td>{project.problemId?.researchArea || project.optedProblemId?.researchArea || 'N/A'}</td>
-                        <td className="coe-rc-cell">{coeRcDisplay}</td>
-                        <td>{project.year || 'N/A'}</td>
-                        <td>{project.branch || 'N/A'}</td>
-                        <td>{project.section || 'N/A'}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Details Modal */}
-      {(selectedCOEId || selectedRCId) && renderDetailsModal()}
+      {selectedCOEId && renderDetailsModal()}
 
       {/* Modal for Create/Edit */}
       {showModal && (
@@ -556,31 +419,27 @@ const [selectedRCId, setSelectedRCId] = useState(null);
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>
-                {activeSubTab === 'coe'
-                  ? 'Add New COE'
-                  : editingId
-                  ? 'Edit RC'
-                  : 'Add New RC'}
+                {editingId ? 'Edit COE' : 'Add New COE'}
               </h3>
               <button className="modal-close" onClick={() => setShowModal(false)}>×</button>
             </div>
 
-            <form onSubmit={activeSubTab === 'coe' ? (editingId ? null : handleCreateCOE) : (editingId ? handleUpdateRC : handleCreateRC)}>
+            <form onSubmit={editingId ? null : handleCreateCOE}>
               <div className="form-group">
-                <label>{activeSubTab === 'coe' ? 'COE Name' : 'RC Name'} *</label>
+                <label>COE Name *</label>
                 <input
                   type="text"
                   name="name"
                   value={formData.name}
                   onChange={handleFormChange}
-                  placeholder={activeSubTab === 'coe' ? 'e.g., Deep Learning in Eye Disease Prognosis' : 'e.g., Cloud Computing'}
+                  placeholder="e.g., Deep Learning in Eye Disease Prognosis"
                   required
                 />
               </div>
 
               <div className="form-actions">
                 <button type="submit" className="btn btn-success" disabled={saving}>
-                  {saving ? 'Saving...' : activeSubTab === 'coe' ? 'Create COE' : (editingId ? 'Update RC' : 'Create RC')}
+                  {saving ? 'Saving...' : 'Create COE'}
                 </button>
                 <button
                   type="button"

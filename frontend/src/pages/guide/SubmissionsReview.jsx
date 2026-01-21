@@ -114,26 +114,29 @@ function SubmissionsReview() {
                       <small>{new Date(v.submittedAt).toLocaleString()}</small>
                     </div>
                     {v.description && <p style={{ color: '#666', fontSize: '14px', margin: '5px 0' }}>{v.description}</p>}
-                    {v.fileUrl && <a href={v.fileUrl} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm">📁 {v.fileName || 'Download'}</a>}
+                    <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
+                      {v.driveLink && <a href={v.driveLink} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm">📁 View on Drive</a>}
+                      {v.fileUrl && <a href={v.fileUrl} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm">📁 {v.fileName || 'Download'}</a>}
+                    </div>
                   </div>
                 ))}
               </div>
             )}
           </div>
 
-          <div className="card">
+          <div className="card" style={{ maxWidth: '100%', minWidth: '0', overflow: 'hidden' }}>
             <h3>💬 Comments & Feedback</h3>
             <div style={{ maxHeight: '200px', overflowY: 'auto', marginBottom: '15px' }}>
               {selectedSubmission.comments?.length === 0 ? (
                 <p style={{ color: '#888' }}>No comments yet</p>
               ) : (
                 selectedSubmission.comments?.map((c, idx) => (
-                  <div key={idx} style={{ padding: '10px', background: '#f8fafc', borderRadius: '8px', marginBottom: '10px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <strong>{c.guideId?.name}</strong>
-                      <small>{new Date(c.createdAt).toLocaleString()}</small>
+                  <div key={idx} style={{ padding: '10px', background: '#f8fafc', borderRadius: '8px', marginBottom: '10px', maxWidth: '100%', minWidth: '0', wordWrap: 'break-word', overflowWrap: 'break-word', overflow: 'hidden', wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px', minWidth: '0' }}>
+                      <strong style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.guideId?.name}</strong>
+                      <small style={{ whiteSpace: 'nowrap', marginLeft: '10px' }}>{new Date(c.createdAt).toLocaleString()}</small>
                     </div>
-                    <p style={{ margin: '5px 0 0', color: '#333' }}>{c.comment}</p>
+                    <p style={{ margin: '0', color: '#333', maxWidth: '100%', wordWrap: 'break-word', overflowWrap: 'break-word', whiteSpace: 'pre-wrap', wordBreak: 'break-word', minWidth: '0' }}>{c.comment}</p>
                   </div>
                 ))
               )}
@@ -178,7 +181,15 @@ function SubmissionsReview() {
                   <td><strong>{sub.batchId?.teamName}</strong></td>
                   <td>{sub.batchId?.year} {sub.batchId?.branch}-{sub.batchId?.section}</td>
                   <td>{sub.timelineEventId?.title}</td>
-                  <td>Submission {sub.currentVersion}</td>
+                  <td>
+                    {sub.versions && sub.versions.length > 0 && sub.versions[0]?.fileUrl ? (
+                      <a href={sub.versions[0].fileUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#667eea', cursor: 'pointer', textDecoration: 'underline' }}>
+                        📁 Submission {sub.currentVersion}
+                      </a>
+                    ) : (
+                      <span>Submission {sub.currentVersion}</span>
+                    )}
+                  </td>
                   <td>{getStatusBadge(sub.status)}</td>
                   <td>{sub.marks !== null ? `${sub.marks}/${sub.timelineEventId?.maxMarks}` : '-'}</td>
                   <td><button className="btn btn-primary btn-sm" onClick={() => setSelectedSubmission(sub)}>Review</button></td>

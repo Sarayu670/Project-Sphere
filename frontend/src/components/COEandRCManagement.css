@@ -322,12 +322,14 @@
 }
 
 .btn-danger {
-  background: #f56565;
-  color: white;
+  background: white !important;
+  color: black !important;
+  border: 1px solid #e2e8f0 !important;
 }
 
 .btn-danger:hover:not(:disabled) {
-  background: #e53e3e;
+  background: #f7fafc !important;
+  border-color: #cbd5e0 !important;
 }
 
 .btn-sm {

@@ -8,11 +8,11 @@ const ALL_COLUMNS = [
   { key: "year", label: "Year" },
   { key: "branch", label: "Branch" },
   { key: "section", label: "Section" },
-  { key: "coe", label: "COE" },
-  { key: "guide", label: "Guide" },
+  { key: "coe", label: "COE", width: "100px" },
+  { key: "guide", label: "Guide", width: "100px" },
   { key: "marks", label: "Marks" },
-  { key: "guidesFeedback", label: "Guide's Feedback" },
-  { key: "adminRemarks", label: "Admin Remarks" },
+  { key: "guidesFeedback", label: "Guide's Feedback", width: "120px" },
+  { key: "adminRemarks", label: "Admin Remarks", width: "120px" },
 ];
 
 function TimelineManagement() {
@@ -513,11 +513,12 @@ function TimelineManagement() {
                   <th>Team</th>
                   <th>Team Members</th>
                   <th>Class</th>
-                  <th>COE/RC</th>
-                  <th>Guide</th>
+                  <th style={{ width: "100px", maxWidth: "100px" }}>COE/RC</th>
+                  <th style={{ width: "100px", maxWidth: "100px" }}>Guide</th>
                   <th>Marks</th>
-                  <th>Guide's Feedback</th>
-                  <th>Remarks</th>
+                  <th style={{ width: "120px", maxWidth: "120px", overflow: "hidden", textOverflow: "ellipsis" }}>Guide's Feedback</th>
+                  <th style={{ width: "120px", maxWidth: "120px", overflow: "hidden", textOverflow: "ellipsis" }}>Remarks</th>
+                  <th style={{ width: "60px" }}>File</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -626,10 +627,12 @@ function TimelineManagement() {
                         <td>
                           <div
                             style={{
-                              width: "250px",
+                              width: "120px",
+                              maxWidth: "120px",
                               minHeight: "60px",
                               display: "flex",
                               alignItems: "center",
+                              overflow: "hidden"
                             }}
                           >
                             {sub.comments && sub.comments.length > 0 ? (
@@ -669,10 +672,12 @@ function TimelineManagement() {
                         <td>
                           <div
                             style={{
-                              width: "250px",
+                              width: "120px",
+                              maxWidth: "120px",
                               minHeight: "60px",
                               display: "flex",
                               alignItems: "center",
+                              overflow: "hidden"
                             }}
                           >
                             {latestAdminRemark ? (
@@ -712,6 +717,36 @@ function TimelineManagement() {
                           </div>
                         </td>
                         <td>
+                          {sub.versions && sub.versions.length > 0 ? (
+                            <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                              {sub.versions[sub.versions.length - 1]?.driveLink && (
+                                <a
+                                  href={sub.versions[sub.versions.length - 1].driveLink}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  title="Click to open Google Drive file"
+                                  style={{ fontSize: '18px', cursor: 'pointer' }}
+                                >
+                                  📁
+                                </a>
+                              )}
+                              {sub.versions[sub.versions.length - 1]?.fileUrl && (
+                                <a
+                                  href={sub.versions[sub.versions.length - 1].fileUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  title="Click to open uploaded file"
+                                  style={{ fontSize: '18px', cursor: 'pointer' }}
+                                >
+                                  📥
+                                </a>
+                              )}
+                            </div>
+                          ) : (
+                            <span style={{ color: '#999', fontSize: '12px' }}>-</span>
+                          )}
+                        </td>
+                        <td>
                           <div
                             style={{
                               display: "flex",
@@ -719,16 +754,6 @@ function TimelineManagement() {
                               alignItems: "center",
                             }}
                           >
-                            {latestVersion?.fileUrl && (
-                              <a
-                                href={latestVersion.fileUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="btn btn-primary btn-sm"
-                              >
-                                📁 View
-                              </a>
-                            )}
                             <button
                               className="btn btn-info btn-sm"
                               onClick={() => {

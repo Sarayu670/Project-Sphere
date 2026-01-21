@@ -583,16 +583,19 @@ exports.searchBatchesByGuide = async (req, res) => {
 
     const Problem = require('../models/ProblemStatement');
     const COE = require('../models/COE');
+    const RC = require('../models/RC');
 
     if (!guideName || guideName.trim() === '') {
       return res.status(400).json({ success: false, message: 'Search term is required' });
     }
 
-    const searchRegex = { $regex: guideName, $options: 'i' };
+    const searchRegex = { $regex: guideName.trim(), $options: 'i' };
+    const searchString = guideName.trim().toLowerCase();
 
     let guides = [];
     let guideIds = [];
     let coeIds = [];
+    let rcIds = [];
     let problemIds = [];
 
     // 1. Search Guides
@@ -601,10 +604,18 @@ exports.searchBatchesByGuide = async (req, res) => {
       guideIds = guides.map(g => g._id);
     }
 
-    // 2. Search COEs
+    // 2. Search COEs - also search by partial match
     if (type === 'all' || type === 'coe') {
       const coes = await COE.find({ name: searchRegex });
       coeIds = coes.map(c => c._id);
+      console.log(`[Search] COEs found with regex: ${coeIds.length}`);
+    }
+
+    // 2b. Search RCs (Resource Coordinators) - also search by partial match
+    if (type === 'all' || type === 'coe') {
+      const rcs = await RC.find({ name: searchRegex });
+      rcIds = rcs.map(r => r._id);
+      console.log(`[Search] RCs found with regex: ${rcIds.length}`);
     }
 
     // 3. Search Problems
@@ -624,15 +635,37 @@ exports.searchBatchesByGuide = async (req, res) => {
     if (guideIds.length > 0) batchQuery.push({ guideId: { $in: guideIds } });
     if (problemIds.length > 0) batchQuery.push({ problemId: { $in: problemIds } });
     if (coeIds.length > 0) batchQuery.push({ coeId: { $in: coeIds } });
+    // Also search by COE name field directly for robustness
+    if (type === 'all' || type === 'coe') {
+      batchQuery.push({ 'coe.name': searchRegex });
+    }
+    // Add search by RC ID and RC name field
+    if (rcIds.length > 0) {
+      batchQuery.push({ 'rc.rcId': { $in: rcIds } });
+    }
+    // Also search by RC name directly for robustness
+    if (type === 'all' || type === 'coe') {
+      batchQuery.push({ 'rc.name': searchRegex });
+    }
 
     console.log(`[Search] Query: "${guideName}", Type: "${type}"`);
-    console.log(`[Search] Found: Guides=${guideIds.length}, Problems=${problemIds.length}, COEs=${coeIds.length}`);
+    console.log(`[Search] Found: Guides=${guideIds.length}, Problems=${problemIds.length}, COEs=${coeIds.length}, RCs=${rcIds.length}`);
+    console.log(`[Search] Batch query conditions count: ${batchQuery.length}`);
 
     let batches = [];
     if (batchQuery.length > 0) {
       batches = await Batch.find({ $or: batchQuery })
         .populate('guideId', 'name email')
         .lean();
+      
+      // Deduplicate batches by ID
+      const batchMap = new Map();
+      batches.forEach(batch => {
+        if (!batchMap.has(batch._id.toString())) {
+          batchMap.set(batch._id.toString(), batch);
+        }
+      });
+      batches = Array.from(batchMap.values());
     }
 
     console.log(`[Search] Batches found: ${batches.length}`);

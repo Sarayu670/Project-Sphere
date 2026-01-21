@@ -138,7 +138,7 @@ function ProblemManagement() {
               <thead>
                 <tr>
                   <th>Title</th>
-                  <th>COE</th>
+                  <th>COE/RC</th>
                   <th>Guide</th>
                   <th>Year</th>
                   <th>Selected</th>
@@ -177,33 +177,33 @@ function ProblemManagement() {
             <form onSubmit={handleSubmit}>
               <div className="form-group">
                 <label>Title</label>
-                <input type="text" value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} required />
+                <input type="text" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} required />
               </div>
               <div className="form-group">
                 <label>COE (Domain)</label>
-                <select value={formData.coeId} onChange={(e) => setFormData({...formData, coeId: e.target.value})} required>
+                <select value={formData.coeId} onChange={(e) => setFormData({ ...formData, coeId: e.target.value })} required>
                   <option value="">Select COE</option>
                   {coes.map((coe) => (<option key={coe._id} value={coe._id}>{coe.name}</option>))}
                 </select>
               </div>
               <div className="form-group">
                 <label>Assigned Guide</label>
-                <select value={formData.guideId} onChange={(e) => setFormData({...formData, guideId: e.target.value})} required>
+                <select value={formData.guideId} onChange={(e) => setFormData({ ...formData, guideId: e.target.value })} required>
                   <option value="">Select Guide</option>
                   {guides.map((guide) => (<option key={guide._id} value={guide._id}>{guide.name} ({guide.assignedBatches}/{guide.maxBatches})</option>))}
                 </select>
               </div>
               <div className="form-group">
                 <label>Year</label>
-                <input type="number" value={formData.year} onChange={(e) => setFormData({...formData, year: parseInt(e.target.value)})} required />
+                <input type="number" value={formData.year} onChange={(e) => setFormData({ ...formData, year: parseInt(e.target.value) })} required />
               </div>
               <div className="form-group">
                 <label>Description</label>
-                <textarea value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} rows={3} />
+                <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} rows={3} />
               </div>
               <div className="form-group">
                 <label>Dataset URL (Optional)</label>
-                <input type="url" value={formData.datasetUrl} onChange={(e) => setFormData({...formData, datasetUrl: e.target.value})} placeholder="https://..." />
+                <input type="url" value={formData.datasetUrl} onChange={(e) => setFormData({ ...formData, datasetUrl: e.target.value })} placeholder="https://..." />
               </div>
               <div className="modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>

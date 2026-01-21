@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import * as api from '../../services/api';
 import ChatPanel from '../../components/ChatPanel';
-import { generateChatReport } from '../../utils/reportGenerator';
+import { generateChatReport, generateSummaryReport } from '../../utils/reportGenerator';
 import CreateBatch from './CreateBatch';
 import TeamMembers from './TeamMembers';
 import COEList from './COEList';
@@ -17,6 +17,7 @@ function StudentDashboard() {
   const [selectedCOE, setSelectedCOE] = useState(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [chatData, setChatData] = useState(null);
+  const [summarizing, setSummarizing] = useState(false);
 
   const fetchBatch = async () => {
     try {
@@ -92,14 +93,29 @@ function StudentDashboard() {
     }
   };
 
-  const handleDownloadReport = async () => {
-    if (chatData && batch) {
-      try {
-        const guideName = batch.guideId?.name || 'Guide';
-        generateChatReport(chatData, batch.teamName, guideName);
-      } catch (error) {
-        console.error('Error generating report:', error);
+  const handleDownloadSummaryReport = async () => {
+    if (!batch) return;
+    setSummarizing(true);
+    try {
+      // Use the batch-specific summarize endpoint which handles missing ProjectEntry mapping
+      await api.summarizeBatch(batch._id);
+
+      // Fetch summaries for this specific batch
+      const summaryRes = await api.getBatchSummaries(batch._id);
+      const summaries = summaryRes.data.data;
+
+      if (!summaries || summaries.length === 0) {
+        alert('No chat history found to summarize. Please ensure you have exchanged messages with your guide (both student and guide must participate on the same day).');
+        return;
       }
+
+      // Export to PDF
+      generateSummaryReport(summaries, batch.teamName);
+    } catch (error) {
+      console.error('Error generating summary report:', error);
+      alert('Failed to generate summary report. Please check your internet connection or try again later.');
+    } finally {
+      setSummarizing(false);
     }
   };
 
@@ -127,8 +143,14 @@ function StudentDashboard() {
               <button className="chat-btn" onClick={handleOpenChat} title="Chat with Guide">
                 💬 Chat
               </button>
-              <button className="report-btn" onClick={handleDownloadReport} title="Download Report" disabled={!chatData}>
-                📄 Report
+              <button 
+                className="report-btn" 
+                onClick={handleDownloadSummaryReport} 
+                disabled={summarizing}
+                title="Download Summarized Report"
+                style={{ marginLeft: '10px' }}
+              >
+                {summarizing ? '⌛...' : '📋 Report'}
               </button>
             </div>
           )}

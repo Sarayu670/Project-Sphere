@@ -51,8 +51,8 @@ function AdminDashboard() {
     }
   };
 
-  useEffect(() => { 
-    fetchData(); 
+  useEffect(() => {
+    fetchData();
   }, [activeTab]);
 
   const getBatchesForCOE = (coeId) => batches.filter(b => b.coeId?._id === coeId || b.coeId === coeId);
@@ -136,8 +136,6 @@ function AdminDashboard() {
         </div>
       )}
 
-
-
       {activeTab === 'project-import' && (
         <div className="tab-content">
           <ImportProjectData />
@@ -196,8 +194,7 @@ function AdminDashboard() {
                   <tr>
                     <th>Team Name</th>
                     <th>Team Members</th>
-                    <th>Class</th>
-                    <th>COE</th>
+                    <th>COE/RC</th>
                     <th>Guide</th>
                     <th>Problem</th>
                     <th>Actions</th>
@@ -216,7 +213,7 @@ function AdminDashboard() {
                           ))}
                         </div>
                       </td>
-                      <td>{batch.year} {batch.branch}-{batch.section}</td>
+
                       <td>{batch.coeId?.name || 'Not Assigned'}</td>
                       <td>{batch.guideId?.name || 'Not Assigned'}</td>
                       <td>{batch.problemId?.title || 'Not Assigned'}</td>

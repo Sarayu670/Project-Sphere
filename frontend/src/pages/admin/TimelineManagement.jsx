@@ -128,7 +128,7 @@ function TimelineManagement() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     console.log("Submitting form with data:", formData);
-    
+
     const data = new FormData();
     Object.keys(formData).forEach(key => {
       data.append(key, formData[key]);
@@ -348,7 +348,7 @@ function TimelineManagement() {
                 placeholder="What documents/files need to be submitted"
               />
             </div>
-            
+
             <div style={{ display: "flex", gap: "10px" }}>
               <button type="submit" className="btn btn-primary">
                 {editingEvent ? "Update" : "Create"} Event
@@ -513,7 +513,7 @@ function TimelineManagement() {
                   <th>Team</th>
                   <th>Team Members</th>
                   <th>Class</th>
-                  <th>COE</th>
+                  <th>COE/RC</th>
                   <th>Guide</th>
                   <th>Marks</th>
                   <th>Guide's Feedback</th>
@@ -845,11 +845,11 @@ function TimelineManagement() {
                 <div>
                   <strong style={{ fontSize: '13px', display: 'block', marginBottom: '3px' }}>📅 Deadline:</strong>
                   <span style={{ fontSize: '13px', lineHeight: '1.5', color: '#4a5568' }}>
-                  {new Date(event.deadline).toLocaleDateString("en-IN", {
-                    day: "numeric",
-                    month: "short",
-                    year: "numeric",
-                  })}
+                    {new Date(event.deadline).toLocaleDateString("en-IN", {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    })}
                   </span>
                 </div>
                 <div>

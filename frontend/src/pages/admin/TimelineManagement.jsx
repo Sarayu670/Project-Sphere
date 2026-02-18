@@ -48,6 +48,7 @@ function TimelineManagement() {
   const [selectedColumns, setSelectedColumns] = useState(
     ALL_COLUMNS.map((col) => col.key)
   );
+  const [showColumnDropdown, setShowColumnDropdown] = useState(false);
 
   const fetchEvents = async () => {
     try {
@@ -124,6 +125,16 @@ function TimelineManagement() {
   useEffect(() => {
     fetchEvents();
   }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (showColumnDropdown && !e.target.closest('.column-dropdown-container')) {
+        setShowColumnDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showColumnDropdown]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -467,31 +478,77 @@ function TimelineManagement() {
                   <option value="E">E</option>
                 </select>
               </div>
-              <div className="form-group" style={{ margin: 0 }}>
+              <div className="form-group column-dropdown-container" style={{ margin: 0, position: "relative" }}>
                 <label>Select Columns</label>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-                  {ALL_COLUMNS.map((col) => (
-                    <label
-                      key={col.key}
-                      style={{ fontWeight: 400, fontSize: "13px" }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedColumns.includes(col.key)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedColumns((prev) => [...prev, col.key]);
-                          } else {
-                            setSelectedColumns((prev) =>
-                              prev.filter((k) => k !== col.key)
-                            );
-                          }
-                        }}
-                      />{" "}
-                      {col.label}
-                    </label>
-                  ))}
+                <div
+                  onClick={() => setShowColumnDropdown(!showColumnDropdown)}
+                  style={{
+                    padding: "8px 12px",
+                    border: "1px solid #ddd",
+                    borderRadius: "4px",
+                    cursor: "pointer",
+                    background: "white",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    minWidth: "200px"
+                  }}
+                >
+                  <span style={{ fontSize: "13px", color: "#666" }}>
+                    {selectedColumns.length} column{selectedColumns.length !== 1 ? 's' : ''} selected
+                  </span>
+                  <span style={{ fontSize: "12px" }}>{showColumnDropdown ? '▲' : '▼'}</span>
                 </div>
+                {showColumnDropdown && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "100%",
+                      left: 0,
+                      marginTop: "4px",
+                      background: "white",
+                      border: "1px solid #ddd",
+                      borderRadius: "4px",
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                      zIndex: 1000,
+                      minWidth: "200px",
+                      maxHeight: "300px",
+                      overflowY: "auto"
+                    }}
+                  >
+                    {ALL_COLUMNS.map((col) => (
+                      <label
+                        key={col.key}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          padding: "8px 12px",
+                          cursor: "pointer",
+                          fontSize: "13px",
+                          borderBottom: "1px solid #f0f0f0",
+                          background: selectedColumns.includes(col.key) ? "#f0f7ff" : "white"
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = "#f8f9fa"}
+                        onMouseLeave={(e) => e.currentTarget.style.background = selectedColumns.includes(col.key) ? "#f0f7ff" : "white"}
+                      >
+                        <span>{col.label}</span>
+                        <input
+                          type="checkbox"
+                          checked={selectedColumns.includes(col.key)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedColumns((prev) => [...prev, col.key]);
+                            } else {
+                              setSelectedColumns((prev) => prev.filter((k) => k !== col.key));
+                            }
+                          }}
+                          style={{ cursor: "pointer" }}
+                        />
+                      </label>
+                    ))}
+                  </div>
+                )}
               </div>
               <button
                 className="btn btn-secondary"

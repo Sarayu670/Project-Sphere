@@ -9,6 +9,7 @@ import StudentDashboard from './pages/student/StudentDashboard';
 import GuideDashboard from './pages/guide/GuideDashboard';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import Layout from './components/Layout';
+import AchievementCategory from './pages/AchievementCategory';
 
 function App() {
   const { user, loading } = useAuth();
@@ -35,6 +36,7 @@ function App() {
   return (
     <Routes>
       <Route path="/home" element={<HomePage />} />
+      <Route path="/achievements/:category" element={<AchievementCategory />} />
       <Route path="/login" element={!user ? <Login /> : <Navigate to="/" />} />
       <Route path="/register" element={!user ? <Register /> : <Navigate to="/" />} />
       <Route path="/register/guide" element={!user ? <RegisterGuide /> : <Navigate to="/" />} />

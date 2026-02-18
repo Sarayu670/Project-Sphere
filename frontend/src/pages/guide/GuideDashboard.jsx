@@ -25,7 +25,7 @@ function GuideDashboard() {
   const [chatOpen, setChatOpen] = useState(false);
   const [selectedChat, setSelectedChat] = useState(null);
   const [currentChatData, setCurrentChatData] = useState(null);
-  const [newProblem, setNewProblem] = useState({ title: '', description: '', coeId: '', targetYear: '', datasetUrl: '' });
+  const [newProblem, setNewProblem] = useState({ title: '', description: '', coeId: '', targetYear: '', datasetUrl: '', researchArea: '' });
   const [dialog, setDialog] = useState({ isOpen: false, title: '', message: '', type: 'info', onConfirm: null, confirmText: 'OK', cancelText: 'Cancel' });
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredProblems, setFilteredProblems] = useState([]);
@@ -90,7 +90,7 @@ function GuideDashboard() {
     e.preventDefault();
     try {
       await api.createProblem(newProblem);
-      setNewProblem({ title: '', description: '', coeId: '', targetYear: '', datasetUrl: '' });
+      setNewProblem({ title: '', description: '', coeId: '', targetYear: '', datasetUrl: '', researchArea: '' });
       setShowAddProblem(false);
       fetchData();
     } catch (error) {
@@ -257,6 +257,7 @@ function GuideDashboard() {
                 </div>
                 <div className="form-group"><label>Title</label><input type="text" value={newProblem.title} onChange={(e) => setNewProblem({ ...newProblem, title: e.target.value })} required /></div>
                 <div className="form-group"><label>Description</label><textarea value={newProblem.description} onChange={(e) => setNewProblem({ ...newProblem, description: e.target.value })} rows={3} /></div>
+                <div className="form-group"><label>Research Area (optional)</label><input type="text" value={newProblem.researchArea} onChange={(e) => setNewProblem({ ...newProblem, researchArea: e.target.value })} placeholder="e.g., Machine Learning, IoT, Data Science" /></div>
                 <div className="form-group"><label>Dataset URL (optional)</label><input type="url" value={newProblem.datasetUrl} onChange={(e) => setNewProblem({ ...newProblem, datasetUrl: e.target.value })} /></div>
                 <div style={{ display: 'flex', gap: '10px' }}><button type="submit" className="btn btn-primary">Save</button><button type="button" className="btn btn-secondary" onClick={() => setShowAddProblem(false)}>Cancel</button></div>
                 <div style={{ marginTop: '10px', padding: '10px', backgroundColor: '#f0f4ff', borderRadius: '4px', fontSize: '12px', color: '#666' }}>
@@ -285,21 +286,22 @@ function GuideDashboard() {
               </div>
               <div className="grid grid-2">
                 {filteredProblems.map(p => (
-                  <div key={p._id} className="card">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-                      <div>
-                        <h3 style={{ margin: '0 0 10px 0' }}>{p.title}</h3>
-                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '10px' }}>
-                          <span className="timeline-badge badge-info">{p.coeId?.name}</span> 
-                          <span className="timeline-badge badge-warning">{p.targetYear} Year</span>
-                        </div>
-                      </div>
-                      <button className="btn btn-danger btn-sm" onClick={() => handleDeleteProblem(p._id)}>🗑️</button>
-                    </div>
-                    <p style={{ color: '#666', margin: '10px 0' }}>{p.description}</p>
-                    <div style={{ fontSize: '14px', color: '#888' }}>Teams: {p.selectedBatchCount}</div>
-                  </div>
-                ))}
+                   <div key={p._id} className="card">
+                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                       <div>
+                         <h3 style={{ margin: '0 0 10px 0' }}>{p.title}</h3>
+                         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '10px' }}>
+                           <span className="timeline-badge badge-info">{p.coeId?.name}</span> 
+                           <span className="timeline-badge badge-warning">{p.targetYear} Year</span>
+                           {p.researchArea && <span className="timeline-badge badge-success">{p.researchArea}</span>}
+                         </div>
+                       </div>
+                       <button className="btn btn-danger btn-sm" onClick={() => handleDeleteProblem(p._id)}>🗑️</button>
+                     </div>
+                     <p style={{ color: '#666', margin: '10px 0' }}>{p.description}</p>
+                     <div style={{ fontSize: '14px', color: '#888' }}>Teams: {p.selectedBatchCount}</div>
+                   </div>
+                 ))}
               </div>
             </>
           )}

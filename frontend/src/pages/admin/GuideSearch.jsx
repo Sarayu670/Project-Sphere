@@ -23,14 +23,18 @@ function GuideSearch() {
     setProjects([]);
 
     try {
-      // Search both batches and imported projects
-      const [batchesResponse, projectsResponse] = await Promise.all([
-        api.searchBatchesByGuide(guideName, searchType),
-        api.searchProjects(guideName, searchType) // Pass searchType filter
-      ]);
-
+      // Search batches (required)
+      const batchesResponse = await api.searchBatchesByGuide(guideName, searchType);
       setResults(batchesResponse.data.data);
-      setProjects(projectsResponse.data.data || []);
+
+      // Search projects (optional - don't fail if this errors)
+      try {
+        const projectsResponse = await api.searchProjects(guideName, searchType);
+        setProjects(projectsResponse.data.data || []);
+      } catch (projectErr) {
+        console.warn('Project search failed (non-critical):', projectErr.message);
+        setProjects([]);
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to search');
       setResults(null);
@@ -51,6 +55,10 @@ function GuideSearch() {
       results.batches.forEach(batch => {
         // Use a unique key combining BatchID and TeamName to avoid collisions
         const key = `${batch.batchId || 'N/A'}-${batch.teamName.toLowerCase()}`;
+        // Display both COE and RC if available
+        const coeRc = batch.coe && batch.coe !== 'N/A' 
+          ? (batch.rc && batch.rc !== 'N/A' ? `${batch.coe}, ${batch.rc}` : batch.coe)
+          : (batch.rc || 'N/A');
         teamMap.set(key, {
           _id: batch._id,
           batchId: batch.batchId || 'N/A',
@@ -62,7 +70,7 @@ function GuideSearch() {
           guideName: batch.guideName || results.guide.name,
           projectTitle: batch.projectTitle || 'N/A',
           researchArea: batch.researchArea || 'N/A',
-          coe: batch.coe || 'N/A',
+          coe: coeRc,
           isProject: false
         });
       });
@@ -79,7 +87,11 @@ function GuideSearch() {
         existing.batchId = project.batchId || existing.batchId;
         existing.projectTitle = project.projectTitle;
         existing.researchArea = project.researchArea || 'N/A';
-        existing.coe = project.coe;
+        // Combine COE and RC if available
+        const projectCoeRc = project.coe && project.coe !== 'N/A'
+          ? (project.rc && project.rc !== 'N/A' ? `${project.coe}, ${project.rc}` : project.coe)
+          : (project.rc || 'N/A');
+        existing.coe = projectCoeRc;
         existing.guideName = project.guideName || existing.guideName;
         existing.isProject = true;
 
@@ -92,6 +104,10 @@ function GuideSearch() {
           existing.studentCount = project.students.length;
         }
       } else {
+        // Combine COE and RC for new project entries
+        const projectCoeRc = project.coe && project.coe !== 'N/A'
+          ? (project.rc && project.rc !== 'N/A' ? `${project.coe}, ${project.rc}` : project.coe)
+          : (project.rc || 'N/A');
         teamMap.set(key, {
           _id: project._id,
           batchId: project.batchId || 'N/A',
@@ -104,7 +120,7 @@ function GuideSearch() {
           guideName: project.guideName,
           projectTitle: project.projectTitle,
           researchArea: project.researchArea || 'N/A',
-          coe: project.coe,
+          coe: projectCoeRc,
           isProject: true
         });
       }

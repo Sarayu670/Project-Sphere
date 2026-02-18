@@ -50,11 +50,12 @@ function ExcelImportProblem({ coes, targetYears, onImportComplete, onCancel }) {
   const parseExcelData = (jsonData) => {
     return jsonData.map((row, index) => {
       // Map Excel columns to expected fields
-      // Expected columns: COE, Target Year, Title, Description, Dataset URL
+      // Expected columns: COE, Target Year, Title, Description, Research Area, Dataset URL
       const coeName = row['COE'] || row['coe'] || row['CoE'] || '';
       const targetYear = row['Target Year'] || row['target year'] || row['targetYear'] || '';
       const title = row['Title'] || row['title'] || '';
       const description = row['Description'] || row['description'] || '';
+      const researchArea = row['Research Area'] || row['research area'] || row['researchArea'] || '';
       const datasetUrl = row['Dataset URL'] || row['dataset url'] || row['datasetUrl'] || '';
 
       // Find matching COE ID
@@ -70,6 +71,7 @@ function ExcelImportProblem({ coes, targetYears, onImportComplete, onCancel }) {
         targetYear,
         title,
         description,
+        researchArea,
         datasetUrl,
         coeId,
         validYear,
@@ -129,6 +131,7 @@ function ExcelImportProblem({ coes, targetYears, onImportComplete, onCancel }) {
                 coeId: problem.coeId,
                 title: problem.title,
                 description: problem.description,
+                researchArea: problem.researchArea || '',
                 targetYear: problem.validYear,
                 datasetUrl: problem.datasetUrl || ''
               });

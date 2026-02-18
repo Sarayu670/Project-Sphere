@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import * as api from '../services/api';
 import GuideSearch from './admin/GuideSearch';
+import Achievements from '../components/Achievements';
 import './HomePage.css';
 
 const API_URL = '/api';
@@ -191,6 +192,8 @@ const HomePage = () => {
           </div>
         </div>
       </section>
+
+      <Achievements />
 
       <section className="guide-search-section">
         <h2>Find Your Guide & Projects</h2>

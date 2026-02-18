@@ -332,14 +332,14 @@ const [selectedRCId, setSelectedRCId] = useState(null);
               </thead>
               <tbody>
                 {selectedItems.map((project) => (
-                  <tr key={project._id}>
-                    <td>{project.teamName || project.batchId || 'N/A'}</td>
-                    <td>{project.problemId?.title || project.optedProblemId?.title || 'N/A'}</td>
-                    <td>{project.guideId?.name || 'N/A'}</td>
-                    <td>{project.problemId?.researchArea || project.optedProblemId?.researchArea || 'N/A'}</td>
-                    <td className="coe-rc-cell">{getCoeRcValue(project)}</td>
-                  </tr>
-                ))}
+                   <tr key={project._id}>
+                     <td>{project.teamName || project.batchId || 'N/A'}</td>
+                     <td>{project.problemId?.title || project.optedProblemId?.title || 'N/A'}</td>
+                     <td>{project.guideId?.name || 'N/A'}</td>
+                     <td>{project.researchArea || project.problemId?.researchArea || project.optedProblemId?.researchArea || 'N/A'}</td>
+                     <td className="coe-rc-cell">{getCoeRcValue(project)}</td>
+                   </tr>
+                 ))}
               </tbody>
             </table>
           </div>

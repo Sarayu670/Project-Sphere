@@ -13,6 +13,7 @@ export const downloadExcelTemplate = (coes, targetYears) => {
       'Target Year': targetYears[0] || '3rd',
       'Title': 'Sample Problem Statement 1',
       'Description': 'This is a sample problem statement describing the challenge that needs to be solved.',
+      'Research Area': 'Data Science',
       'Dataset URL': 'https://example.com/dataset1.csv'
     },
     {
@@ -20,6 +21,7 @@ export const downloadExcelTemplate = (coes, targetYears) => {
       'Target Year': targetYears[1] || '4th',
       'Title': 'Sample Problem Statement 2',
       'Description': 'Another example problem statement with detailed requirements and constraints.',
+      'Research Area': 'Deep Learning',
       'Dataset URL': 'https://example.com/dataset2.csv'
     },
     {
@@ -27,6 +29,7 @@ export const downloadExcelTemplate = (coes, targetYears) => {
       'Target Year': targetYears[0] || '3rd',
       'Title': 'Sample Problem Statement 3',
       'Description': 'Problem related to Internet of Things and connected devices.',
+      'Research Area': 'IoT & Connected Systems',
       'Dataset URL': ''
     }
   ];
@@ -41,6 +44,7 @@ export const downloadExcelTemplate = (coes, targetYears) => {
     { wch: 15 },  // Target Year
     { wch: 35 },  // Title
     { wch: 50 },  // Description
+    { wch: 25 },  // Research Area
     { wch: 35 }   // Dataset URL
   ];
 
@@ -50,6 +54,7 @@ export const downloadExcelTemplate = (coes, targetYears) => {
     { 'Field': 'Target Year', 'Description': 'Year level (2nd, 3rd, or 4th). Must be exact match.', 'Example': '3rd' },
     { 'Field': 'Title', 'Description': 'Problem statement title. Required field.', 'Example': 'Data Analysis Challenge' },
     { 'Field': 'Description', 'Description': 'Detailed description of the problem. Can be multiple lines.', 'Example': 'Build a solution to analyze customer behavior...' },
+    { 'Field': 'Research Area', 'Description': 'Research area or domain (optional). Examples: Machine Learning, IoT, Data Science', 'Example': 'Machine Learning' },
     { 'Field': 'Dataset URL', 'Description': 'Link to dataset (optional). Leave blank if not applicable.', 'Example': 'https://example.com/data.csv' }
   ];
 

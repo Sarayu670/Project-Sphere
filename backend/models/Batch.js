@@ -41,6 +41,14 @@ const BatchSchema = new mongoose.Schema({
     default: ''
   },
   
+  // Research Area (from Excel import or problem statement)
+  researchArea: {
+    type: String,
+    trim: true,
+    index: true,
+    default: ''
+  },
+  
   // COE (Center of Excellence) - from Excel import
   coe: {
     name: {

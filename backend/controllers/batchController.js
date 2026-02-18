@@ -639,15 +639,16 @@ exports.allotProblem = async (req, res) => {
       });
     }
 
-    // Allot the problem
-    batch.problemId = targetProblemId;
-    batch.optedProblemId = targetProblemId;
-    batch.coeId = problem.coeId;
-    batch.guideId = req.user._id;
-    batch.allotmentStatus = 'allotted';
-    batch.status = 'In Progress';
-    await batch.save();
-    console.log('Batch saved successfully');
+     // Allot the problem
+     batch.problemId = targetProblemId;
+     batch.optedProblemId = targetProblemId;
+     batch.coeId = problem.coeId;
+     batch.researchArea = problem.researchArea || '';  // Copy research area from problem
+     batch.guideId = req.user._id;
+     batch.allotmentStatus = 'allotted';
+     batch.status = 'In Progress';
+     await batch.save();
+     console.log('Batch saved successfully');
 
     // Mark problem as fully assigned (only 1 batch can have it)
     problem.selectedBatchCount = 1;

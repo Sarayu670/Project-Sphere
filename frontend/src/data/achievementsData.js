@@ -518,7 +518,7 @@ export const achievementCategories = [
         description: 'Research papers published in international journals and conferences',
         color: '#3b82f6',
         gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        categoryImage: '/achievements/fundus_retina.jpg'
+        categoryImage: '/achievements/paper_publications.jpg'
     },
     {
         id: 'patents',
@@ -528,7 +528,7 @@ export const achievementCategories = [
         description: 'Innovative patents in medical imaging and AI technology',
         color: '#f59e0b',
         gradient: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-        categoryImage: '/achievements/odoc_device.jpg'
+        categoryImage: '/achievements/patents.jpg'
     },
     {
         id: 'projects',
@@ -538,7 +538,7 @@ export const achievementCategories = [
         description: 'Government-funded research and development projects',
         color: '#10b981',
         gradient: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-        categoryImage: '/achievements/aeye_summit_team.jpg'
+        categoryImage: '/achievements/project_funding.jpg'
     },
     {
         id: 'awards',
@@ -548,7 +548,7 @@ export const achievementCategories = [
         description: 'Awards and recognitions for excellence in research and education',
         color: '#ef4444',
         gradient: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
-        categoryImage: '/achievements/award_ceremony.jpg'
+        categoryImage: '/achievements/awards.jpg'
     },
     {
         id: 'workshops',
@@ -558,6 +558,6 @@ export const achievementCategories = [
         description: 'Professional development workshops and training programs',
         color: '#8b5cf6',
         gradient: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
-        categoryImage: '/achievements/workshop_session.jpg'
+        categoryImage: '/achievements/workshops.jpg'
     }
 ];

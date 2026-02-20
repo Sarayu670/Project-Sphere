@@ -49,7 +49,6 @@ const AchievementCategory = () => {
                         <h1 className="hero-title">{categoryInfo.label}</h1>
                     </div>
 
-                    <p className="hero-description">{categoryInfo.description}</p>
 
                     <div className="hero-stats">
                         <div className="stat-item">
@@ -82,7 +81,7 @@ const AchievementCategory = () => {
                                     alt={achievement.title}
                                     className="achievement-image"
                                     onError={(e) => {
-                                        e.target.src = 'https://via.placeholder.com/400x300?text=Achievement';
+                                        e.target.style.display = 'none';
                                     }}
                                 />
                                 <div className="achievement-image-overlay">
@@ -118,17 +117,6 @@ const AchievementCategory = () => {
                                     )}
                                 </div>
 
-                                <p className="achievement-card-description">{achievement.description}</p>
-
-                                {achievement.images && achievement.images.length > 1 && (
-                                    <div className="image-count-badge">
-                                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                                            <path d="M2 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2z" />
-                                            <path d="M10.97 4.97a.75.75 0 0 1 1.071 1.05l-3.992 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425a.236.236 0 0 1 .02-.022z" fill="white" />
-                                        </svg>
-                                        {achievement.images.length} images
-                                    </div>
-                                )}
                             </div>
                         </div>
                     ))}

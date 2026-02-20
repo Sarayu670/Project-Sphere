@@ -47,7 +47,7 @@ const Achievements = () => {
                                         alt={category.label}
                                         className="category-image"
                                         onError={(e) => {
-                                            e.target.src = 'https://via.placeholder.com/600x400?text=' + category.label;
+                                            e.target.style.display = 'none';
                                         }}
                                     />
                                     <div className="category-overlay"></div>

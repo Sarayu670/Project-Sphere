@@ -27,7 +27,7 @@
 }
 
 .hero-content {
-    max-width: 1200px;
+    max-width: 1400px;
     margin: 0 auto;
     position: relative;
     z-index: 2;
@@ -54,7 +54,11 @@
     font-size: 14px;
     margin-bottom: 30px;
     flex-wrap: wrap;
-    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    text-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 0.1);
+    padding: 6px 12px;
+    border-radius: 8px;
+    width: fit-content;
 }
 
 .breadcrumb-link {
@@ -116,10 +120,10 @@
 .hero-description {
     font-size: 20px;
     line-height: 1.6;
-    max-width: 700px;
+    max-width: 850px;
     margin-bottom: 30px;
-    opacity: 0.98;
-    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    color: #ffffff;
+    text-shadow: 0 4px 15px rgba(0, 0, 0, 0.6), 0 2px 4px rgba(0, 0, 0, 0.8);
     font-weight: 500;
 }
 
@@ -169,7 +173,7 @@
 
 /* Achievements Grid Container */
 .achievements-grid-container {
-    max-width: 1400px;
+    max-width: 1600px;
     margin: 0 auto;
     padding: 60px 20px 100px;
 }

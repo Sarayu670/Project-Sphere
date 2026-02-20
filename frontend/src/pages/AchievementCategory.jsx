@@ -34,90 +34,106 @@ const AchievementCategory = () => {
     return (
         <div className="achievement-category-page">
             {/* Hero Header */}
-            <div className="category-hero" style={{ background: categoryInfo.gradient }}>
-                <div className="hero-content">
-                    <div className="breadcrumb">
-                        <span onClick={() => navigate('/home')} className="breadcrumb-link">Home</span>
-                        <span className="breadcrumb-separator">/</span>
-                        <span onClick={() => navigate('/home#achievements')} className="breadcrumb-link">Achievements</span>
-                        <span className="breadcrumb-separator">/</span>
-                        <span className="breadcrumb-current">{categoryInfo.label}</span>
+            <header className="category-hero" style={{
+                '--hero-bg': categoryInfo.gradient,
+                '--hero-img': `url(${categoryInfo.categoryImage})`
+            }}>
+                <div className="hero-content-wrapper">
+                    <div className="hero-main-info">
+                        <div className="breadcrumb">
+                            <span onClick={() => navigate('/home')} className="breadcrumb-link">Home</span>
+                            <span className="breadcrumb-separator">/</span>
+                            <span onClick={() => navigate('/home#achievements')} className="breadcrumb-link">Achievements</span>
+                            <span className="breadcrumb-separator">/</span>
+                            <span className="breadcrumb-current">{categoryInfo.label}</span>
+                        </div>
+
+                        <div className="hero-title-group">
+                            <span className="hero-icon-large">{categoryInfo.icon}</span>
+                            <div className="hero-text">
+                                <h1 className="hero-title-main">{categoryInfo.label}</h1>
+                                <p className="hero-tagline">{categoryInfo.description}</p>
+                            </div>
+                        </div>
                     </div>
 
-                    <div className="hero-title-section">
-                        <span className="hero-icon">{categoryInfo.icon}</span>
-                        <h1 className="hero-title">{categoryInfo.label}</h1>
-                    </div>
-
-
-                    <div className="hero-stats">
-                        <div className="stat-item">
-                            <span className="stat-number">{achievements.length}</span>
-                            <span className="stat-label">{achievements.length === 1 ? 'Achievement' : 'Achievements'}</span>
+                    <div className="hero-stats-panel">
+                        <div className="stat-box">
+                            <span className="stat-value">{achievements.length}</span>
+                            <span className="stat-label-large">{achievements.length === 1 ? 'Achievement' : 'Achievements'}</span>
+                        </div>
+                        <div className="hero-status-pill">
+                            <span className="status-dot"></span>
+                            Active Category
                         </div>
                     </div>
                 </div>
 
-                <div className="hero-wave">
+                <div className="hero-overlay-refined"></div>
+
+                <div className="hero-wave-refined">
                     <svg viewBox="0 0 1440 120" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M0 0L60 10C120 20 240 40 360 46.7C480 53 600 47 720 43.3C840 40 960 40 1080 46.7C1200 53 1320 67 1380 73.3L1440 80V120H1380C1320 120 1200 120 1080 120C960 120 840 120 720 120C600 120 480 120 360 120C240 120 120 120 60 120H0V0Z" fill="white" />
                     </svg>
                 </div>
-            </div>
+            </header>
 
-            {/* Achievements Grid */}
-            <div className="achievements-grid-container">
-                <div className="achievements-grid">
+            {/* Achievements List */}
+            <div className="achievements-list-container">
+                <div className="achievements-list">
                     {achievements.map((achievement, index) => (
                         <div
                             key={achievement.id}
-                            className="achievement-card"
-                            style={{ animationDelay: `${index * 0.1}s` }}
+                            className="achievement-list-item"
+                            style={{ animationDelay: `${index * 0.05}s` }}
                             onClick={() => handleAchievementClick(achievement)}
                         >
-                            <div className="achievement-image-wrapper">
-                                <img
-                                    src={achievement.images[0]}
-                                    alt={achievement.title}
-                                    className="achievement-image"
-                                    onError={(e) => {
-                                        e.target.style.display = 'none';
-                                    }}
-                                />
-                                <div className="achievement-image-overlay">
-                                    <button className="view-details-btn">
-                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                                            <path d="M15 12C15 13.6569 13.6569 15 12 15C10.3431 15 9 13.6569 9 12C9 10.3431 10.3431 9 12 9C13.6569 9 15 10.3431 15 12Z" stroke="white" strokeWidth="2" />
-                                            <path d="M2 12C2 12 5 5 12 5C19 5 22 12 22 12C22 12 19 19 12 19C5 19 2 12 2 12Z" stroke="white" strokeWidth="2" />
+                            <div className="item-main-content">
+                                <div className="item-meta">
+                                    {achievement.date && (
+                                        <span className="item-date">{achievement.date || achievement.year}</span>
+                                    )}
+                                    {achievement.status && (
+                                        <span className="item-status">
+                                            <span className="status-dot"></span>
+                                            {achievement.status}
+                                        </span>
+                                    )}
+                                </div>
+                                <h3 className="item-title">{achievement.title}</h3>
+                                {achievement.description && (
+                                    <p className="item-description">{achievement.description}</p>
+                                )}
+
+                                <div className="item-footer">
+                                    <button className="view-details-link">
+                                        <span>Read more</span>
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                            <line x1="7" y1="17" x2="17" y2="7"></line>
+                                            <polyline points="7 7 17 7 17 17"></polyline>
                                         </svg>
-                                        <span>View Details</span>
                                     </button>
                                 </div>
                             </div>
 
-                            <div className="achievement-card-content">
-                                <h3 className="achievement-card-title">{achievement.title}</h3>
-
-                                <div className="achievement-meta-info">
-                                    {achievement.date && (
-                                        <span className="meta-badge">
-                                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                                                <path d="M4 0a1 1 0 0 0-1 1v1H2a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2h-1V1a1 1 0 1 0-2 0v1H5V1a1 1 0 0 0-1-1z" />
-                                            </svg>
-                                            {achievement.date || achievement.year}
-                                        </span>
-                                    )}
-
-                                    {achievement.status && (
-                                        <span className="meta-badge status-badge">{achievement.status}</span>
-                                    )}
-
-                                    {achievement.coe && (
-                                        <span className="meta-badge coe-badge">{achievement.coe}</span>
-                                    )}
+                            {achievement.images && achievement.images[0] && (
+                                <div className="item-image-preview">
+                                    <img
+                                        src={achievement.images[0]}
+                                        alt={achievement.title}
+                                        className="preview-img"
+                                        onError={(e) => {
+                                            e.target.parentElement.style.display = 'none';
+                                        }}
+                                    />
+                                    <div className="image-overlay-icon">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                                            <path d="M15 12C15 13.6569 13.6569 15 12 15C10.3431 15 9 13.6569 9 12C9 10.3431 10.3431 9 12 9C13.6569 9 15 10.3431 15 12Z" />
+                                            <path d="M2.45825 12C3.73228 7.94288 7.52281 5 12 5C16.4772 5 20.2677 7.94288 21.5417 12C20.2677 16.0571 16.4772 19 12 19C7.52281 19 3.73228 16.0571 2.45825 12Z" />
+                                        </svg>
+                                    </div>
                                 </div>
-
-                            </div>
+                            )}
                         </div>
                     ))}
                 </div>

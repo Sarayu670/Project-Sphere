@@ -22,7 +22,7 @@
 .achieve-modal-container {
     position: relative !important;
     width: 95% !important;
-    max-width: 1400px !important;
+    max-width: 800px !important;
     height: 90vh !important;
     background: #ffffff !important;
     border-radius: 32px !important;
@@ -99,7 +99,7 @@
 
 /* Header & Title */
 .achieve-details-header {
-    margin-bottom: 25px !important;
+    margin-bottom: 12px !important;
 }
 
 .achieve-category-badge {
@@ -119,8 +119,8 @@
     font-weight: 900 !important;
     color: #0f172a !important;
     line-height: 1.2 !important;
-    margin: 0 0 40px 0 !important;
-    padding-bottom: 25px !important;
+    margin: 0 0 20px 0 !important;
+    padding-bottom: 15px !important;
     border-bottom: 3px solid #f1f5f9 !important;
     width: 100% !important;
 }

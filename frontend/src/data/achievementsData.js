@@ -557,7 +557,7 @@ export const achievementCategories = [
         key: 'workshops',
         description: 'Professional development workshops and training programs',
         color: '#8b5cf6',
-        gradient: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
+        gradient: 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)',
         categoryImage: '/achievements/workshops.jpg'
     }
 ];

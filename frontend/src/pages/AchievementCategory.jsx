@@ -54,7 +54,6 @@ const AchievementCategory = () => {
                             </div>
                             <div className="hero-text">
                                 <h1 className="hero-title-main">{categoryInfo.label}</h1>
-                                <p className="hero-tagline">{categoryInfo.description}</p>
                             </div>
                         </div>
                     </div>

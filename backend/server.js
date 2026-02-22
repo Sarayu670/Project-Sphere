@@ -16,7 +16,7 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Enable CORS with proper headers for file downloads
+// Enable CORS
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -24,16 +24,20 @@ app.use(cors({
   credentials: true
 }));
 
-// Serve static files for uploads with proper headers
+// Root Route (IMPORTANT FIX)
+app.get('/', (req, res) => {
+  res.status(200).send('Project Sphere Backend Running 🚀');
+});
+
+// Serve static files for uploads
 app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
-  setHeaders: (res, path, stat) => {
+  setHeaders: (res, filePath, stat) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
     res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
     res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
-    
-    // Set proper content type for PDFs
-    if (path.endsWith('.pdf')) {
+
+    if (filePath.endsWith('.pdf')) {
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', 'inline');
     }
@@ -55,9 +59,14 @@ app.use('/api/submissions', require('./routes/submissionRoutes'));
 app.use('/api/chat', require('./routes/chatRoutes'));
 app.use('/api/projects', require('./routes/projectRoutes'));
 
-// Health check
+// Health check route
 app.get('/api/health', (req, res) => {
   res.status(200).json({ success: true, message: 'Server is running' });
+});
+
+// Handle unknown routes (optional but recommended)
+app.use((req, res) => {
+  res.status(404).json({ success: false, message: 'Route not found' });
 });
 
 const PORT = process.env.PORT || 5000;
@@ -65,4 +74,3 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
-

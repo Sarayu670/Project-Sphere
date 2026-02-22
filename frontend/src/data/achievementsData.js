@@ -11,7 +11,7 @@ export const achievementsData = {
             date: "September 2021",
             coe: "Artificial Intelligence & Medical Imaging",
             description: "Novel ensemble approach combining multiple deep learning architectures for detecting various ocular diseases including diabetic retinopathy, glaucoma, and age-related macular degeneration. The ensemble model achieved superior accuracy compared to individual models.",
-            images: ["/achievements/fundus_device.jpg", "/achievements/workshop_session.jpg"],
+            images: ["/achievements/paper1.png"],
             details: {
                 abstract: "This paper presents an ensemble deep learning framework for automated detection of multiple ocular diseases from fundus images. The system combines CNN, ResNet, and VGG architectures to achieve robust classification.",
                 keywords: ["Deep Learning", "Ensemble Methods", "Ocular Diseases", "Medical Imaging"],
@@ -26,7 +26,7 @@ export const achievementsData = {
             date: "September 2021",
             coe: "Artificial Intelligence & Medical Imaging",
             description: "Synthetic retinal image generation using Deep Convolutional Generative Adversarial Networks (DCGAN) and Variational Autoencoders (VAE) for enhanced diabetic retinopathy assessment and data augmentation.",
-            images: ["/achievements/fundus_retina.jpg", "/achievements/workshop_session.jpg"],
+            images: ["/achievements/paper2.jpg"],
             details: {
                 abstract: "Novel approach to generate synthetic fundus images for training robust diabetic retinopathy detection models. Addresses the challenge of limited annotated medical imaging datasets.",
                 keywords: ["DCGAN", "VAE", "Diabetic Retinopathy", "Image Synthesis"],
@@ -41,7 +41,7 @@ export const achievementsData = {
             date: "May 2022",
             coe: "Artificial Intelligence & Medical Imaging",
             description: "Advanced CNN ensemble methodology combining multiple convolutional neural network architectures for accurate diabetic retinopathy classification across five severity levels.",
-            images: ["/achievements/tri_netra_hcu.jpg", "/achievements/fundus_retina.jpg"],
+            images: ["/achievements/paper3.avif"],
             details: {
                 abstract: "Ensemble approach combining InceptionV3, ResNet50, and DenseNet for multi-class diabetic retinopathy classification. Achieved 94.2% accuracy on benchmark datasets.",
                 keywords: ["Ensemble CNN", "Diabetic Retinopathy", "Multi-class Classification"],
@@ -56,7 +56,7 @@ export const achievementsData = {
             date: "April 2023",
             coe: "Artificial Intelligence & Medical Imaging",
             description: "Mobile-compatible fundus imaging system (G-Eye) enabling smartphone-based retinal imaging for accessible eye disease screening in resource-limited settings.",
-            images: ["/achievements/odoc_device.jpg", "/achievements/deye_device.jpg"],
+            images: ["/achievements/paper4.png"],
             details: {
                 abstract: "Portable, low-cost retinal imaging solution using smartphone technology. Enables point-of-care diabetic retinopathy screening with 91% sensitivity.",
                 keywords: ["Mobile Health", "Fundus Imaging", "G-Eye Device", "Telemedicine"],
@@ -71,7 +71,7 @@ export const achievementsData = {
             date: "December 2024",
             coe: "Artificial Intelligence & Medical Imaging",
             description: "GAN-based approach for improved diabetic retinopathy detection and classification, utilizing generative models for data augmentation and feature enhancement.",
-            images: ["/achievements/tri_netra_hcu.jpg", "/achievements/fundus_retina.jpg"],
+            images: ["/achievements/paper5.jpg"],
             details: {
                 abstract: "Leveraging Generative Adversarial Networks for both data augmentation and feature extraction in diabetic retinopathy classification tasks.",
                 keywords: ["GAN", "Diabetic Retinopathy", "Deep Learning", "Medical AI"],
@@ -104,7 +104,7 @@ export const achievementsData = {
             date: "October 2022",
             institution: "G. Narayanamma Institute of Technology & Science",
             description: "Innovative portable device enabling smartphone-based retinal imaging for accessible eye care. The device uses smartphone cameras with specialized optics for high-quality fundus image capture.",
-            images: ["/achievements/odoc_device.jpg", "/achievements/deye_device.jpg"],
+            images: [],
             details: {
                 patentNumber: "IN-2022-XXXX",
                 applicationDate: "March 2022",
@@ -121,7 +121,7 @@ export const achievementsData = {
             date: "March 2024",
             institution: "G. Narayanamma Institute of Technology & Science",
             description: "Deep learning-based automated glaucoma screening system utilizing convolutional neural networks for optic disc and cup segmentation and glaucoma classification.",
-            images: ["/achievements/fundus_device.jpg", "/achievements/fundus_retina.jpg"],
+            images: [],
             details: {
                 patentNumber: "IN-2024-XXXX",
                 applicationDate: "September 2023",
@@ -138,7 +138,7 @@ export const achievementsData = {
             date: "March 2024",
             institution: "G. Narayanamma Institute of Technology & Science",
             description: "Hybrid approach combining traditional image processing techniques with deep learning for precise glaucoma detection from fundus photographs.",
-            images: ["/achievements/fundus_retina.jpg", "/achievements/workshop_session.jpg"],
+            images: [],
             details: {
                 patentNumber: "IN-2024-YYYY",
                 applicationDate: "October 2023",
@@ -155,7 +155,7 @@ export const achievementsData = {
             date: "February 2024",
             institution: "G. Narayanamma Institute of Technology & Science",
             description: "Novel neural network architectures (G-NET and R-UNET) for precise retinal vessel segmentation and diabetic retinopathy detection based on vascular changes.",
-            images: ["/achievements/tri_netra_hcu.jpg", "/achievements/fundus_retina.jpg"],
+            images: [],
             details: {
                 patentNumber: "IN-2024-ZZZZ",
                 applicationDate: "August 2023",
@@ -172,7 +172,7 @@ export const achievementsData = {
             date: "February 2024",
             institution: "G. Narayanamma Institute of Technology & Science",
             description: "Comprehensive study comparing various deep learning approaches (CNN, ResNet, DenseNet, EfficientNet) for glaucoma classification from retinal images.",
-            images: ["/achievements/workshop_session.jpg", "/achievements/fundus_device.jpg"],
+            images: [],
             details: {
                 patentNumber: "IN-2024-AAAA",
                 applicationDate: "July 2023",
@@ -193,7 +193,7 @@ export const achievementsData = {
             duration: "2 years (2021-2023)",
             amount: "₹15,00,000",
             description: "Development of affordable, portable retinal imaging technology for widespread eye disease screening in rural and underserved areas. The project resulted in the G-Eye device.",
-            images: ["/achievements/aeye_summit_team.jpg", "/achievements/odoc_device.jpg"],
+            images: [],
             details: {
                 objectives: [
                     "Design and develop portable fundus imaging device",
@@ -219,7 +219,7 @@ export const achievementsData = {
             duration: "18 months (2022-2023)",
             amount: "₹12,50,000",
             description: "Accessible glaucoma screening solution targeting elderly populations in underserved areas using AI-powered diagnostic tools and portable imaging devices.",
-            images: ["/achievements/inventiv_expo.jpg", "/achievements/eye_examination.jpg"],
+            images: [],
             details: {
                 objectives: [
                     "Develop low-cost glaucoma screening system",
@@ -245,7 +245,7 @@ export const achievementsData = {
             duration: "1 year (2024-2025)",
             amount: "₹1,26,7,960",
             description: "AI-powered community eye health initiative for comprehensive disease screening in rural areas of Yadadri district, Telangana. Focuses on diabetic retinopathy, glaucoma, and cataract detection.",
-            images: ["/achievements/lvpei_team.jpg", "/achievements/online_demo_auckland.jpg"],
+            images: [],
             details: {
                 objectives: [
                     "Deploy AI screening system in 50 villages",
@@ -272,7 +272,7 @@ export const achievementsData = {
             organization: "International Conference on Intelligent Computing and Communication (ICICCI)",
             date: "November 2022",
             description: "Recognition for outstanding research contribution in intelligent computing and medical image analysis for diabetic retinopathy detection.",
-            images: ["/achievements/award_ceremony.jpg"],
+            images: [],
             details: {
                 conference: "ICICCI 2022",
                 paperTitle: "Ensemble Deep Learning for Diabetic Retinopathy Classification",
@@ -287,7 +287,7 @@ export const achievementsData = {
             organization: "AIMERS Awards (Artificial Intelligence Medical & Engineering Researchers Society)",
             date: "2-3-2024",
             description: "Honoring exceptional and sustained contributions to AI research in medical engineering, particularly in the field of ophthalmology and medical imaging.",
-            images: ["/achievements/award_lifetime.jpg"],
+            images: [],
             details: {
                 event: "AIMERS Annual Awards 2024",
                 location: "Hyderabad, India",
@@ -301,7 +301,7 @@ export const achievementsData = {
             organization: "AIMERS Awards (Artificial Intelligence Medical & Engineering Researchers Society)",
             date: "2-3-2024",
             description: "Excellence in teaching and mentoring in AI and medical engineering, recognized for innovative pedagogy and student research guidance.",
-            images: ["/achievements/award_master_teacher.jpg"],
+            images: [],
             details: {
                 event: "AIMERS Annual Awards 2024",
                 location: "Hyderabad, India",
@@ -315,7 +315,7 @@ export const achievementsData = {
             organization: "AIMERS Awards (Artificial Intelligence Medical & Engineering Researchers Society)",
             date: "2-3-2024",
             description: "Outstanding mentorship in student research and development, guiding multiple successful projects and publications.",
-            images: ["/achievements/award_mentorship.jpg"],
+            images: [],
             details: {
                 event: "AIMERS Annual Awards 2024",
                 location: "Hyderabad, India",
@@ -329,7 +329,7 @@ export const achievementsData = {
             organization: "AIMERS Awards (Artificial Intelligence Medical & Engineering Researchers Society)",
             date: "2-3-2024",
             description: "Recognition for emerging excellence in AI education and research, demonstrating exceptional potential in academic leadership.",
-            images: ["/achievements/award_rising_star.jpg"],
+            images: [],
             details: {
                 event: "AIMERS Annual Awards 2024",
                 location: "Hyderabad, India",
@@ -343,7 +343,7 @@ export const achievementsData = {
             organization: "G. Narayanamma Institute of Technology & Science",
             date: "6 & 7 March 2024",
             description: "Recognition for innovative R&D project demonstration at the institutional research expo, showcasing novel applications of AI in healthcare. The student team developed an AI-powered eye disease screening system with practical implementation.",
-            images: ["/achievements/workshop_session.jpg", "/achievements/tri_netra_hcu.jpg"],
+            images: [],
             students: [
                 "Ms. Harini Vutukuri",
                 "Ms. Addepalli Sai Sriyam",
@@ -548,7 +548,7 @@ export const achievementCategories = [
         description: 'Awards and recognitions for excellence in research and education',
         color: '#ef4444',
         gradient: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
-        categoryImage: '/achievements/awards.jpg'
+        categoryImage: '/achievements/awards_p1.jpg'
     },
     {
         id: 'workshops',

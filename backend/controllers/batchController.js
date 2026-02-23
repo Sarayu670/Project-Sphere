@@ -2,6 +2,133 @@ const Batch = require('../models/Batch');
 const ProblemStatement = require('../models/ProblemStatement');
 const Guide = require('../models/Guide');
 const TeamMember = require('../models/TeamMember');
+const Student = require('../models/Student');
+const XLSX = require('xlsx');
+const COE = require('../models/COE');
+const RC = require('../models/RC');
+
+/**
+ * Parse and import batches from Excel file with merged cells
+ * Excel format: Batch No. (merged), Roll Number, Student Name
+ * Batch No. is merged for all students in same batch
+ */
+function parseStudentBatchExcel(fileBuffer) {
+  try {
+    const workbook = XLSX.read(fileBuffer, { type: 'buffer' });
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+
+    // Read as 2D array to preserve structure with merged cells
+    const jsonData = XLSX.utils.sheet_to_json(worksheet, {
+      header: 1,
+      defval: '',
+      blankrows: false
+    });
+
+    if (jsonData.length < 2) {
+      throw new Error('Excel file must have at least a header row and one data row');
+    }
+
+    // Get headers and normalize
+    const headers = jsonData[0];
+    console.log('[BatchParser] Raw headers:', headers);
+
+    // Find exact column positions
+    let batchNoIndex = -1;
+    let rollNumIndex = -1;
+    let studentNameIndex = -1;
+
+    for (let i = 0; i < headers.length; i++) {
+      const h = String(headers[i] || '').trim().toLowerCase();
+      if (h.includes('batch') && h.includes('no')) batchNoIndex = i;
+      if (h.includes('roll') && (h.includes('number') || h.includes('no'))) rollNumIndex = i;
+      if (h.includes('student') && h.includes('name')) studentNameIndex = i;
+    }
+
+    console.log('[BatchParser] Column indices:', { batchNoIndex, rollNumIndex, studentNameIndex });
+
+    if (batchNoIndex === -1 || rollNumIndex === -1 || studentNameIndex === -1) {
+      throw new Error(`Could not find columns. Need: Batch No., Roll Number, Student Name`);
+    }
+
+    // Group students by batch with fill-down for merged cells
+    const batchGroups = {};
+    let lastBatchNo = '';
+
+    for (let i = 1; i < jsonData.length; i++) {
+      const row = jsonData[i];
+
+      // Ensure row has enough columns
+      while (row.length <= Math.max(batchNoIndex, rollNumIndex, studentNameIndex)) {
+        row.push('');
+      }
+
+      const batchNoCell = String(row[batchNoIndex] || '').trim();
+      const rollNum = String(row[rollNumIndex] || '').trim();
+      const studentName = String(row[studentNameIndex] || '').trim();
+
+      console.log(`[BatchParser] Row ${i}:`, { batchNoCell, rollNum, studentName, rowLength: row.length });
+
+      // Skip empty rows
+      if (!rollNum && !studentName) {
+        console.log(`[BatchParser] Row ${i}: Skipping empty row`);
+        continue;
+      }
+
+      // Skip rows without both roll and name
+      if (!rollNum || !studentName) {
+        console.log(`[BatchParser] Row ${i}: Skipping incomplete row (no roll or name)`);
+        continue;
+      }
+
+      let batchNo = batchNoCell;
+
+      // FILL DOWN: use last batch number if current is empty
+      if (!batchNo && lastBatchNo) {
+        batchNo = lastBatchNo;
+        console.log(`[BatchParser] Row ${i}: FILL DOWN batch '${batchNo}'`);
+      }
+
+      if (!batchNo) {
+        console.log(`[BatchParser] Row ${i}: No batch number, skipping`);
+        continue;
+      }
+
+      // Update last seen batch
+      if (batchNoCell) {
+        lastBatchNo = batchNoCell;
+      }
+
+      // Create batch group if needed
+      if (!batchGroups[batchNo]) {
+        batchGroups[batchNo] = [];
+        console.log(`[BatchParser] Created batch group: '${batchNo}'`);
+      }
+
+      // Add student
+      batchGroups[batchNo].push({ rollNumber: rollNum, name: studentName });
+      console.log(`[BatchParser] Added ${rollNum} (${studentName}) to batch '${batchNo}'`);
+    }
+
+    // Convert to output format
+    const batches = Object.entries(batchGroups).map(([batchNo, students]) => ({
+      batchNo,
+      students
+    }));
+
+    const totalStudents = Object.values(batchGroups).reduce((sum, s) => sum + s.length, 0);
+    console.log(`[BatchParser] ✅ SUCCESS: ${batches.length} batches, ${totalStudents} students`);
+
+    batches.forEach(b => {
+      console.log(`  Batch '${b.batchNo}': ${b.students.map(s => `${s.rollNumber}(${s.name})`).join(', ')}`);
+    });
+
+    return batches;
+  } catch (error) {
+    console.error('[BatchParser] ERROR:', error.message);
+    throw new Error(`Failed to parse batch Excel file: ${error.message}`);
+  }
+}
 
 // @desc    Search batches by query (team, guide, domain, COE, RC, student)
 // @route   GET /api/batches/search-all?q=query
@@ -871,5 +998,205 @@ exports.searchBatches = async (req, res) => {
     res.status(200).json({ success: true, data: results });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Import student batches from Excel file
+// @route   POST /api/batches/import
+// @access  Admin only
+exports.importStudentBatches = async (req, res) => {
+  try {
+    // Check if file is uploaded
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please upload an Excel file'
+      });
+    }
+
+    console.log(`[BatchImport] Starting import of ${req.file.originalname}`);
+
+    // Parse Excel file
+    const batchesData = parseStudentBatchExcel(req.file.buffer);
+
+    const results = {
+      success: 0,
+      failed: 0,
+      errors: [],
+      warnings: [],
+      createdBatches: [],
+      createdStudents: []
+    };
+
+    // Process each batch
+    for (const batchData of batchesData) {
+      try {
+        const { batchNo, students } = batchData;
+        
+        if (!students || students.length === 0) {
+          results.failed++;
+          results.errors.push({
+            batch: batchNo,
+            error: 'No students found in batch'
+          });
+          continue;
+        }
+
+        console.log(`[BatchImport] Processing batch ${batchNo} with ${students.length} students`);
+
+        // Use first student's roll number as batch ID
+        const firstRoll = students[0].rollNumber.toLowerCase();
+        const teamName = batchNo;
+        const password = `${teamName}@123`;
+
+        // Create or get students
+        const studentIds = [];
+        let leaderStudentId = null;
+
+        for (let idx = 0; idx < students.length; idx++) {
+          const { rollNumber, name } = students[idx];
+          const email = rollNumber.toLowerCase();
+
+          try {
+            // Use upsert with proper error handling for duplicates
+            let student;
+            const existingStudent = await Student.findOne({ rollNumber });
+
+            if (existingStudent) {
+              // Update existing student
+              student = await Student.findOneAndUpdate(
+                { rollNumber },
+                {
+                  name,
+                  email,
+                  // Keep existing password and year if already set
+                  branch: 'CSE',
+                  section: 'A'
+                },
+                { new: true, runValidators: false }
+              );
+              console.log(`[BatchImport] Updated existing student: ${rollNumber}`);
+            } else {
+              // Create new student
+              student = new Student({
+                name,
+                email,
+                password,
+                rollNumber,
+                year: '2nd',
+                branch: 'CSE',
+                section: 'A'
+              });
+              await student.save();
+              console.log(`[BatchImport] Created new student: ${rollNumber} with password: ${password}`);
+              results.createdStudents.push({
+                rollNumber,
+                name,
+                password
+              });
+            }
+
+            studentIds.push(student._id);
+
+            // Set first student as batch leader
+            if (idx === 0) {
+              leaderStudentId = student._id;
+            }
+          } catch (error) {
+            console.error(`[BatchImport] Error processing student ${rollNumber}:`, error.message);
+            results.warnings.push({
+              batch: batchNo,
+              student: rollNumber,
+              warning: error.message
+            });
+          }
+        }
+
+        if (studentIds.length === 0) {
+          results.failed++;
+          results.errors.push({
+            batch: batchNo,
+            error: 'Could not create/retrieve any students'
+          });
+          continue;
+        }
+
+        // Create or update batch
+        try {
+          let batch = await Batch.findOne({ batchId: firstRoll });
+
+          if (batch) {
+            // Update existing batch - add new students
+            const existingStudentIds = new Set(batch.leaderStudentId ? [batch.leaderStudentId.toString()] : []);
+            
+            // Add all new students to the batch
+            for (const studentId of studentIds) {
+              const studentRecord = await Student.findById(studentId);
+              if (studentRecord && !existingStudentIds.has(studentId.toString())) {
+                await Student.findByIdAndUpdate(studentId, { batchId: batch._id }, { new: true });
+              }
+            }
+
+            console.log(`[BatchImport] Updated existing batch: ${batchNo}`);
+            results.success++;
+          } else {
+            // Create new batch
+            batch = new Batch({
+              batchId: firstRoll,
+              teamName,
+              leaderStudentId,
+              year: '2nd',
+              branch: 'CSE',
+              section: 'A'
+            });
+            await batch.save();
+
+            // Link all students to this batch
+            for (const studentId of studentIds) {
+              await Student.findByIdAndUpdate(studentId, { batchId: batch._id }, { new: true });
+            }
+
+            console.log(`[BatchImport] Created new batch: ${batchNo}`);
+            results.success++;
+            results.createdBatches.push({
+              batchId: firstRoll,
+              teamName,
+              studentCount: studentIds.length,
+              leader: students[0].name,
+              leaderRoll: students[0].rollNumber
+            });
+          }
+        } catch (error) {
+          console.error(`[BatchImport] Error creating/updating batch ${batchNo}:`, error.message);
+          results.failed++;
+          results.errors.push({
+            batch: batchNo,
+            error: `Failed to create batch: ${error.message}`
+          });
+        }
+      } catch (error) {
+        console.error(`[BatchImport] Error processing batch:`, error);
+        results.failed++;
+        results.errors.push({
+          batch: batchData.batchNo,
+          error: error.message
+        });
+      }
+    }
+
+    console.log('[BatchImport] Import completed:', results);
+
+    res.status(200).json({
+      success: true,
+      message: `Import completed: ${results.success} batches processed successfully, ${results.failed} failed`,
+      results
+    });
+  } catch (error) {
+    console.error('[BatchImport] Fatal error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to import batches',
+      error: error.message
+    });
   }
 };

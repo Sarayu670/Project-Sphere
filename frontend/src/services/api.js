@@ -72,6 +72,13 @@ export const importBatchData = (file) => {
     headers: { 'Content-Type': 'multipart/form-data' }
   });
 };
+export const importStudentBatchesFromExcel = (file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  return axios.post(`${API_URL}/batches/import`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+};
 export const fixCOEandRCClassification = () => axios.post(`${API_URL}/admin/fix-coe-rc-classification`);
 
 

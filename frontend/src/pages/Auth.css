@@ -48,6 +48,21 @@
   position: relative;
 }
 
+.back-link {
+  display: inline-block;
+  margin-bottom: 20px;
+  color: var(--primary);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+  transition: transform 0.2s;
+}
+
+.back-link:hover {
+  transform: translateX(-4px);
+  text-decoration: underline;
+}
+
 .auth-header {
   text-align: center;
   margin-bottom: 22px;
@@ -73,7 +88,7 @@
   font-weight: 500;
 }
 
-.auth-header > div {
+.auth-header>div {
   font-style: italic;
   color: var(--accent-gold);
 }
@@ -177,4 +192,3 @@
 .password-toggle:hover {
   color: var(--primary);
 }
-

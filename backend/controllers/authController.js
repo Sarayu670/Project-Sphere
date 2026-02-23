@@ -7,25 +7,9 @@ const generateToken = require('../utils/generateToken');
 // @route   POST /api/auth/register/student
 exports.registerStudent = async (req, res) => {
   try {
-    const { name, email, password, rollNumber, year, branch, section } = req.body;
-
-    const existingStudent = await Student.findOne({ email });
-    if (existingStudent) {
-      return res.status(400).json({ success: false, message: 'Email already exists' });
-    }
-
-    const existingRollNumber = await Student.findOne({ rollNumber });
-    if (existingRollNumber) {
-      return res.status(400).json({ success: false, message: 'Roll number already exists' });
-    }
-
-    const student = await Student.create({ name, email, password, rollNumber, year, branch, section });
-    const token = generateToken(student._id, 'student');
-
-    res.status(201).json({
-      success: true,
-      token,
-      user: { id: student._id, name: student.name, email: student.email, rollNumber: student.rollNumber, role: 'student', year, branch, section }
+    return res.status(403).json({
+      success: false,
+      message: 'Student registration is currently disabled. Please contact your administrator.'
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -37,6 +21,11 @@ exports.registerStudent = async (req, res) => {
 exports.registerGuide = async (req, res) => {
   try {
     const { name, email, password, department, specialization } = req.body;
+
+    // Email domain validation
+    if (!email.endsWith('@gmail.com') && !email.endsWith('.ac.in')) {
+      return res.status(400).json({ success: false, message: 'Please use a valid @gmail.com or GNITS (.ac.in) email address' });
+    }
 
     const existingGuide = await Guide.findOne({ email });
     if (existingGuide) {
@@ -61,6 +50,11 @@ exports.registerGuide = async (req, res) => {
 exports.registerAdmin = async (req, res) => {
   try {
     const { name, email, password, department } = req.body;
+
+    // Email domain validation
+    if (!email.endsWith('@gmail.com') && !email.endsWith('.ac.in')) {
+      return res.status(400).json({ success: false, message: 'Please use a valid @gmail.com or GNITS (.ac.in) email address' });
+    }
 
     const existingAdmin = await Admin.findOne({ email });
     if (existingAdmin) {
@@ -97,8 +91,8 @@ exports.login = async (req, res) => {
     if (role) {
       if (role === 'student') {
         // For students, check both email and rollNumber
-        user = await Student.findOne({ 
-          $or: [{ email: email }, { rollNumber: email }] 
+        user = await Student.findOne({
+          $or: [{ email: email }, { rollNumber: email }]
         }).select('+password');
         userRole = 'student';
       } else if (role === 'guide') {
@@ -111,8 +105,8 @@ exports.login = async (req, res) => {
     } else {
       // Auto-detect role by searching all collections
       // For students, check both email and rollNumber
-      user = await Student.findOne({ 
-        $or: [{ email: email }, { rollNumber: email }] 
+      user = await Student.findOne({
+        $or: [{ email: email }, { rollNumber: email }]
       }).select('+password');
       userRole = 'student';
 

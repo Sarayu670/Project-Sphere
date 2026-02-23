@@ -27,6 +27,12 @@ function Register() {
     e.preventDefault();
     setError('');
 
+    // Email domain validation
+    if (!email.toLowerCase().endsWith('@gmail.com') && !email.toLowerCase().endsWith('.ac.in')) {
+      setError('Please use a valid @gmail.com or university (.ac.in) email address');
+      return;
+    }
+
     if (password !== confirmPassword) {
       setError('Passwords do not match');
       return;

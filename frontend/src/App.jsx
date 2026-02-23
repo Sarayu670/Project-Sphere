@@ -38,7 +38,7 @@ function App() {
       <Route path="/home" element={<HomePage />} />
       <Route path="/achievements/:category" element={<AchievementCategory />} />
       <Route path="/login" element={!user ? <Login /> : <Navigate to="/" />} />
-      <Route path="/register" element={!user ? <Register /> : <Navigate to="/" />} />
+      <Route path="/register" element={<Navigate to="/register/guide" />} />
       <Route path="/register/guide" element={!user ? <RegisterGuide /> : <Navigate to="/" />} />
       <Route path="/register/admin" element={!user ? <RegisterAdmin /> : <Navigate to="/" />} />
 

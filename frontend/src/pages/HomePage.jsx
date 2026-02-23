@@ -23,6 +23,7 @@ const HomePage = () => {
   const [guideBatches, setGuideBatches] = useState([]);
   const [searchType, setSearchType] = useState('guides'); // 'guides' or 'problems'
   const [isSearching, setIsSearching] = useState(false);
+  const [activeSection, setActiveSection] = useState('all'); // 'all', 'achievements', 'projects'
 
   useEffect(() => {
     fetchInitialData();
@@ -122,91 +123,122 @@ const HomePage = () => {
     <div className="home-page">
       <header className="home-header">
         <div className="header-content">
-          <div className="logo-section">
+          <div className="logo-section" onClick={() => setActiveSection('all')} style={{ cursor: 'pointer' }}>
             <h1 className="logo">🚀 Project Sphere</h1>
             <p className="tagline">Collaborate. Create. Succeed.</p>
           </div>
-          <div className="auth-buttons">
-            <button className="btn btn-secondary" onClick={() => navigate('/login')}>
-              Sign In
-            </button>
-            <button className="btn btn-primary" onClick={() => navigate('/register')}>
-              Get Started
-            </button>
+          <div className="right-nav">
+            <div className="nav-links">
+              <button
+                className={`nav-btn ${activeSection === 'achievements' ? 'active' : ''}`}
+                onClick={() => setActiveSection('achievements')}
+              >
+                Achievements
+              </button>
+              <button
+                className={`nav-btn ${activeSection === 'projects' ? 'active' : ''}`}
+                onClick={() => setActiveSection('projects')}
+              >
+                Projects
+              </button>
+            </div>
+            <div className="auth-buttons">
+              <button className="btn btn-primary" onClick={() => navigate('/register')}>
+                Get Started
+              </button>
+            </div>
           </div>
         </div>
       </header>
 
-      <section className="hero-section">
-        <div className="hero-content">
-          <h2>Welcome to Project Sphere</h2>
-          <p>A comprehensive platform for managing academic projects, connecting students with guides, and tracking progress in real-time.</p>
-          <div className="hero-features">
-            <div className="feature">
-              <span className="feature-icon">📋</span>
-              <h3>Problem Statements</h3>
-              <p>Access curated problem statements from various domains</p>
+      {(activeSection === 'all') && (
+        <>
+          <section className="hero-section">
+            <div className="hero-content">
+              <h2>Welcome to Project Sphere</h2>
+              <p>A comprehensive platform for managing academic projects, connecting students with guides, and tracking progress in real-time.</p>
+              <div className="hero-features">
+                <div className="feature">
+                  <span className="feature-icon">📋</span>
+                  <h3>Problem Statements</h3>
+                  <p>Access curated problem statements from various domains</p>
+                </div>
+                <div className="feature">
+                  <span className="feature-icon">👥</span>
+                  <h3>Team Collaboration</h3>
+                  <p>Form teams and work together on projects</p>
+                </div>
+                <div className="feature">
+                  <span className="feature-icon">💬</span>
+                  <h3>Direct Communication</h3>
+                  <p>Chat with guides for real-time feedback</p>
+                </div>
+                <div className="feature">
+                  <span className="feature-icon">📊</span>
+                  <h3>Progress Tracking</h3>
+                  <p>Monitor timeline and submission progress</p>
+                </div>
+              </div>
             </div>
-            <div className="feature">
-              <span className="feature-icon">👥</span>
-              <h3>Team Collaboration</h3>
-              <p>Form teams and work together on projects</p>
+          </section>
+
+          <section className="coe-section">
+            <h2>Center of Excellence (COE)</h2>
+            <p className="section-subtitle">We support projects across multiple domains</p>
+            <div className="coe-grid">
+              <div className="coe-card">
+                <span className="coe-icon">🔌</span>
+                <h3>IOT</h3>
+                <p>Internet of Things and Smart Systems</p>
+              </div>
+              <div className="coe-card">
+                <span className="coe-icon">👓</span>
+                <h3>AR-VR</h3>
+                <p>Augmented and Virtual Reality</p>
+              </div>
+              <div className="coe-card">
+                <span className="coe-icon">👁️</span>
+                <h3>Deep Learning in Eye Disease Prognosis</h3>
+                <p>Medical Imaging and Diagnostic AI</p>
+              </div>
+              <div className="coe-card">
+                <span className="coe-icon">🔬</span>
+                <h3>Advanced Research in AI</h3>
+                <p>Cutting-edge Artificial Intelligence Research</p>
+              </div>
+              <div className="coe-card">
+                <span className="coe-icon">☁️</span>
+                <h3>Cloud Computing</h3>
+                <p>AWS, Azure, and Infrastructure projects</p>
+              </div>
+              <div className="coe-card">
+                <span className="coe-icon">📊</span>
+                <h3>Data Analytics</h3>
+                <p>Big Data and Business Intelligence</p>
+              </div>
             </div>
-            <div className="feature">
-              <span className="feature-icon">💬</span>
-              <h3>Direct Communication</h3>
-              <p>Chat with guides for real-time feedback</p>
-            </div>
-            <div className="feature">
-              <span className="feature-icon">📊</span>
-              <h3>Progress Tracking</h3>
-              <p>Monitor timeline and submission progress</p>
-            </div>
-          </div>
-        </div>
-      </section>
+          </section>
+        </>
+      )}
 
-      <section className="coe-section">
-        <h2>Center of Excellence (COE)</h2>
-        <p className="section-subtitle">We support projects across multiple domains</p>
-        <div className="coe-grid">
-          <div className="coe-card">
-            <span className="coe-icon">🤖</span>
-            <h3>Artificial Intelligence</h3>
-            <p>Machine Learning, Deep Learning, NLP projects</p>
-          </div>
-          <div className="coe-card">
-            <span className="coe-icon">☁️</span>
-            <h3>Cloud Computing</h3>
-            <p>AWS, Azure, and Infrastructure projects</p>
-          </div>
-          <div className="coe-card">
-            <span className="coe-icon">📱</span>
-            <h3>Mobile Development</h3>
-            <p>iOS, Android, and Cross-platform apps</p>
-          </div>
-          <div className="coe-card">
-            <span className="coe-icon">🔐</span>
-            <h3>Cybersecurity</h3>
-            <p>Security, Ethical Hacking projects</p>
-          </div>
-        </div>
-      </section>
+      {(activeSection === 'achievements') && (
+        <Achievements />
+      )}
 
-      <Achievements />
+      {(activeSection === 'projects') && (
+        <section className="guide-search-section">
+          <h2>Find Your Guide & Projects</h2>
+          <p className="section-subtitle">Search for guides and view their assigned batches, students, and projects</p>
 
-      <section className="guide-search-section">
-        <h2>Find Your Guide & Projects</h2>
-        <p className="section-subtitle">Search for guides and view their assigned batches, students, and projects</p>
-
-        <GuideSearch />
-      </section>
+          <GuideSearch />
+        </section>
+      )}
 
       <section className="cta-section">
         <h2>Ready to Start Your Project Journey?</h2>
         <p>Join thousands of students collaborating on real-world projects</p>
         <div className="cta-buttons">
-          <button className="btn btn-primary btn-large" onClick={() => navigate('/register')}>
+          <button className="btn btn-primary btn-large" onClick={() => navigate('/register/guide')}>
             Create Account
           </button>
           <button className="btn btn-secondary btn-large" onClick={() => navigate('/login')}>
@@ -216,7 +248,16 @@ const HomePage = () => {
       </section>
 
       <footer className="home-footer">
-        <p>&copy; 2026 Project Sphere. All rights reserved.</p>
+        <div className="footer-content">
+          <p className="footer-copyright">&copy; 2026 Project Sphere. All rights reserved.</p>
+          <div className="developer-credits">
+            <p className="developed-by">Developed by GNITS</p>
+            <p className="dev-name">Tejaswi - 23251A05F0</p>
+            <p className="dev-name">Sarayu - 23251A05F4</p>
+            <p className="dev-name">Sravanthi - 23251A05F6</p>
+            <p className="dev-guidance">under the guidance of Dr. M. Seetha - Dean R&D</p>
+          </div>
+        </div>
       </footer>
     </div>
   );

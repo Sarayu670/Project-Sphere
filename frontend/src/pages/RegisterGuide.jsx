@@ -20,6 +20,12 @@ function RegisterGuide() {
     e.preventDefault();
     setError('');
 
+    // Email domain validation
+    if (!email.toLowerCase().endsWith('@gmail.com') && !email.toLowerCase().endsWith('.ac.in')) {
+      setError('Please use a valid @gmail.com or university (.ac.in) email address');
+      return;
+    }
+
     if (password !== confirmPassword) {
       setError('Passwords do not match');
       return;
@@ -40,6 +46,7 @@ function RegisterGuide() {
   return (
     <div className="auth-container">
       <div className="auth-card">
+        <Link to="/home" className="back-link">← Back to Home</Link>
         <div className="auth-header">
           <span className="auth-icon">👨‍🏫</span>
           <h1>G. Narayanamma Institute of Technology & Science</h1>
@@ -135,7 +142,7 @@ function RegisterGuide() {
 
         <div className="auth-footer">
           <p>Already have an account? <Link to="/login">Login</Link></p>
-          <p>Register as <Link to="/register">Student</Link> | <Link to="/register/admin">Admin</Link></p>
+          <p>Register as <Link to="/register/admin">Admin</Link></p>
         </div>
       </div>
     </div>

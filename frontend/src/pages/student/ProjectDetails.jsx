@@ -2,6 +2,7 @@ function ProjectDetails({ batch, isPending, isAllotted }) {
   const hasOptedProblem = batch.optedProblemId;
   const hasAllottedProblem = batch.problemId;
   const pendingOptedProblems = batch.optedProblems?.filter(o => o.status === 'pending') || [];
+  const rejectedOptedProblems = batch.optedProblems?.filter(o => o.status === 'rejected') || [];
 
   return (
     <div>
@@ -48,6 +49,26 @@ function ProjectDetails({ batch, isPending, isAllotted }) {
                 ))}
               </ul>
               <p style={{ color: '#92400e', fontSize: '14px', marginTop: '12px' }}>The guide(s) will review your request and allot one problem to your team.</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {rejectedOptedProblems.length > 0 && (
+        <div className="card" style={{ marginTop: '20px', background: '#fee', border: '2px solid #dc3545' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
+            <div style={{ fontSize: '48px' }}>❌</div>
+            <div style={{ flex: 1 }}>
+              <h3 style={{ color: '#dc3545', marginBottom: '8px' }}>Rejected Requests</h3>
+              <p style={{ color: '#721c24', marginBottom: '12px' }}>The following problem(s) were rejected by the guide:</p>
+              <ul style={{ color: '#721c24', paddingLeft: '20px', margin: 0 }}>
+                {rejectedOptedProblems.map((opt, idx) => (
+                  <li key={idx} style={{ marginBottom: '8px', textDecoration: 'line-through', opacity: 0.7 }}>
+                    <strong>{opt.problemId?.title || 'Unknown Problem'}</strong>
+                    {opt.coeId?.name && <span style={{ fontSize: '12px' }}> ({opt.coeId.name})</span>}
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
         </div>

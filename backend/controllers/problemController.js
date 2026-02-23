@@ -49,7 +49,17 @@ exports.getMyProblems = async (req, res) => {
     const problems = await ProblemStatement.find({ guideId: req.user._id })
       .populate('coeId', 'name')
       .populate('guideId', 'name email');
-    res.status(200).json({ success: true, data: problems });
+    
+    // For each problem, find the allotted batch
+    const problemsWithBatch = await Promise.all(problems.map(async (problem) => {
+      const allottedBatch = await Batch.findOne({ problemId: problem._id }).select('teamName');
+      return {
+        ...problem.toObject(),
+        allottedTeamName: allottedBatch ? allottedBatch.teamName : null
+      };
+    }));
+    
+    res.status(200).json({ success: true, data: problemsWithBatch });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

@@ -49,9 +49,9 @@ function ProblemList({ coeId, coeName, onBack, onProblemSelected, batch }) {
       title,
       message,
       type,
-      onConfirm: () => {
-        if (onConfirm) onConfirm();
+      onConfirm: async () => {
         setDialog(prev => ({ ...prev, isOpen: false }));
+        if (onConfirm) await onConfirm();
       },
       showCancel,
       confirmText: confirmText || (showCancel ? 'Yes' : 'OK'),

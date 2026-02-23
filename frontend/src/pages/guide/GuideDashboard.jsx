@@ -47,12 +47,12 @@ function GuideDashboard() {
         api.getOptedTeams(),
         api.getGuideSubmissions()
       ]);
-      setProblems(problemsRes.data.data);
-      setFilteredProblems(problemsRes.data.data);
-      setCoes(coesRes.data.data);
-      setBatches(batchesRes.data.data);
-      setOptedTeams(optedRes.data.data);
-      setSubmissions(submissionsRes.data.data);
+      setProblems(problemsRes.data.data || []);
+      setFilteredProblems(problemsRes.data.data || []);
+      setCoes(coesRes.data.data || []);
+      setBatches(batchesRes.data.data || []);
+      setOptedTeams(optedRes.data.data || []);
+      setSubmissions(submissionsRes.data.data || []);
     } catch (error) {
       console.error('Failed to fetch data');
     } finally {
@@ -136,22 +136,26 @@ function GuideDashboard() {
   };
 
   const getAcceptedSubmissionsCount = (batchId) => {
-    return submissions.filter(s => s.batchId._id === batchId && s.status === 'accepted').length;
+    return (submissions || []).filter(s => (s.batchId?._id || s.batchId) === batchId && s.status === 'accepted').length;
   };
 
   const showDialog = (title, message, type = 'info', onConfirm = null, showCancel = true, confirmText = null) => {
+    // Only set if not already open with the same ID or similar to prevent racing
     setDialog({
       isOpen: true,
       title,
       message,
       type,
       onConfirm: async () => {
-        if (onConfirm) await onConfirm();
-        // If the callback didn't trigger another dialog opening, close this one
-        // We use a functional update to ensure we check the LATEST state if possible,
-        // but here we just want to close the dialog that was open.
-        // However, a simpler way is to just let the callback manage it if it's complex.
+        // Close the dialog first to prevent racing with nested showDialog calls
         setDialog(prev => ({ ...prev, isOpen: false }));
+        if (onConfirm) {
+          try {
+            await onConfirm();
+          } catch (err) {
+            console.error('Dialog confirm error:', err);
+          }
+        }
       },
       showCancel,
       confirmText: confirmText || (onConfirm ? (type === 'danger' ? 'Delete' : 'Yes') : 'OK'),
@@ -211,10 +215,10 @@ function GuideDashboard() {
       </div>
 
       <div className="stats-row">
-        <div className="stat-card"><div className="stat-icon">📋</div><div className="stat-value">{problems.length}</div><div className="stat-label">My Problems</div></div>
-        <div className="stat-card"><div className="stat-icon">⏳</div><div className="stat-value">{optedTeams.length}</div><div className="stat-label">Pending Requests</div></div>
-        <div className="stat-card"><div className="stat-icon">👥</div><div className="stat-value">{batches.length}</div><div className="stat-label">Allotted Teams</div></div>
-        <div className="stat-card"><div className="stat-icon">✅</div><div className="stat-value">{batches.filter(b => b.status === 'Completed').length}</div><div className="stat-label">Completed</div></div>
+        <div className="stat-card"><div className="stat-icon">📋</div><div className="stat-value">{(problems || []).length}</div><div className="stat-label">My Problems</div></div>
+        <div className="stat-card"><div className="stat-icon">⏳</div><div className="stat-value">{(optedTeams || []).length}</div><div className="stat-label">Pending Requests</div></div>
+        <div className="stat-card"><div className="stat-icon">👥</div><div className="stat-value">{(batches || []).length}</div><div className="stat-label">Allotted Teams</div></div>
+        <div className="stat-card"><div className="stat-icon">✅</div><div className="stat-value">{(batches || []).filter(b => b?.status === 'Completed').length}</div><div className="stat-label">Completed</div></div>
       </div>
 
       <div className="tabs">
@@ -293,23 +297,23 @@ function GuideDashboard() {
               </div>
               <div className="grid grid-2">
                 {filteredProblems.map(p => (
-                  <div key={p._id} className="card">
+                  <div className="card">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
                       <div>
-                        <h3 style={{ margin: '0 0 10px 0' }}>{p.title}</h3>
+                        <h3 style={{ margin: '0 0 10px 0' }}>{p?.title || 'Untitled Problem'}</h3>
                         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '10px' }}>
-                          <span className="timeline-badge badge-info">{p.coeId?.name || 'No COE'}</span>
-                          <span className="timeline-badge badge-warning">{p.targetYear} Year</span>
-                          {p.researchArea && <span className="timeline-badge badge-success">{p.researchArea}</span>}
+                          <span className="timeline-badge badge-info">{p?.coeId?.name || 'No COE'}</span>
+                          <span className="timeline-badge badge-warning">{p?.targetYear || 'N/A'} Year</span>
+                          {p?.researchArea && <span className="timeline-badge badge-success">{p.researchArea}</span>}
                         </div>
                       </div>
-                      {(!p.selectedBatchCount || p.selectedBatchCount === 0) && (
+                      {(!p?.selectedBatchCount || p.selectedBatchCount === 0) && (
                         <button
                           className="delete-btn-container"
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            handleDeleteProblem(p._id);
+                            if (p?._id) handleDeleteProblem(p._id);
                           }}
                           title="Delete problem statement"
                         >
@@ -317,8 +321,12 @@ function GuideDashboard() {
                         </button>
                       )}
                     </div>
-                    <p style={{ color: '#666', margin: '10px 0' }}>{p.description}</p>
-                    <div style={{ fontSize: '14px', color: '#888' }}>Teams: {p.selectedBatchCount || 0}</div>
+                    <p style={{ color: '#666', margin: '10px 0' }}>{p?.description || 'No description provided'}</p>
+                    {p?.allottedTeamName && (
+                      <div style={{ fontSize: '14px', color: '#28a745', fontWeight: '600' }}>
+                        ✓ Allotted to: {p.allottedTeamName}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -342,9 +350,9 @@ function GuideDashboard() {
                   <p style={{ color: '#667eea', fontWeight: '500', marginBottom: '10px' }}>
                     <strong>Project Type:</strong> {t.optedProblemId?.targetYear === '2nd' ? 'Real Time Project' : t.optedProblemId?.targetYear === '3rd' ? 'Mini Project' : t.optedProblemId?.targetYear === '4th' ? 'Major Project' : 'N/A'}
                   </p>
-                  <p><strong>Leader:</strong> {t.leaderStudentId?.name}</p>
-                  <p><strong>Problem:</strong> {t.optedProblemId?.title}</p>
-                  <p><strong>COE:</strong> {t.coeId?.name}</p>
+                  <p><strong>Leader:</strong> {t?.leaderStudentId?.name || 'Unknown'}</p>
+                  <p><strong>Problem:</strong> {t?.optedProblemId?.title || 'No Problem'}</p>
+                  <p><strong>COE:</strong> {t?.coeId?.name || 'No COE'}</p>
                   <div style={{ display: 'flex', gap: '10px', marginTop: '15px' }}>
                     <button className="btn btn-primary" onClick={() => handleAllot(t._id, t.optedProblemId?._id)}>✅ Allot</button>
                     <button className="btn btn-danger" onClick={() => handleReject(t._id, t.optedProblemId?._id)}>❌ Reject</button>
@@ -373,7 +381,7 @@ function GuideDashboard() {
                   <div style={{ marginBottom: '12px' }}>
                     <span style={{ fontSize: '12px', color: '#718096' }}>Year: <strong>{b.year}</strong></span>
                   </div>
-                  <p className="batch-leader">Leader: <strong>{b.leaderStudentId?.name}</strong></p>
+                  <p className="batch-leader">Leader: <strong>{b?.leaderStudentId?.name || 'Unknown'}</strong></p>
                   <div className="batch-problem" style={{
                     background: '#ebf4ff',
                     padding: '8px 12px',
@@ -386,7 +394,7 @@ function GuideDashboard() {
                     justifyContent: 'center',
                     margin: '10px 0'
                   }}>
-                    📋 {b.problemId?.title || 'Not Assigned'}
+                    📋 {b?.problemId?.title || 'Not Assigned'}
                   </div>
                   <div className="batch-submissions" style={{
                     color: '#38a169',

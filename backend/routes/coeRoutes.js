@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getAllCOEs, getCOE, getCOEDetails, createCOE, updateCOE, deleteCOE } = require('../controllers/coeController');
+const { getAllCOEs, getCOE, createCOE, updateCOE, deleteCOE, getCOEDetails } = require('../controllers/coeController');
 const { protect, authorize } = require('../middleware/auth');
 
 router.get('/', protect, getAllCOEs);

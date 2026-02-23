@@ -83,59 +83,45 @@ exports.deleteCOE = async (req, res) => {
   }
 };
 
-// @desc    Get COE with all details (problem statements, guides, students, batches)
+// @desc    Get COE details with related data
 // @route   GET /api/coe/:id/details
 exports.getCOEDetails = async (req, res) => {
   try {
     const coeId = req.params.id;
-    
-    // Find the COE
     const coe = await COE.findById(coeId);
+    
     if (!coe) {
       return res.status(404).json({ success: false, message: 'COE not found' });
     }
 
-    // Fetch all problem statements for this COE
-    const problemStatements = await ProblemStatement.find({ coeId: coeId })
-      .populate('guideId', 'name email')
-      .populate('coeId', 'name');
-
-    // Fetch all guides for this COE
-    const guides = await Guide.find({ coeId: coeId })
-      .select('name email role');
-
-    // Fetch guides mentioned in problem statements (in case they're not in coeId)
-    const guideIds = [...new Set(problemStatements.map(ps => ps.guideId?._id).filter(Boolean))];
-    const guidesFromProblems = await Guide.find({ _id: { $in: guideIds } })
-      .select('name email role');
-
-    // Combine and deduplicate guides
-    const allGuides = problemStatements.map(ps => ps.guideId).filter(Boolean);
-    const uniqueGuides = Array.from(new Map(allGuides.map(g => [g._id.toString(), g])).values());
-
-    // Fetch all batches for this COE
-    const batches = await Batch.find({ coeId: coeId })
-      .populate('problemId', 'title researchArea')
-      .populate('guideId', 'name email')
-      .populate('coeId', 'name');
-
-    // Fetch all students in batches under this COE
+    // Get problem statements for this COE
+    const problemStatements = await ProblemStatement.find({ coeId }).populate('guideId', 'name');
+    
+    // Get batches for this COE
+    const batches = await Batch.find({ coeId })
+      .populate('problemId', 'title')
+      .populate('guideId', 'name')
+      .populate('leaderStudentId', 'name rollNumber');
+    
+    // Get all students in these batches
     const batchIds = batches.map(b => b._id);
-    const students = await Student.find({ batchId: { $in: batchIds } })
-      .populate('batchId', 'batchName year');
+    const students = await Student.find({ batchId: { $in: batchIds } }).select('name rollNumber batchId');
+    
+    // Get unique guides
+    const guideIds = [...new Set(problemStatements.map(p => p.guideId?._id).filter(Boolean))];
+    const guides = await Guide.find({ _id: { $in: guideIds } }).select('name');
 
-    // Return comprehensive COE data
-    res.status(200).json({ 
-      success: true, 
+    res.status(200).json({
+      success: true,
       data: {
         coe,
         problemStatements,
-        guides: uniqueGuides,
-        batches,
+        guides,
         students,
+        batches,
         counts: {
           problemStatements: problemStatements.length,
-          guides: uniqueGuides.length,
+          guides: guides.length,
           batches: batches.length,
           students: students.length
         }

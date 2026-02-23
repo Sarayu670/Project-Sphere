@@ -1,6 +1,6 @@
 import React from 'react';
 
-function ConfirmationDialog({ isOpen, title, message, onConfirm, onCancel, confirmText = 'OK', cancelText = 'Cancel', type = 'info' }) {
+function ConfirmationDialog({ isOpen, title, message, onConfirm, onCancel, confirmText = 'OK', cancelText = 'Cancel', type = 'info', showCancel = true }) {
   if (!isOpen) return null;
 
   const getBackgroundColor = () => {

@@ -20,7 +20,7 @@ function ProjectDirectory({ showExport = true }) {
   const fetchProjects = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/projects');
+      const response = await api.getAllProjects();
       setProjects(response.data.data || []);
       setFilteredProjects(response.data.data || []);
 

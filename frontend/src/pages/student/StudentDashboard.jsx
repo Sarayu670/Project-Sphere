@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import axios from 'axios';
 import * as api from '../../services/api';
 import ChatPanel from '../../components/ChatPanel';
 import { generateChatReport, generateSummaryReport } from '../../utils/reportGenerator';
@@ -74,7 +75,7 @@ function StudentDashboard() {
       
       if (leaderId) {
         try {
-          const response = await api.get(`/chat/student/${batch._id}/${leaderId}`);
+          const response = await axios.get(`/api/chat/student/${batch._id}/${leaderId}`);
           setChatData(response.data.data);
         } catch (err) {
           // If chat doesn't exist yet, create a new one

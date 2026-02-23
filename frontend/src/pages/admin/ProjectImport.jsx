@@ -1,7 +1,10 @@
 import { useState } from 'react';
+import axios from 'axios';
 import * as XLSX from 'xlsx';
 import * as api from '../../services/api';
 import { parseProjectsFromExcel } from '../../utils/projectExcelParser';
+
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 function ProjectImport({ onImportComplete, onCancel }) {
   const [file, setFile] = useState(null);
@@ -120,7 +123,7 @@ function ProjectImport({ onImportComplete, onCancel }) {
             return;
           }
 
-          const response = await api.post('/projects/import', { projects });
+          const response = await axios.post(`${API_URL}/projects/import`, { projects });
           const { success, created, failed, message } = response.data.data;
 
           if (failed > 0) {

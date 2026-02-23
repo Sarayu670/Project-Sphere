@@ -24,6 +24,11 @@ const GuideSchema = new mongoose.Schema({
     type: String,
     default: 'guide'
   },
+  coeId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'COE',
+    default: null
+  },
   maxBatches: {
     type: Number,
     default: 3

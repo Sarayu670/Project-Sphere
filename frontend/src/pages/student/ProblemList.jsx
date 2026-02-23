@@ -6,7 +6,7 @@ function ProblemList({ coeId, coeName, onBack, onProblemSelected, batch }) {
   const [problems, setProblems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selecting, setSelecting] = useState(null);
-  const [dialog, setDialog] = useState({ isOpen: false, title: '', message: '', type: 'info', onConfirm: null });
+  const [dialog, setDialog] = useState({ isOpen: false, title: '', message: '', type: 'info', onConfirm: null, showCancel: true, confirmText: 'OK', cancelText: 'Cancel' });
 
   const fetchProblems = async () => {
     try {
@@ -34,7 +34,7 @@ function ProblemList({ coeId, coeName, onBack, onProblemSelected, batch }) {
         showDialog('Success', 'Problem selected successfully! You can select up to 3 problems.', 'success', () => {
           onProblemSelected();
           fetchProblems();
-        });
+        }, false, 'OK');
       } catch (error) {
         showDialog('Error', error.response?.data?.message || 'Failed to select problem', 'danger');
       } finally {
@@ -43,7 +43,7 @@ function ProblemList({ coeId, coeName, onBack, onProblemSelected, batch }) {
     });
   };
 
-  const showDialog = (title, message, type = 'info', onConfirm = null) => {
+  const showDialog = (title, message, type = 'info', onConfirm = null, showCancel = true, confirmText = null) => {
     setDialog({
       isOpen: true,
       title,
@@ -51,10 +51,11 @@ function ProblemList({ coeId, coeName, onBack, onProblemSelected, batch }) {
       type,
       onConfirm: () => {
         if (onConfirm) onConfirm();
-        setDialog({ ...dialog, isOpen: false });
+        setDialog(prev => ({ ...prev, isOpen: false }));
       },
-      confirmText: onConfirm ? 'Yes' : 'OK',
-      cancelText: onConfirm ? 'Cancel' : 'OK'
+      showCancel,
+      confirmText: confirmText || (showCancel ? 'Yes' : 'OK'),
+      cancelText: 'Cancel'
     });
   };
 
@@ -150,9 +151,10 @@ function ProblemList({ coeId, coeName, onBack, onProblemSelected, batch }) {
         message={dialog.message}
         type={dialog.type}
         onConfirm={dialog.onConfirm}
-        onCancel={() => setDialog({ ...dialog, isOpen: false })}
+        onCancel={() => setDialog(prev => ({ ...prev, isOpen: false }))}
         confirmText={dialog.confirmText}
         cancelText={dialog.cancelText}
+        showCancel={dialog.showCancel}
       />
     </div>
   );

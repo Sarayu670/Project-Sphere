@@ -26,7 +26,7 @@ function GuideDashboard() {
   const [selectedChat, setSelectedChat] = useState(null);
   const [currentChatData, setCurrentChatData] = useState(null);
   const [newProblem, setNewProblem] = useState({ title: '', description: '', coeId: '', targetYear: '', datasetUrl: '', researchArea: '' });
-  const [dialog, setDialog] = useState({ isOpen: false, title: '', message: '', type: 'info', onConfirm: null, confirmText: 'OK', cancelText: 'Cancel' });
+  const [dialog, setDialog] = useState({ isOpen: false, title: '', message: '', type: 'info', onConfirm: null, confirmText: 'OK', cancelText: 'Cancel', showCancel: true });
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredProblems, setFilteredProblems] = useState([]);
 
@@ -102,9 +102,11 @@ function GuideDashboard() {
     showDialog('Delete Problem', 'Are you sure you want to delete this problem statement?', 'danger', async () => {
       try {
         await api.deleteProblem(id);
-        fetchData();
+        showDialog('Success', 'Problem statement deleted successfully!', 'success', () => {
+          fetchData();
+        }, false, 'OK');
       } catch (error) {
-        showDialog('Error', 'Failed to delete', 'danger');
+        showDialog('Error', error.response?.data?.message || 'Failed to delete', 'danger');
       }
     });
   };
@@ -114,7 +116,7 @@ function GuideDashboard() {
       await api.allotProblem(batchId, problemId);
       showDialog('Success', 'Team allotted successfully!', 'success', () => {
         fetchData();
-      });
+      }, false, 'OK');
     } catch (error) {
       showDialog('Error', error.response?.data?.message || 'Failed to allot', 'danger');
     }
@@ -126,7 +128,7 @@ function GuideDashboard() {
         await api.rejectProblem(batchId, problemId);
         showDialog('Success', 'Request rejected successfully!', 'success', () => {
           fetchData();
-        });
+        }, false, 'OK');
       } catch (error) {
         showDialog('Error', error.response?.data?.message || 'Failed to reject', 'danger');
       }
@@ -137,18 +139,23 @@ function GuideDashboard() {
     return submissions.filter(s => s.batchId._id === batchId && s.status === 'accepted').length;
   };
 
-  const showDialog = (title, message, type = 'info', onConfirm = null) => {
+  const showDialog = (title, message, type = 'info', onConfirm = null, showCancel = true, confirmText = null) => {
     setDialog({
       isOpen: true,
       title,
       message,
       type,
-      onConfirm: () => {
-        if (onConfirm) onConfirm();
-        setDialog({ ...dialog, isOpen: false });
+      onConfirm: async () => {
+        if (onConfirm) await onConfirm();
+        // If the callback didn't trigger another dialog opening, close this one
+        // We use a functional update to ensure we check the LATEST state if possible,
+        // but here we just want to close the dialog that was open.
+        // However, a simpler way is to just let the callback manage it if it's complex.
+        setDialog(prev => ({ ...prev, isOpen: false }));
       },
-      confirmText: onConfirm ? (type === 'danger' ? 'Delete' : 'Yes') : 'OK',
-      cancelText: onConfirm ? 'Cancel' : 'OK'
+      showCancel,
+      confirmText: confirmText || (onConfirm ? (type === 'danger' ? 'Delete' : 'Yes') : 'OK'),
+      cancelText: 'Cancel'
     });
   };
 
@@ -286,22 +293,34 @@ function GuideDashboard() {
               </div>
               <div className="grid grid-2">
                 {filteredProblems.map(p => (
-                   <div key={p._id} className="card">
-                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-                       <div>
-                         <h3 style={{ margin: '0 0 10px 0' }}>{p.title}</h3>
-                         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '10px' }}>
-                           <span className="timeline-badge badge-info">{p.coeId?.name}</span> 
-                           <span className="timeline-badge badge-warning">{p.targetYear} Year</span>
-                           {p.researchArea && <span className="timeline-badge badge-success">{p.researchArea}</span>}
-                         </div>
-                       </div>
-                       <button className="btn btn-danger btn-sm" onClick={() => handleDeleteProblem(p._id)}>🗑️</button>
-                     </div>
-                     <p style={{ color: '#666', margin: '10px 0' }}>{p.description}</p>
-                     <div style={{ fontSize: '14px', color: '#888' }}>Teams: {p.selectedBatchCount}</div>
-                   </div>
-                 ))}
+                  <div key={p._id} className="card">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                      <div>
+                        <h3 style={{ margin: '0 0 10px 0' }}>{p.title}</h3>
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '10px' }}>
+                          <span className="timeline-badge badge-info">{p.coeId?.name || 'No COE'}</span>
+                          <span className="timeline-badge badge-warning">{p.targetYear} Year</span>
+                          {p.researchArea && <span className="timeline-badge badge-success">{p.researchArea}</span>}
+                        </div>
+                      </div>
+                      {(!p.selectedBatchCount || p.selectedBatchCount === 0) && (
+                        <button
+                          className="delete-btn-container"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleDeleteProblem(p._id);
+                          }}
+                          title="Delete problem statement"
+                        >
+                          <span className="delete-icon">🗑️</span>
+                        </button>
+                      )}
+                    </div>
+                    <p style={{ color: '#666', margin: '10px 0' }}>{p.description}</p>
+                    <div style={{ fontSize: '14px', color: '#888' }}>Teams: {p.selectedBatchCount || 0}</div>
+                  </div>
+                ))}
               </div>
             </>
           )}
@@ -355,9 +374,9 @@ function GuideDashboard() {
                     <span style={{ fontSize: '12px', color: '#718096' }}>Year: <strong>{b.year}</strong></span>
                   </div>
                   <p className="batch-leader">Leader: <strong>{b.leaderStudentId?.name}</strong></p>
-                  <div className="batch-problem" style={{ 
-                    background: '#ebf4ff', 
-                    padding: '8px 12px', 
+                  <div className="batch-problem" style={{
+                    background: '#ebf4ff',
+                    padding: '8px 12px',
                     borderRadius: '6px',
                     color: '#2b6cb0',
                     fontWeight: '600',
@@ -369,9 +388,9 @@ function GuideDashboard() {
                   }}>
                     📋 {b.problemId?.title || 'Not Assigned'}
                   </div>
-                  <div className="batch-submissions" style={{ 
-                    color: '#38a169', 
-                    fontSize: '14px', 
+                  <div className="batch-submissions" style={{
+                    color: '#38a169',
+                    fontSize: '14px',
                     fontWeight: '600',
                     display: 'flex',
                     alignItems: 'center',
@@ -408,9 +427,10 @@ function GuideDashboard() {
         message={dialog.message}
         type={dialog.type}
         onConfirm={dialog.onConfirm}
-        onCancel={() => setDialog({ ...dialog, isOpen: false })}
+        onCancel={() => setDialog(prev => ({ ...prev, isOpen: false }))}
         confirmText={dialog.confirmText}
         cancelText={dialog.cancelText}
+        showCancel={dialog.showCancel}
       />
 
       <ChatsListPanel

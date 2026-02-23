@@ -12,6 +12,7 @@ export const getMe = () => axios.get(`${API_URL}/auth/me`);
 // COE
 export const getAllCOEs = () => axios.get(`${API_URL}/coe`);
 export const getCOE = (id) => axios.get(`${API_URL}/coe/${id}`);
+export const getCOEDetails = (id) => axios.get(`${API_URL}/coe/${id}/details`);
 export const createCOE = (data) => axios.post(`${API_URL}/coe`, data);
 export const updateCOE = (id, data) => axios.put(`${API_URL}/coe/${id}`, data);
 export const deleteCOE = (id) => axios.delete(`${API_URL}/coe/${id}`);

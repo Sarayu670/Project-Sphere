@@ -15,6 +15,8 @@ const [editingId, setEditingId] = useState(null);
 const [notification, setNotification] = useState(null);
 const [selectedCOEId, setSelectedCOEId] = useState(null);
 const [selectedRCId, setSelectedRCId] = useState(null);
+const [coeDetails, setCOEDetails] = useState(null);
+const [loadingDetails, setLoadingDetails] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -96,6 +98,21 @@ const [selectedRCId, setSelectedRCId] = useState(null);
       } catch (error) {
         showNotification('Failed to delete COE', 'error');
       }
+    }
+  };
+
+  // Fetch detailed COE data
+  const handleCOECardClick = async (coeId) => {
+    setSelectedCOEId(coeId);
+    setLoadingDetails(true);
+    try {
+      const response = await api.getCOEDetails(coeId);
+      setCOEDetails(response.data.data);
+    } catch (error) {
+      showNotification('Failed to fetch COE details', 'error');
+      console.error(error);
+    } finally {
+      setLoadingDetails(false);
     }
   };
 
@@ -256,16 +273,92 @@ const [selectedRCId, setSelectedRCId] = useState(null);
 
   // Render COE/RC details table modal
   const renderDetailsModal = () => {
+    if (activeSubTab === 'coe' && selectedCOEId && coeDetails) {
+      const { coe, problemStatements, guides, students, batches, counts } = coeDetails;
+
+      return (
+        <div className="details-modal-overlay" onClick={() => { setSelectedCOEId(null); setCOEDetails(null); }}>
+          <div className="details-modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="details-modal-header">
+              <h3>{coe.name} - Details</h3>
+              <button className="modal-close" onClick={() => { setSelectedCOEId(null); setCOEDetails(null); }}>&times;</button>
+            </div>
+
+            {loadingDetails ? (
+              <div className="loading">Loading COE details...</div>
+            ) : (
+              <div style={{ padding: '20px' }}>
+                {/* Summary Stats */}
+                <div className="stats-grid">
+                  <div className="stat-card">
+                    <div className="stat-value" style={{ color: '#5B7BD2' }}>{counts.problemStatements}</div>
+                    <div className="stat-label">Problem Statements</div>
+                  </div>
+                  <div className="stat-card">
+                    <div className="stat-value" style={{ color: '#70AD47' }}>{counts.guides}</div>
+                    <div className="stat-label">Guides</div>
+                  </div>
+                  <div className="stat-card">
+                    <div className="stat-value" style={{ color: '#FFC000' }}>{counts.batches}</div>
+                    <div className="stat-label">Batches</div>
+                  </div>
+                  <div className="stat-card">
+                    <div className="stat-value" style={{ color: '#E74C3C' }}>{counts.students}</div>
+                    <div className="stat-label">Students</div>
+                  </div>
+                </div>
+
+                {/* Consolidated Batches Section */}
+                <div style={{ marginBottom: '30px' }}>
+                  <h4 className="section-title">Batch Assignments</h4>
+                  <div className="details-table-container">
+                    {batches.length > 0 ? (
+                      <table className="details-table">
+                        <thead>
+                          <tr>
+                            <th>Problem Statement</th>
+                            <th>Guide</th>
+                            <th>Batch Name</th>
+                            <th>Batch Details (Roll Numbers)</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {batches.map((batch) => {
+                            const batchStudents = students.filter(s => 
+                              (s.batchId?._id || s.batchId) === batch._id
+                            );
+                            const rollNumbers = batchStudents.map(s => s.rollNumber).filter(Boolean).join(', ');
+
+                            return (
+                              <tr key={batch._id}>
+                                <td>{batch.problemId?.title || 'N/A'}</td>
+                                <td>{batch.guideId?.name || 'N/A'}</td>
+                                <td>{batch.teamName || batch.batchId || 'N/A'}</td>
+                                <td style={{ maxWidth: '300px', wordBreak: 'break-word' }}>
+                                  {rollNumbers || 'No students assigned'}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    ) : (
+                      <p className="no-data">No batches found for this COE</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // For RC tab - keep original behavior
     let selectedItems = [];
     let title = '';
     
-    if (activeSubTab === 'coe' && selectedCOEId) {
-      const coe = coes.find(c => c._id === selectedCOEId);
-      if (coe) {
-        selectedItems = getProjectsForCOE(coe);
-        title = `${coe.name} - Projects (${selectedItems.length})`;
-      }
-    } else if (activeSubTab === 'rc' && selectedRCId) {
+    if (activeSubTab === 'rc' && selectedRCId) {
       const rc = rcs.find(r => r._id === selectedRCId);
       if (rc) {
         selectedItems = getProjectsForRC(rc);
@@ -276,22 +369,7 @@ const [selectedRCId, setSelectedRCId] = useState(null);
     if (!selectedItems.length) return null;
 
     const getCoeRcValue = (project) => {
-      // Get the current tab's selected item (COE or RC)
-      if (activeSubTab === 'coe') {
-        // For COE tab, show the COE name
-        if (project.coeId) {
-          if (typeof project.coeId === 'object' && project.coeId.name) {
-            return project.coeId.name;
-          }
-        }
-        // Fallback to problem's COE
-        if (project.problemId?.coeId) {
-          if (typeof project.problemId.coeId === 'object' && project.problemId.coeId.name) {
-            return project.problemId.coeId.name;
-          }
-        }
-      } else if (activeSubTab === 'rc') {
-        // For RC tab, show the RC name
+      if (activeSubTab === 'rc') {
         if (project.rcId) {
           if (typeof project.rcId === 'object' && project.rcId.name) {
             return project.rcId.name;
@@ -299,11 +377,6 @@ const [selectedRCId, setSelectedRCId] = useState(null);
         }
       }
       
-      // Fallback for embedded data
-      if (project.coe?.name && typeof project.coe.name === 'string') {
-        const name = project.coe.name;
-        return name === '--' ? 'Others' : name;
-      }
       if (project.rc?.name && typeof project.rc.name === 'string') {
         const name = project.rc.name;
         return name === '--' ? 'Others' : name;
@@ -312,11 +385,11 @@ const [selectedRCId, setSelectedRCId] = useState(null);
     };
 
     return (
-      <div className="details-modal-overlay" onClick={() => { setSelectedCOEId(null); setSelectedRCId(null); }}>
+      <div className="details-modal-overlay" onClick={() => { setSelectedRCId(null); }}>
         <div className="details-modal-content" onClick={(e) => e.stopPropagation()}>
           <div className="details-modal-header">
             <h3>{title}</h3>
-            <button className="modal-close" onClick={() => { setSelectedCOEId(null); setSelectedRCId(null); }}>&times;</button>
+            <button className="modal-close" onClick={() => { setSelectedRCId(null); }}>&times;</button>
           </div>
 
           <div className="details-table-container">
@@ -327,7 +400,7 @@ const [selectedRCId, setSelectedRCId] = useState(null);
                   <th>Project Title</th>
                   <th>Guide</th>
                   <th>Research Area</th>
-                  <th>COE/RC</th>
+                  <th>RC</th>
                 </tr>
               </thead>
               <tbody>
@@ -380,17 +453,15 @@ const [selectedRCId, setSelectedRCId] = useState(null);
           ) : (
             <div className="coe-rc-grid">
               {coes.map((coe) => {
-                const projectCount = getProjectsForCOE(coe).length;
                 return (
                   <div 
                     key={coe._id} 
                     className="coe-rc-card"
-                    onClick={() => setSelectedCOEId(coe._id)}
+                    onClick={() => handleCOECardClick(coe._id)}
                     style={{ cursor: 'pointer' }}
                   >
                     <div className="card-body">
                       <h4>{coe.name === '--' ? 'Others' : coe.name}</h4>
-                      <div className="project-count">{projectCount} Projects</div>
                     </div>
                     <button
                       className="btn btn-danger btn-sm"
@@ -421,7 +492,7 @@ const [selectedRCId, setSelectedRCId] = useState(null);
               <h3>
                 {editingId ? 'Edit COE' : 'Add New COE'}
               </h3>
-              <button className="modal-close" onClick={() => setShowModal(false)}>×</button>
+              <button className="modal-close" onClick={() => setShowModal(false)}>ï¿½</button>
             </div>
 
             <form onSubmit={editingId ? null : handleCreateCOE}>

@@ -19,7 +19,7 @@ exports.getAllProblems = async (req, res) => {
 exports.searchProblems = async (req, res) => {
   try {
     const { q } = req.query;
-    
+
     if (!q || q.trim() === '') {
       return res.status(400).json({ success: false, message: 'Search query is required' });
     }
@@ -125,7 +125,7 @@ exports.updateProblem = async (req, res) => {
   }
 };
 
-// @desc    Delete problem statement (Admin only)
+// @desc    Delete problem statement
 // @route   DELETE /api/problems/:id
 exports.deleteProblem = async (req, res) => {
   try {
@@ -134,13 +134,33 @@ exports.deleteProblem = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Problem statement not found' });
     }
 
-    // Clear this problem from all batches that opted for it
+    // Security: Check if user is an admin or the owner (guide) of the problem
+    if (req.user.role !== 'admin' && problem.guideId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, message: 'Not authorized to delete this problem statement' });
+    }
+
+    // Check if the problem is already allotted to any batch
+    const allottedBatch = await Batch.findOne({
+      $or: [
+        { problemId: req.params.id },
+        { optedProblemId: req.params.id, allotmentStatus: 'allotted' }
+      ]
+    });
+
+    if (allottedBatch) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot delete problem statement as it is already allotted to a team'
+      });
+    }
+
+    // Clear this problem from all batches that opted for it (those not yet allotted)
     await Batch.updateMany(
       { 'optedProblems.problemId': req.params.id },
       { $pull: { optedProblems: { problemId: req.params.id } } }
     );
 
-    // Also clear legacy optedProblemId field
+    // Also clear legacy optedProblemId field for any other pending states
     await Batch.updateMany(
       { optedProblemId: req.params.id },
       {

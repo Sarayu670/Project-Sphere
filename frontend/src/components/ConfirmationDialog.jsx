@@ -4,7 +4,7 @@ function ConfirmationDialog({ isOpen, title, message, onConfirm, onCancel, confi
   if (!isOpen) return null;
 
   const getBackgroundColor = () => {
-    switch(type) {
+    switch (type) {
       case 'success': return '#d4edda';
       case 'warning': return '#fff3cd';
       case 'danger': return '#f8d7da';
@@ -14,7 +14,7 @@ function ConfirmationDialog({ isOpen, title, message, onConfirm, onCancel, confi
   };
 
   const getBorderColor = () => {
-    switch(type) {
+    switch (type) {
       case 'success': return '#c3e6cb';
       case 'warning': return '#ffeaa7';
       case 'danger': return '#f5c6cb';
@@ -24,7 +24,7 @@ function ConfirmationDialog({ isOpen, title, message, onConfirm, onCancel, confi
   };
 
   const getButtonColor = () => {
-    switch(type) {
+    switch (type) {
       case 'success': return '#28a745';
       case 'warning': return '#ffc107';
       case 'danger': return '#dc3545';
@@ -44,7 +44,7 @@ function ConfirmationDialog({ isOpen, title, message, onConfirm, onCancel, confi
         backgroundColor: 'rgba(0, 0, 0, 0.5)',
         zIndex: 999,
       }} onClick={onCancel} />
-      
+
       <div style={{
         position: 'fixed',
         top: '50%',
@@ -66,7 +66,7 @@ function ConfirmationDialog({ isOpen, title, message, onConfirm, onCancel, confi
         }}>
           <h2 style={{ margin: 0, color: '#333', fontSize: '18px', fontWeight: '600' }}>{title}</h2>
         </div>
-        
+
         <div style={{
           padding: '20px',
           color: '#555',
@@ -74,7 +74,7 @@ function ConfirmationDialog({ isOpen, title, message, onConfirm, onCancel, confi
         }}>
           {message}
         </div>
-        
+
         <div style={{
           padding: '15px 20px',
           display: 'flex',
@@ -82,24 +82,26 @@ function ConfirmationDialog({ isOpen, title, message, onConfirm, onCancel, confi
           gap: '10px',
           borderTop: '1px solid #eee',
         }}>
-          <button
-            onClick={onCancel}
-            style={{
-              padding: '8px 16px',
-              border: '1px solid #ccc',
-              borderRadius: '4px',
-              backgroundColor: '#f5f5f5',
-              color: '#333',
-              cursor: 'pointer',
-              fontSize: '14px',
-              fontWeight: '500',
-              transition: 'background-color 0.2s',
-            }}
-            onMouseEnter={(e) => e.target.style.backgroundColor = '#ebebeb'}
-            onMouseLeave={(e) => e.target.style.backgroundColor = '#f5f5f5'}
-          >
-            {cancelText}
-          </button>
+          {showCancel && (
+            <button
+              onClick={onCancel}
+              style={{
+                padding: '8px 16px',
+                border: '1px solid #ccc',
+                borderRadius: '4px',
+                backgroundColor: '#f5f5f5',
+                color: '#333',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: '500',
+                transition: 'background-color 0.2s',
+              }}
+              onMouseEnter={(e) => e.target.style.backgroundColor = '#ebebeb'}
+              onMouseLeave={(e) => e.target.style.backgroundColor = '#f5f5f5'}
+            >
+              {cancelText}
+            </button>
+          )}
           <button
             onClick={onConfirm}
             style={{

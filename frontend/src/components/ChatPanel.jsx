@@ -1,9 +1,12 @@
+
+
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import './ChatPanel.css';
 
-const API_URL = '/api';
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 // Helper function to construct full file URL
 const getFileUrl = (fileUrl) => {

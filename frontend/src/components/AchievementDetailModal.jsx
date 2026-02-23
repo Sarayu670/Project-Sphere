@@ -21,7 +21,7 @@ const AchievementDetailModal = ({ achievement, category, onClose }) => {
 
     return (
         <div className="achieve-modal-backdrop" onClick={onClose}>
-            <div className="achieve-modal-container" onClick={(e) => e.stopPropagation()}>
+            <div className="achieve-modal-container achieve-modal-container-large" onClick={(e) => e.stopPropagation()}>
                 {/* Close Button */}
                 <button className="achieve-modal-close-btn" onClick={onClose} aria-label="Close">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -37,7 +37,9 @@ const AchievementDetailModal = ({ achievement, category, onClose }) => {
                             <div className="achieve-details-header">
                                 <div className="achieve-category-badge" style={{ background: category.gradient }}>
                                     <span className="achieve-badge-icon">{category.icon}</span>
-                                    <span className="achieve-badge-label">{category.label}</span>
+                                    <span className="achieve-badge-label">
+                                        {category.label === 'Progress Tracking' ? 'Milestone Tracker' : category.label}
+                                    </span>
                                 </div>
                             </div>
 

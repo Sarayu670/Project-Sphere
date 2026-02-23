@@ -19,6 +19,7 @@
     box-sizing: border-box !important;
 }
 
+
 .achieve-modal-container {
     position: relative !important;
     width: 95% !important;
@@ -32,6 +33,13 @@
     flex-direction: column !important;
     align-items: stretch !important;
     animation: achieveModalPopIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+}
+
+/* Larger modal for more spacious view */
+.achieve-modal-container-large {
+    max-width: 1100px !important;
+    width: 98% !important;
+    height: 95vh !important;
 }
 
 @keyframes achieveModalPopIn {

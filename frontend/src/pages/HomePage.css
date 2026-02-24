@@ -9,7 +9,7 @@
 .home-header {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
-  padding: 20px 0;
+  padding: 12px 0;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
@@ -123,7 +123,7 @@
 /* Hero Section */
 .hero-section {
   background: linear-gradient(180deg, #f8f9ff 0%, #f0f4ff 100%);
-  padding: 40px 20px;
+  padding: 25px 20px;
   text-align: center;
 }
 
@@ -137,7 +137,7 @@
 .hero-content>p {
   font-size: 16px;
   color: #666;
-  margin-bottom: 40px;
+  margin-bottom: 25px;
   max-width: 600px;
   margin-left: auto;
   margin-right: auto;
@@ -188,7 +188,7 @@
 
 /* COE Section */
 .coe-section {
-  padding: 40px 20px;
+  padding: 30px 20px;
   background: white;
 }
 
@@ -203,7 +203,7 @@
 .section-subtitle {
   text-align: center;
   color: #666;
-  margin-bottom: 40px;
+  margin-bottom: 25px;
   font-size: 14px;
 }
 
@@ -253,7 +253,7 @@
 
 /* Guide Search Section */
 .guide-search-section {
-  padding: 40px 20px;
+  padding: 30px 20px;
   background: linear-gradient(180deg, #f8f9ff 0%, #f0f4ff 100%);
 }
 
@@ -729,7 +729,7 @@
 
 /* CTA Section */
 .cta-section {
-  padding: 35px 20px;
+  padding: 25px 20px;
   text-align: center;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
@@ -770,7 +770,7 @@
   background: #333;
   color: white;
   text-align: center;
-  padding: 25px 20px;
+  padding: 20px;
   font-size: 13px;
 }
 
@@ -796,7 +796,7 @@
   color: #667eea;
 }
 
-.dev-name {
+.dev-names {
   margin: 4px 0;
   opacity: 0.9;
   font-size: 14px;

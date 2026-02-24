@@ -252,9 +252,7 @@ const HomePage = () => {
           <p className="footer-copyright">&copy; 2026 Project Sphere. All rights reserved.</p>
           <div className="developer-credits">
             <p className="developed-by">Developed by GNITS</p>
-            <p className="dev-name">Tejaswi - 23251A05F0</p>
-            <p className="dev-name">Sarayu - 23251A05F4</p>
-            <p className="dev-name">Sravanthi - 23251A05F6</p>
+            <p className="dev-names">Tejaswi - 23251A05F0 | Sarayu - 23251A05F4 | Sravanthi - 23251A05F6</p>
             <p className="dev-guidance">under the guidance of Dr. M. Seetha - Dean R&D</p>
           </div>
         </div>

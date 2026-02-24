@@ -4,7 +4,7 @@
    =================================== */
 
 .achievements-section {
-    padding: 100px 20px;
+    padding: 40px 20px 80px;
     position: relative;
     overflow: hidden;
     background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 50%, #f1f5f9 100%);
@@ -84,7 +84,7 @@
 /* Header */
 .achievements-header {
     text-align: center;
-    margin-bottom: 70px;
+    margin-bottom: 40px;
     animation: fadeInDown 0.8s ease-out;
 }
 
@@ -101,9 +101,9 @@
 }
 
 .achievements-title {
-    font-size: 56px;
+    font-size: 42px;
     font-weight: 900;
-    margin-bottom: 16px;
+    margin-bottom: 12px;
     display: flex;
     align-items: center;
     justify-content: center;

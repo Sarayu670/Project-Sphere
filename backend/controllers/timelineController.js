@@ -173,7 +173,9 @@ exports.getTimelineForBatch = async (req, res) => {
     }
 
     const events = await TimelineEvent.find(query).sort({ order: 1, deadline: 1 });
-    const submissions = await Submission.find({ batchId: req.params.batchId });
+    const submissions = await Submission.find({ batchId: req.params.batchId })
+      .populate('comments.guideId', 'name')
+      .populate('adminRemarks.adminId', 'name');
 
     console.log('📄 Found', submissions.length, 'submissions for batch', req.params.batchId);
     submissions.forEach(sub => {

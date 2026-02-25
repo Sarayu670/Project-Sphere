@@ -56,9 +56,9 @@ function GuideSearch() {
         // Use a unique key combining BatchID and TeamName to avoid collisions
         const key = `${batch.batchId || 'N/A'}-${batch.teamName.toLowerCase()}`;
         // Display both COE and RC if available
-        const coeRc = batch.coe && batch.coe !== 'N/A' 
-          ? (batch.rc && batch.rc !== 'N/A' ? `${batch.coe}, ${batch.rc}` : batch.coe)
-          : (batch.rc || 'N/A');
+        const coeDisplay = batch.coe && batch.coe !== 'N/A' ? batch.coe : '';
+        const rcDisplay = batch.rc && batch.rc !== 'N/A' ? batch.rc : '';
+        const coeRc = (coeDisplay && rcDisplay) ? `${coeDisplay}, ${rcDisplay}` : (coeDisplay || rcDisplay || 'N/A');
         teamMap.set(key, {
           _id: batch._id,
           batchId: batch.batchId || 'N/A',

@@ -49,7 +49,7 @@ exports.getMyProblems = async (req, res) => {
     const problems = await ProblemStatement.find({ guideId: req.user._id })
       .populate('coeId', 'name')
       .populate('guideId', 'name email');
-    
+
     // For each problem, find the allotted batch
     const problemsWithBatch = await Promise.all(problems.map(async (problem) => {
       const allottedBatch = await Batch.findOne({ problemId: problem._id }).select('teamName');
@@ -58,7 +58,7 @@ exports.getMyProblems = async (req, res) => {
         allottedTeamName: allottedBatch ? allottedBatch.teamName : null
       };
     }));
-    
+
     res.status(200).json({ success: true, data: problemsWithBatch });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -116,19 +116,28 @@ exports.createProblem = async (req, res) => {
   }
 };
 
-// @desc    Update problem statement (Admin only)
+// @desc    Update problem statement
 // @route   PUT /api/problems/:id
 exports.updateProblem = async (req, res) => {
   try {
-    const problem = await ProblemStatement.findByIdAndUpdate(req.params.id, req.body, {
+    let problem = await ProblemStatement.findById(req.params.id);
+
+    if (!problem) {
+      return res.status(404).json({ success: false, message: 'Problem statement not found' });
+    }
+
+    // Security: Check if user is an admin or the owner (guide) of the problem
+    if (req.user.role !== 'admin' && problem.guideId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, message: 'Not authorized to update this problem statement' });
+    }
+
+    problem = await ProblemStatement.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
       runValidators: true
     })
       .populate('coeId', 'name')
       .populate('guideId', 'name email');
-    if (!problem) {
-      return res.status(404).json({ success: false, message: 'Problem statement not found' });
-    }
+
     res.status(200).json({ success: true, data: problem });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

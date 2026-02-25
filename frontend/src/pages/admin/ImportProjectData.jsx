@@ -65,7 +65,7 @@ function ImportProjectData() {
                         <li><strong>Student Names</strong> - Multiple student columns will be merged</li>
                         <li><strong>Guide Name</strong> - Internal Guide/Mentor/Supervisor</li>
                         <li><strong>Project Title</strong> - Project/Problem/Topic name</li>
-                        <li><strong>COE</strong> - Domain/Research Area/Center of Excellence</li>
+                        <li><strong>COE/RC</strong> - Domain/Research Area/Center of Excellence</li>
                     </ul>
 
                     <div style={{ marginTop: '16px', padding: '12px', background: '#fff3cd', borderRadius: '6px', border: '1px solid #ffc107' }}>
@@ -75,7 +75,7 @@ function ImportProjectData() {
                     </div>
                 </div>
 
-                
+
 
                 <form onSubmit={handleImport}>
                     <div style={{ marginBottom: '20px' }}>

@@ -14,6 +14,7 @@ function GuideDashboard() {
   const [activeTab, setActiveTab] = useState('problems');
   const [problems, setProblems] = useState([]);
   const [coes, setCoes] = useState([]);
+  const [rcs, setRcs] = useState([]);
   const [batches, setBatches] = useState([]);
   const [optedTeams, setOptedTeams] = useState([]);
   const [submissions, setSubmissions] = useState([]);
@@ -29,6 +30,7 @@ function GuideDashboard() {
   const [dialog, setDialog] = useState({ isOpen: false, title: '', message: '', type: 'info', onConfirm: null, confirmText: 'OK', cancelText: 'Cancel', showCancel: true });
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredProblems, setFilteredProblems] = useState([]);
+  const [editingProblem, setEditingProblem] = useState(null);
 
   const TARGET_YEARS = ['2nd', '3rd', '4th'];
 
@@ -40,9 +42,10 @@ function GuideDashboard() {
 
   const fetchData = async () => {
     try {
-      const [problemsRes, coesRes, batchesRes, optedRes, submissionsRes] = await Promise.all([
+      const [problemsRes, coesRes, rcsRes, batchesRes, optedRes, submissionsRes] = await Promise.all([
         api.getMyProblems(),
         api.getAllCOEs(),
+        api.getAllRCs(),
         api.getMyBatches(),
         api.getOptedTeams(),
         api.getGuideSubmissions()
@@ -50,6 +53,7 @@ function GuideDashboard() {
       setProblems(problemsRes.data.data || []);
       setFilteredProblems(problemsRes.data.data || []);
       setCoes(coesRes.data.data || []);
+      setRcs(rcsRes.data.data || []);
       setBatches(batchesRes.data.data || []);
       setOptedTeams(optedRes.data.data || []);
       setSubmissions(submissionsRes.data.data || []);
@@ -89,13 +93,44 @@ function GuideDashboard() {
   const handleAddProblem = async (e) => {
     e.preventDefault();
     try {
-      await api.createProblem(newProblem);
+      if (editingProblem) {
+        await api.updateProblem(editingProblem._id, newProblem);
+        showDialog('Success', 'Problem statement updated successfully!', 'success', () => {
+          fetchData();
+        }, false, 'OK');
+      } else {
+        await api.createProblem(newProblem);
+        fetchData();
+      }
       setNewProblem({ title: '', description: '', coeId: '', targetYear: '', datasetUrl: '', researchArea: '' });
       setShowAddProblem(false);
-      fetchData();
+      setEditingProblem(null);
     } catch (error) {
-      showDialog('Error', error.response?.data?.message || 'Failed to add problem', 'danger');
+      showDialog('Error', error.response?.data?.message || 'Failed to save problem', 'danger');
     }
+  };
+
+  const handleEditClick = (problem) => {
+    setEditingProblem(problem);
+    setNewProblem({
+      title: problem.title,
+      description: problem.description,
+      coeId: problem.coeId?._id || problem.coeId,
+      targetYear: problem.targetYear,
+      datasetUrl: problem.datasetUrl || '',
+      researchArea: problem.researchArea || ''
+    });
+    setShowAddProblem(true);
+    setShowImportExcel(false);
+
+    // Scroll to form
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleCancelAddProblem = () => {
+    setShowAddProblem(false);
+    setEditingProblem(null);
+    setNewProblem({ title: '', description: '', coeId: '', targetYear: '', datasetUrl: '', researchArea: '' });
   };
 
   const handleDeleteProblem = async (id) => {
@@ -241,7 +276,8 @@ function GuideDashboard() {
           {showImportExcel && (
             <ExcelImportProblem
               coes={coes}
-              targetYears={TARGET_YEARS}
+              rcs={rcs}
+              targetYears={['2nd', '3rd', '4th']}
               onImportComplete={() => {
                 setShowImportExcel(false);
                 fetchData();
@@ -250,13 +286,18 @@ function GuideDashboard() {
             />
           )}
           {showAddProblem && (
-            <div className="card" style={{ marginBottom: '20px' }}>
+            <div className="card" style={{ marginBottom: '20px', borderLeft: '4px solid #4a90e2' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                <h3 style={{ margin: 0 }}>{editingProblem ? '✏️ Edit Problem Statement' : '➕ Add New Problem Statement'}</h3>
+              </div>
               <form onSubmit={handleAddProblem}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-                  <div className="form-group"><label>COE</label>
+                  <div className="form-group"><label>COE / RC</label>
                     <select value={newProblem.coeId} onChange={(e) => setNewProblem({ ...newProblem, coeId: e.target.value })} required>
-                      <option value="">Select COE</option>
-                      {coes.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+                      <option value="">Select COE / RC</option>
+                      {[...coes, ...rcs].map(item => (
+                        <option key={item._id} value={item._id}>{item.name}</option>
+                      ))}
                     </select>
                   </div>
                   <div className="form-group"><label>Target Year</label>
@@ -270,7 +311,10 @@ function GuideDashboard() {
                 <div className="form-group"><label>Description</label><textarea value={newProblem.description} onChange={(e) => setNewProblem({ ...newProblem, description: e.target.value })} rows={3} /></div>
                 <div className="form-group"><label>Research Area (optional)</label><input type="text" value={newProblem.researchArea} onChange={(e) => setNewProblem({ ...newProblem, researchArea: e.target.value })} placeholder="e.g., Machine Learning, IoT, Data Science" /></div>
                 <div className="form-group"><label>Dataset URL (optional)</label><input type="url" value={newProblem.datasetUrl} onChange={(e) => setNewProblem({ ...newProblem, datasetUrl: e.target.value })} /></div>
-                <div style={{ display: 'flex', gap: '10px' }}><button type="submit" className="btn btn-primary">Save</button><button type="button" className="btn btn-secondary" onClick={() => setShowAddProblem(false)}>Cancel</button></div>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button type="submit" className="btn btn-primary">{editingProblem ? 'Update Problem' : 'Save Problem'}</button>
+                  <button type="button" className="btn btn-secondary" onClick={handleCancelAddProblem}>Cancel</button>
+                </div>
                 <div style={{ marginTop: '10px', padding: '10px', backgroundColor: '#f0f4ff', borderRadius: '4px', fontSize: '12px', color: '#666' }}>
                   💡 Tip: You can also import multiple problems at once using the "Import from Excel" button
                 </div>
@@ -302,24 +346,62 @@ function GuideDashboard() {
                       <div>
                         <h3 style={{ margin: '0 0 10px 0' }}>{p?.title || 'Untitled Problem'}</h3>
                         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '10px' }}>
-                          <span className="timeline-badge badge-info">{p?.coeId?.name || 'No COE'}</span>
+                          <span className="timeline-badge badge-info">{p?.coeId?.name || 'No COE/RC'}</span>
                           <span className="timeline-badge badge-warning">{p?.targetYear || 'N/A'} Year</span>
                           {p?.researchArea && <span className="timeline-badge badge-success">{p.researchArea}</span>}
                         </div>
                       </div>
-                      {(!p?.selectedBatchCount || p.selectedBatchCount === 0) && (
+                      <div style={{ display: 'flex', gap: '8px' }}>
                         <button
-                          className="delete-btn-container"
+                          className="edit-btn-container"
                           onClick={(e) => {
                             e.preventDefault();
-                            e.stopPropagation();
-                            if (p?._id) handleDeleteProblem(p._id);
+                            handleEditClick(p);
                           }}
-                          title="Delete problem statement"
+                          title="Edit problem statement"
+                          style={{
+                            background: '#e3f2fd',
+                            color: '#1976d2',
+                            border: 'none',
+                            borderRadius: '4px',
+                            padding: '6px 10px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                            fontSize: '13px',
+                            fontWeight: '600'
+                          }}
                         >
-                          <span className="delete-icon">🗑️</span>
+                          ✏️ Edit
                         </button>
-                      )}
+                        {(!p?.selectedBatchCount || p.selectedBatchCount === 0) && (
+                          <button
+                            className="delete-btn-container"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              if (p?._id) handleDeleteProblem(p._id);
+                            }}
+                            title="Delete problem statement"
+                            style={{
+                              background: '#ffebee',
+                              color: '#d32f2f',
+                              border: 'none',
+                              borderRadius: '4px',
+                              padding: '6px 10px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '5px',
+                              fontSize: '13px',
+                              fontWeight: '600'
+                            }}
+                          >
+                            🗑️ Delete
+                          </button>
+                        )}
+                      </div>
                     </div>
                     <p style={{ color: '#666', margin: '10px 0' }}>{p?.description || 'No description provided'}</p>
                     {p?.allottedTeamName && (

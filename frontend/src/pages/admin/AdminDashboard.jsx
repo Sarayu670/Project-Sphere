@@ -193,7 +193,8 @@ function AdminDashboard() {
                   <tr>
                     <th>Team Name</th>
                     <th>Team Members</th>
-                    <th>COE/RC</th>
+                    <th style={{ width: "120px" }}>COE/RC</th>
+                    <th style={{ width: "120px" }}>Research Area</th>
                     <th>Guide</th>
                     <th>Problem</th>
                     <th>Actions</th>
@@ -213,9 +214,9 @@ function AdminDashboard() {
                         </div>
                       </td>
 
-                      <td>{batch.coeId?.name || 'Not Assigned'}</td>
+                      <td>{batch.problemId?.coeId?.name || batch.coeId?.name || batch.coe?.name || 'Not Assigned'}</td>
+                      <td>{batch.problemId?.researchArea || batch.researchArea || 'Not Assigned'}</td>
                       <td>{batch.guideId?.name || 'Not Assigned'}</td>
-                      <td>{batch.problemId?.title || 'Not Assigned'}</td>
                       <td>
                         <button className="btn btn-primary btn-sm" onClick={() => handleSelectBatch(batch)}>View Details</button>
                       </td>
@@ -291,7 +292,8 @@ function AdminDashboard() {
                 <p><strong>Section:</strong> {selectedBatch.section}</p>
               </div>
               <div>
-                <p><strong>COE:</strong> {selectedBatch.coeId?.name || 'Not Assigned'}</p>
+                <p><strong>COE/RC:</strong> {selectedBatch.problemId?.coeId?.name || selectedBatch.coeId?.name || selectedBatch.coe?.name || 'Not Assigned'}</p>
+                <p><strong>Research Area:</strong> {selectedBatch.problemId?.researchArea || selectedBatch.researchArea || 'Not Assigned'}</p>
                 <p><strong>Guide:</strong> {selectedBatch.guideId?.name || 'Not Assigned'}</p>
                 <p><strong>Problem:</strong> {selectedBatch.problemId?.title || 'Not Assigned'}</p>
               </div>

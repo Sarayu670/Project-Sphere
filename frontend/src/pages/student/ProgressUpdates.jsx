@@ -56,7 +56,7 @@ function ProgressUpdates({ batchId }) {
               <label>Description</label>
               <textarea
                 value={formData.description}
-                onChange={(e) => setFormData({...formData, description: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 placeholder="Describe your progress..."
                 rows={4}
                 required
@@ -67,7 +67,7 @@ function ProgressUpdates({ batchId }) {
               <input
                 type="url"
                 value={formData.fileUrl}
-                onChange={(e) => setFormData({...formData, fileUrl: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, fileUrl: e.target.value })}
                 placeholder="https://drive.google.com/..."
               />
             </div>
@@ -90,13 +90,13 @@ function ProgressUpdates({ batchId }) {
             <div key={update._id} className="card">
               <div className="flex-between" style={{ marginBottom: '12px' }}>
                 <span style={{ color: '#718096', fontSize: '14px' }}>
-                  📅 {new Date(update.date).toLocaleDateString('en-US', { 
+                  📅 {new Date(update.date).toLocaleDateString('en-US', {
                     year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
                   })}
                 </span>
                 {update.fileUrl && (
                   <a href={update.fileUrl} target="_blank" rel="noopener noreferrer" className="btn btn-secondary" style={{ fontSize: '12px', padding: '6px 12px' }}>
-                    📁 View File
+                    📁 View
                   </a>
                 )}
               </div>

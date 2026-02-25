@@ -138,7 +138,7 @@ function ProblemManagement() {
               <thead>
                 <tr>
                   <th>Title</th>
-                  <th>COE/RC</th>
+                  <th style={{ width: "120px" }}>COE/RC</th>
                   <th>Guide</th>
                   <th>Year</th>
                   <th>Selected</th>
@@ -180,9 +180,9 @@ function ProblemManagement() {
                 <input type="text" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} required />
               </div>
               <div className="form-group">
-                <label>COE (Domain)</label>
+                <label>COE / RC</label>
                 <select value={formData.coeId} onChange={(e) => setFormData({ ...formData, coeId: e.target.value })} required>
-                  <option value="">Select COE</option>
+                  <option value="">Select COE / RC</option>
                   {coes.map((coe) => (<option key={coe._id} value={coe._id}>{coe.name}</option>))}
                 </select>
               </div>

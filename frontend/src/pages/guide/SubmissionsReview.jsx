@@ -45,12 +45,12 @@ function SubmissionsReview() {
       console.log('Assigning marks:', { submissionId: selectedSubmission._id, marks: parseFloat(marks) || 0, status });
       const res = await api.assignSubmissionMarks(selectedSubmission._id, parseFloat(marks) || 0, status);
       console.log('Marks assigned response:', res.data);
-      
+
       // Refresh data after assignment
       await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms for backend to sync
       const updatedRes = await api.getSubmission(selectedSubmission._id);
       setSelectedSubmission(updatedRes.data.data);
-      
+
       // Also refresh the list
       await fetchSubmissions();
       setMarks('');
@@ -90,7 +90,7 @@ function SubmissionsReview() {
     return (
       <div className="tab-content">
         <button className="btn btn-secondary" onClick={() => setSelectedSubmission(null)} style={{ marginBottom: '20px' }}>← Back</button>
-        
+
         <div className="card" style={{ marginBottom: '20px' }}>
           <h2>📝 {selectedSubmission.timelineEventId?.title}</h2>
           <div style={{ display: 'flex', gap: '15px', marginTop: '10px' }}>
@@ -106,7 +106,7 @@ function SubmissionsReview() {
             {selectedSubmission.versions?.length === 0 ? (
               <p style={{ color: '#888' }}>No submissions yet</p>
             ) : (
-              <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+              <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
                 {selectedSubmission.versions?.map((v, idx) => (
                   <div key={idx} style={{ padding: '10px', borderBottom: '1px solid #eee' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -115,8 +115,8 @@ function SubmissionsReview() {
                     </div>
                     {v.description && <p style={{ color: '#666', fontSize: '14px', margin: '5px 0' }}>{v.description}</p>}
                     <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
-                      {v.driveLink && <a href={v.driveLink} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm">📁 View on Drive</a>}
-                      {v.fileUrl && <a href={v.fileUrl} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm">📁 {v.fileName || 'Download'}</a>}
+                      {v.driveLink && <a href={v.driveLink} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm">📁 View</a>}
+                      {v.fileUrl && <a href={v.fileUrl} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm">📁 View</a>}
                     </div>
                   </div>
                 ))}
@@ -124,27 +124,52 @@ function SubmissionsReview() {
             )}
           </div>
 
-          <div className="card" style={{ maxWidth: '100%', minWidth: '0', overflow: 'hidden' }}>
-            <h3>💬 Comments & Feedback</h3>
-            <div style={{ maxHeight: '200px', overflowY: 'auto', marginBottom: '15px' }}>
-              {selectedSubmission.comments?.length === 0 ? (
-                <p style={{ color: '#888' }}>No comments yet</p>
-              ) : (
-                selectedSubmission.comments?.map((c, idx) => (
-                  <div key={idx} style={{ padding: '10px', background: '#f8fafc', borderRadius: '8px', marginBottom: '10px', maxWidth: '100%', minWidth: '0', wordWrap: 'break-word', overflowWrap: 'break-word', overflow: 'hidden', wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px', minWidth: '0' }}>
-                      <strong style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.guideId?.name}</strong>
-                      <small style={{ whiteSpace: 'nowrap', marginLeft: '10px' }}>{new Date(c.createdAt).toLocaleString()}</small>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div className="card" style={{ maxWidth: '100%', minWidth: '0', overflow: 'hidden' }}>
+              <h3>💬 Comments & Feedback</h3>
+              <div style={{ maxHeight: '200px', overflowY: 'auto', marginBottom: '15px' }}>
+                {selectedSubmission.comments?.length === 0 ? (
+                  <p style={{ color: '#888' }}>No comments yet</p>
+                ) : (
+                  selectedSubmission.comments?.map((c, idx) => (
+                    <div key={idx} style={{ padding: '10px', background: '#f8fafc', borderRadius: '8px', marginBottom: '10px', maxWidth: '100%', minWidth: '0', wordWrap: 'break-word', overflowWrap: 'break-word', overflow: 'hidden', wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px', minWidth: '0' }}>
+                        <strong style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.guideId?.name}</strong>
+                        <small style={{ whiteSpace: 'nowrap', marginLeft: '10px' }}>{new Date(c.createdAt).toLocaleString()}</small>
+                      </div>
+                      <p style={{ margin: '0', color: '#333', maxWidth: '100%', wordWrap: 'break-word', overflowWrap: 'break-word', whiteSpace: 'pre-wrap', wordBreak: 'break-word', minWidth: '0' }}>{c.comment}</p>
                     </div>
-                    <p style={{ margin: '0', color: '#333', maxWidth: '100%', wordWrap: 'break-word', overflowWrap: 'break-word', whiteSpace: 'pre-wrap', wordBreak: 'break-word', minWidth: '0' }}>{c.comment}</p>
-                  </div>
-                ))
-              )}
+                  ))
+                )}
+              </div>
+              <div className="form-group">
+                <textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={2} placeholder="Add feedback or revision comments..." />
+              </div>
+              <button className="btn btn-primary" onClick={handleAddComment}>Add Comment</button>
             </div>
-            <div className="form-group">
-              <textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={2} placeholder="Add feedback or revision comments..." />
-            </div>
-            <button className="btn btn-primary" onClick={handleAddComment}>Add Comment</button>
+
+            {selectedSubmission.adminRemarks?.length > 0 && (
+              <div className="card" style={{ background: '#f0f9ff', borderColor: '#bae6fd' }}>
+                <h3 style={{ color: '#0369a1' }}>🛡️ Admin Feedback</h3>
+                <div style={{ maxHeight: '150px', overflowY: 'auto' }}>
+                  {selectedSubmission.adminRemarks
+                    .filter((r, idx, self) =>
+                      idx === self.findIndex((t) => (
+                        t.remark === r.remark && (new Date(t.createdAt) - new Date(r.createdAt)) < 60000 && (new Date(t.createdAt) - new Date(r.createdAt)) > -60000
+                      ))
+                    )
+                    .map((r, idx) => (
+                      <div key={idx} style={{ padding: '10px', borderBottom: idx !== selectedSubmission.adminRemarks.length - 1 ? '1px solid #e0f2fe' : 'none' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                          <strong style={{ color: '#0c4a6e' }}>{r.adminId?.name || 'Admin'}</strong>
+                          <small style={{ color: '#64748b' }}>{new Date(r.createdAt).toLocaleString()}</small>
+                        </div>
+                        <p style={{ margin: '0', color: '#0c4a6e', fontSize: '14px', whiteSpace: 'pre-wrap' }}>{r.remark}</p>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -165,50 +190,51 @@ function SubmissionsReview() {
   }
 
   return (
-    <div className="tab-content">
-      <h2>📝 Review Submissions</h2>
-      {submissions.length === 0 ? (
-        <div className="card empty-state"><h3>No Submissions</h3><p>Submissions from your teams will appear here</p></div>
-      ) : (
-        <div className="table-container">
-          <table className="data-table">
-            <thead>
-              <tr><th>Team</th><th>Class</th><th>Event</th><th>Submission</th><th>Status</th><th>Marks</th><th>Action</th></tr>
-            </thead>
-            <tbody>
-              {submissions.map(sub => (
-                <tr key={sub._id}>
-                  <td><strong>{sub.batchId?.teamName}</strong></td>
-                  <td>{sub.batchId?.year} {sub.batchId?.branch}-{sub.batchId?.section}</td>
-                  <td>{sub.timelineEventId?.title}</td>
-                  <td>
-                    {sub.versions && sub.versions.length > 0 && sub.versions[0]?.fileUrl ? (
-                      <a href={sub.versions[0].fileUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#667eea', cursor: 'pointer', textDecoration: 'underline' }}>
-                        📁 Submission {sub.currentVersion}
-                      </a>
-                    ) : (
-                      <span>Submission {sub.currentVersion}</span>
-                    )}
-                  </td>
-                  <td>{getStatusBadge(sub.status)}</td>
-                  <td>{sub.marks !== null ? `${sub.marks}/${sub.timelineEventId?.maxMarks}` : '-'}</td>
-                  <td><button className="btn btn-primary btn-sm" onClick={() => setSelectedSubmission(sub)}>Review</button></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
+    <>
+      <div className="tab-content">
+        <h2>📝 Review Submissions</h2>
+        {submissions.length === 0 ? (
+          <div className="card empty-state"><h3>No Submissions</h3><p>Submissions from your teams will appear here</p></div>
+        ) : (
+          <div className="table-container">
+            <table className="data-table">
+              <thead>
+                <tr><th>Team</th><th>Class</th><th>Event</th><th>Submission</th><th>Status</th><th>Marks</th><th>Action</th></tr>
+              </thead>
+              <tbody>
+                {submissions.map(sub => (
+                  <tr key={sub._id}>
+                    <td><strong>{sub.batchId?.teamName}</strong></td>
+                    <td>{sub.batchId?.year} {sub.batchId?.branch}-{sub.batchId?.section}</td>
+                    <td>{sub.timelineEventId?.title}</td>
+                    <td>
+                      {sub.versions && sub.versions.length > 0 && sub.versions[0]?.fileUrl ? (
+                        <a href={sub.versions[0].fileUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#667eea', cursor: 'pointer', textDecoration: 'underline' }}>
+                          📁 Submission {sub.currentVersion}
+                        </a>
+                      ) : (
+                        <span>Submission {sub.currentVersion}</span>
+                      )}
+                    </td>
+                    <td>{getStatusBadge(sub.status)}</td>
+                    <td>{sub.marks !== null ? `${sub.marks}/${sub.timelineEventId?.maxMarks}` : '-'}</td>
+                    <td><button className="btn btn-primary btn-sm" onClick={() => setSelectedSubmission(sub)}>Review</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
-    <ConfirmationDialog
-      isOpen={dialog.isOpen}
-      title={dialog.title}
-      message={dialog.message}
-      type={dialog.type}
-      onConfirm={dialog.onConfirm}
-      onCancel={dialog.onConfirm}
-    />
+      <ConfirmationDialog
+        isOpen={dialog.isOpen}
+        title={dialog.title}
+        message={dialog.message}
+        type={dialog.type}
+        onConfirm={dialog.onConfirm}
+        onCancel={dialog.onConfirm}
+      />
     </>
   );
 }

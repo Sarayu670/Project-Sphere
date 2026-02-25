@@ -571,6 +571,7 @@ function TimelineManagement() {
                   <th>Team Members</th>
                   <th>Class</th>
                   <th style={{ width: "100px", maxWidth: "100px" }}>COE/RC</th>
+                  <th style={{ width: "100px", maxWidth: "100px" }}>Research Area</th>
                   <th style={{ width: "100px", maxWidth: "100px" }}>Guide</th>
                   <th>Marks</th>
                   <th style={{ width: "120px", maxWidth: "120px", overflow: "hidden", textOverflow: "ellipsis" }}>Guide's Feedback</th>
@@ -660,7 +661,8 @@ function TimelineManagement() {
                         <td>
                           {batch?.year} {batch?.branch}-{batch?.section}
                         </td>
-                        <td>{batch?.coeId?.name || "Not Assigned"}</td>
+                        <td>{batch?.problemId?.coeId?.name || batch?.coeId?.name || batch?.coe?.name || "Not Assigned"}</td>
+                        <td>{batch?.problemId?.researchArea || batch?.researchArea || "Not Assigned"}</td>
                         <td>
                           {batch?.guideId?.name ? (
                             <span
@@ -1191,40 +1193,40 @@ function TimelineManagement() {
 
     // Data rows
     eventSubmissions.forEach((sub) => {
-       const batchId =
-         typeof sub.batchId === "string" ? sub.batchId : sub.batchId?._id;
-       const batch = batches.find((b) => b._id === batchId);
-       const latestAdminRemark =
-         sub.adminRemarks?.length > 0
-           ? sub.adminRemarks[sub.adminRemarks.length - 1].remark
-           : "N/A";
-       const latestGuideFeedback =
-         sub.comments?.length > 0
-           ? sub.comments[sub.comments.length - 1].comment
-           : "N/A";
-       const leaderRollNo = batch?.leaderStudentId?.rollNumber || "N/A";
-       const otherMembers =
-         batch?.teamMembers?.length > 0
-           ? batch.teamMembers.map((m) => m.rollNo).join("; ")
-           : "";
-       const allMembers = otherMembers
-         ? `${leaderRollNo}; ${otherMembers}`
-         : leaderRollNo;
-       const coe = batch?.problemId?.coeId?.name || batch?.coeId?.name || "N/A";
-       const guide = batch?.guideId?.name || "Not Assigned";
-       const rowData = {
-         teamName: batch?.teamName || "Unknown",
-         teamMembers: allMembers,
-         year: batch?.year || "N/A",
-         branch: batch?.branch || "N/A",
-         section: batch?.section || "N/A",
-         coe,
-         guide,
-         marks:
-           sub.marks !== null ? `${sub.marks}/${selectedEvent.maxMarks}` : "N/A",
-         guidesFeedback: `"${latestGuideFeedback.replace(/"/g, '""')}"`,
-         adminRemarks: `"${latestAdminRemark.replace(/"/g, '""')}"`,
-       };
+      const batchId =
+        typeof sub.batchId === "string" ? sub.batchId : sub.batchId?._id;
+      const batch = batches.find((b) => b._id === batchId);
+      const latestAdminRemark =
+        sub.adminRemarks?.length > 0
+          ? sub.adminRemarks[sub.adminRemarks.length - 1].remark
+          : "N/A";
+      const latestGuideFeedback =
+        sub.comments?.length > 0
+          ? sub.comments[sub.comments.length - 1].comment
+          : "N/A";
+      const leaderRollNo = batch?.leaderStudentId?.rollNumber || "N/A";
+      const otherMembers =
+        batch?.teamMembers?.length > 0
+          ? batch.teamMembers.map((m) => m.rollNo).join("; ")
+          : "";
+      const allMembers = otherMembers
+        ? `${leaderRollNo}; ${otherMembers}`
+        : leaderRollNo;
+      const coe = batch?.problemId?.coeId?.name || batch?.coeId?.name || "N/A";
+      const guide = batch?.guideId?.name || "Not Assigned";
+      const rowData = {
+        teamName: batch?.teamName || "Unknown",
+        teamMembers: allMembers,
+        year: batch?.year || "N/A",
+        branch: batch?.branch || "N/A",
+        section: batch?.section || "N/A",
+        coe,
+        guide,
+        marks:
+          sub.marks !== null ? `${sub.marks}/${selectedEvent.maxMarks}` : "N/A",
+        guidesFeedback: `"${latestGuideFeedback.replace(/"/g, '""')}"`,
+        adminRemarks: `"${latestAdminRemark.replace(/"/g, '""')}"`,
+      };
       const row = ALL_COLUMNS.filter((col) =>
         selectedColumns.includes(col.key)
       ).map((col) => rowData[col.key]);

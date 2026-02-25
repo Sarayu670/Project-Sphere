@@ -84,45 +84,35 @@ exports.login = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Please provide email and password' });
     }
 
+    // Role is REQUIRED and must match exactly
+    if (!role) {
+      return res.status(400).json({ success: false, message: 'Please select a role' });
+    }
+
+    if (!['student', 'guide', 'admin'].includes(role)) {
+      return res.status(400).json({ success: false, message: 'Invalid role specified' });
+    }
+
     let user;
     let userRole;
 
-    // If role is specified, search in that collection
-    if (role) {
-      if (role === 'student') {
-        // For students, check both email and rollNumber
-        user = await Student.findOne({
-          $or: [{ email: email }, { rollNumber: email }]
-        }).select('+password');
-        userRole = 'student';
-      } else if (role === 'guide') {
-        user = await Guide.findOne({ email }).select('+password');
-        userRole = 'guide';
-      } else if (role === 'admin') {
-        user = await Admin.findOne({ email }).select('+password');
-        userRole = 'admin';
-      }
-    } else {
-      // Auto-detect role by searching all collections
+    // Search only in the specified role's collection
+    if (role === 'student') {
       // For students, check both email and rollNumber
       user = await Student.findOne({
         $or: [{ email: email }, { rollNumber: email }]
       }).select('+password');
       userRole = 'student';
-
-      if (!user) {
-        user = await Guide.findOne({ email }).select('+password');
-        userRole = 'guide';
-      }
-
-      if (!user) {
-        user = await Admin.findOne({ email }).select('+password');
-        userRole = 'admin';
-      }
+    } else if (role === 'guide') {
+      user = await Guide.findOne({ email }).select('+password');
+      userRole = 'guide';
+    } else if (role === 'admin') {
+      user = await Admin.findOne({ email }).select('+password');
+      userRole = 'admin';
     }
 
     if (!user) {
-      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+      return res.status(401).json({ success: false, message: `No ${role} account found with these credentials` });
     }
 
     const isMatch = await user.matchPassword(password);
@@ -149,6 +139,53 @@ exports.getMe = async (req, res) => {
     res.status(200).json({
       success: true,
       user: { id: req.user._id, name: req.user.name, email: req.user.email, role: req.user.role }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Reset password directly
+// @route   POST /api/auth/reset-password
+exports.resetPassword = async (req, res) => {
+  try {
+    const { email, role, newPassword } = req.body;
+
+    if (!email || !role || !newPassword) {
+      return res.status(400).json({ success: false, message: 'Please provide all required fields' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters' });
+    }
+
+    if (!['student', 'guide', 'admin'].includes(role)) {
+      return res.status(400).json({ success: false, message: 'Invalid role' });
+    }
+
+    let user;
+
+    if (role === 'student') {
+      user = await Student.findOne({
+        $or: [{ email: email }, { rollNumber: email }]
+      });
+    } else if (role === 'guide') {
+      user = await Guide.findOne({ email });
+    } else if (role === 'admin') {
+      user = await Admin.findOne({ email });
+    }
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: `No ${role} account found with this credentials` });
+    }
+
+    // Update password directly
+    user.password = newPassword;
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Password reset successfully'
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

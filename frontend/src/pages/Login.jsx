@@ -7,7 +7,7 @@ function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [role, setRole] = useState('');
+  const [role, setRole] = useState('student');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
@@ -19,7 +19,20 @@ function Login() {
     setLoading(true);
 
     try {
-      await login(email, password, role || null);
+      if (!role) {
+        setError('Please select a role');
+        setLoading(false);
+        return;
+      }
+      const userData = await login(email, password, role);
+      
+      // Validate returned user role matches requested role
+      if (userData.role !== role) {
+        setError(`Role mismatch: You cannot login as ${role} with ${userData.role} credentials`);
+        setLoading(false);
+        return;
+      }
+      
       navigate('/');
     } catch (err) {
       setError(err.response?.data?.message || 'Login failed');
@@ -82,6 +95,10 @@ function Login() {
               <option value="guide">Guide</option>
               <option value="admin">Admin</option>
             </select>
+          </div>
+
+          <div style={{ textAlign: 'right', marginBottom: '16px' }}>
+            <Link to="/forgot-password" className="forgot-password-link">Forgot Password?</Link>
           </div>
 
           <button type="submit" className="btn btn-primary btn-block" disabled={loading}>

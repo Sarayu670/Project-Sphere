@@ -727,43 +727,6 @@
 }
 
 
-/* CTA Section */
-.cta-section {
-  padding: 25px 20px;
-  text-align: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-}
-
-.cta-section h2 {
-  font-size: 28px;
-  margin-bottom: 12px;
-  font-weight: 800;
-}
-
-.cta-section p {
-  font-size: 16px;
-  margin-bottom: 24px;
-  opacity: 0.95;
-}
-
-.cta-buttons {
-  display: flex;
-  gap: 16px;
-  justify-content: center;
-  flex-wrap: wrap;
-}
-
-.cta-buttons .btn-primary {
-  background: white;
-  color: #667eea;
-}
-
-.cta-buttons .btn-secondary {
-  background: rgba(255, 255, 255, 0.2);
-  border-color: rgba(255, 255, 255, 0.4);
-  color: white;
-}
 
 /* Footer */
 .home-footer {

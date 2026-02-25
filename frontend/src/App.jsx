@@ -5,6 +5,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import RegisterGuide from './pages/RegisterGuide';
 import RegisterAdmin from './pages/RegisterAdmin';
+import ForgotPassword from './pages/ForgotPassword';
 import StudentDashboard from './pages/student/StudentDashboard';
 import GuideDashboard from './pages/guide/GuideDashboard';
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -41,6 +42,7 @@ function App() {
       <Route path="/register" element={<Navigate to="/register/guide" />} />
       <Route path="/register/guide" element={!user ? <RegisterGuide /> : <Navigate to="/" />} />
       <Route path="/register/admin" element={!user ? <RegisterAdmin /> : <Navigate to="/" />} />
+      <Route path="/forgot-password" element={!user ? <ForgotPassword /> : <Navigate to="/" />} />
 
       <Route path="/" element={user ? <Layout /> : <Navigate to="/home" />}>
         {user?.role === 'student' && (

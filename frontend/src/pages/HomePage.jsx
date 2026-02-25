@@ -130,6 +130,12 @@ const HomePage = () => {
           <div className="right-nav">
             <div className="nav-links">
               <button
+                className={`nav-btn ${activeSection === 'all' ? 'active' : ''}`}
+                onClick={() => setActiveSection('all')}
+              >
+                Home
+              </button>
+              <button
                 className={`nav-btn ${activeSection === 'achievements' ? 'active' : ''}`}
                 onClick={() => setActiveSection('achievements')}
               >
@@ -233,19 +239,6 @@ const HomePage = () => {
           <GuideSearch />
         </section>
       )}
-
-      <section className="cta-section">
-        <h2>Ready to Start Your Project Journey?</h2>
-        <p>Join thousands of students collaborating on real-world projects</p>
-        <div className="cta-buttons">
-          <button className="btn btn-primary btn-large" onClick={() => navigate('/register/guide')}>
-            Create Account
-          </button>
-          <button className="btn btn-secondary btn-large" onClick={() => navigate('/login')}>
-            Sign In to Your Account
-          </button>
-        </div>
-      </section>
 
       <footer className="home-footer">
         <div className="footer-content">

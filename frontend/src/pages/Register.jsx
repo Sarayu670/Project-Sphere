@@ -33,6 +33,13 @@ function Register() {
       return;
     }
 
+    // Password complexity validation
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    if (!passwordRegex.test(password)) {
+      setError('Password must be at least 8 characters long and include uppercase, lowercase, numbers, and special characters (@$!%*?&)');
+      return;
+    }
+
     if (password !== confirmPassword) {
       setError('Passwords do not match');
       return;
@@ -63,6 +70,7 @@ function Register() {
   return (
     <div className="auth-container">
       <div className="auth-card">
+        <Link to="/home" className="back-link">← Back to Home</Link>
         <div className="auth-header">
           <span className="auth-icon">🎓</span>
           <h1>G. Narayanamma Institute of Technology & Science</h1>

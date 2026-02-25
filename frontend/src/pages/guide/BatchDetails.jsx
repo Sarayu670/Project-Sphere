@@ -78,8 +78,8 @@ function BatchDetails({ batchId, onBack }) {
           </div>
           <div>
             <label style={{ fontSize: '14px', color: '#718096', display: 'block', marginBottom: '8px' }}>Update Status:</label>
-            <select 
-              value={batch.status} 
+            <select
+              value={batch.status}
               onChange={(e) => handleStatusChange(e.target.value)}
               disabled={statusUpdating}
               style={{ padding: '8px 16px', borderRadius: '8px', border: '2px solid #e2e8f0' }}
@@ -95,8 +95,22 @@ function BatchDetails({ batchId, onBack }) {
       <div className="grid grid-2" style={{ marginBottom: '20px' }}>
         <div className="card">
           <h3 style={{ marginBottom: '16px', color: '#2d3748' }}>📋 Problem Details</h3>
-          <h4 style={{ color: '#667eea', marginBottom: '10px', fontSize: '16px', lineHeight: '1.6' }}>{batch.problemId?.title}</h4>
+          <h4 style={{ color: '#667eea', marginBottom: '10px', fontSize: '16px', lineHeight: '1.6' }}>{batch.problemId?.title || 'Not Assigned'}</h4>
           <p style={{ color: '#718096', fontSize: '14px', marginBottom: '16px', lineHeight: '1.7' }}>{batch.problemId?.description}</p>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginTop: '15px', borderTop: '1px solid #edf2f7', paddingTop: '15px' }}>
+            <div>
+              <p style={{ fontSize: '12px', color: '#a0aec0', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 'bold' }}>Research Area</p>
+              <p style={{ fontSize: '14px', color: '#2d3748' }}>{batch.problemId?.researchArea || batch.researchArea || 'N/A'}</p>
+            </div>
+            <div>
+              <p style={{ fontSize: '12px', color: '#a0aec0', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 'bold' }}>COE / RC</p>
+              <p style={{ fontSize: '14px', color: '#2d3748' }}>
+                {batch.problemId?.coeId?.name || batch.coe?.name || batch.coeId?.name || 'N/A'}
+                {batch.rc?.name && batch.rc.name !== '--' && `, ${batch.rc.name}`}
+              </p>
+            </div>
+          </div>
         </div>
 
         <div className="card">

@@ -156,18 +156,18 @@ exports.searchAllBatches = async (req, res) => {
         { 'guideId.name': searchRegex }
       ]
     })
-    .populate('leaderStudentId', 'name rollNumber email branch')
-    .populate({
-      path: 'problemId',
-      select: 'title description coeId guideId targetYear',
-      populate: {
-        path: 'coeId',
-        select: 'name'
-      }
-    })
-    .populate('optedProblemId', 'title description')
-    .populate('coeId', 'name')
-    .populate('guideId', 'name email');
+      .populate('leaderStudentId', 'name rollNumber email branch')
+      .populate({
+        path: 'problemId',
+        select: 'title description coeId guideId targetYear researchArea',
+        populate: {
+          path: 'coeId',
+          select: 'name'
+        }
+      })
+      .populate('optedProblemId', 'title description researchArea')
+      .populate('coeId', 'name')
+      .populate('guideId', 'name email');
 
     // Get team members for each batch
     batches = await Promise.all(
@@ -248,10 +248,10 @@ exports.searchAllBatches = async (req, res) => {
     const additionalMatches = await Promise.all(
       batchesWithMembers.map(async (batch) => {
         const students = await require('../models/Student').find({ batchId: batch._id });
-        const hasMatch = students.some(s => 
+        const hasMatch = students.some(s =>
           searchRegex.test(s.name) || searchRegex.test(s.rollNumber)
         );
-        
+
         if (hasMatch) {
           return batch;
         }
@@ -274,7 +274,7 @@ exports.searchAllBatches = async (req, res) => {
       if (!batchIds.has(batch._id.toString())) {
         try {
           const batchObj = batch.toObject();
-          
+
           // Handle RC lookup for additional batches
           if (batchObj.rc && batchObj.rc.rcId) {
             try {
@@ -350,8 +350,14 @@ exports.getAllBatches = async (req, res) => {
         }
       })
       .populate({
+        path: 'problemId',
+        select: 'title description coeId researchArea',
+        populate: { path: 'coeId', select: 'name' }
+      })
+      .populate({
         path: 'optedProblemId',
-        select: 'title description researchArea'
+        select: 'title description researchArea coeId',
+        populate: { path: 'coeId', select: 'name' }
       })
       .populate('coeId', 'name')
       .select('+coe +rc +domain'); // Ensure COE, RC, Domain are included
@@ -402,13 +408,13 @@ exports.getAllBatches = async (req, res) => {
           // Get team members from BOTH Student and TeamMember collections to handle different import histories
           let students = [];
           let teamMembersList = [];
-          
+
           try {
             students = await require('../models/Student').find({ batchId: batch._id }).select('name rollNumber branch');
           } catch (err) {
             console.warn('Failed to fetch students for batch', batch._id, err.message);
           }
-          
+
           try {
             teamMembersList = await require('../models/TeamMember').find({ batchId: batch._id }).select('name rollNo branch');
           } catch (err) {
@@ -490,17 +496,17 @@ exports.getMyBatch = async (req, res) => {
       .populate('leaderStudentId', 'name email rollNumber branch')
       .populate({
         path: 'problemId',
-        select: 'title description coeId datasetUrl',
+        select: 'title description coeId datasetUrl researchArea',
         populate: { path: 'coeId', select: 'name' }
       })
       .populate({
         path: 'optedProblemId',
-        select: 'title description coeId',
+        select: 'title description coeId researchArea',
         populate: { path: 'coeId', select: 'name' }
       })
       .populate({
         path: 'optedProblems.problemId',
-        select: 'title description coeId'
+        select: 'title description coeId researchArea'
       })
       .populate('optedProblems.coeId', 'name')
       .populate('coeId', 'name')
@@ -766,16 +772,16 @@ exports.allotProblem = async (req, res) => {
       });
     }
 
-     // Allot the problem
-     batch.problemId = targetProblemId;
-     batch.optedProblemId = targetProblemId;
-     batch.coeId = problem.coeId;
-     batch.researchArea = problem.researchArea || '';  // Copy research area from problem
-     batch.guideId = req.user._id;
-     batch.allotmentStatus = 'allotted';
-     batch.status = 'In Progress';
-     await batch.save();
-     console.log('Batch saved successfully');
+    // Allot the problem
+    batch.problemId = targetProblemId;
+    batch.optedProblemId = targetProblemId;
+    batch.coeId = problem.coeId;
+    batch.researchArea = problem.researchArea || '';  // Copy research area from problem
+    batch.guideId = req.user._id;
+    batch.allotmentStatus = 'allotted';
+    batch.status = 'In Progress';
+    await batch.save();
+    console.log('Batch saved successfully');
 
     // Mark problem as fully assigned (only 1 batch can have it)
     problem.selectedBatchCount = 1;
@@ -916,7 +922,12 @@ exports.getBatch = async (req, res) => {
   try {
     const batch = await Batch.findById(req.params.id)
       .populate('leaderStudentId', 'name email rollNumber branch')
-      .populate('problemId', 'title description coeId datasetUrl')
+      .populate({
+        path: 'problemId',
+        select: 'title description coeId datasetUrl researchArea',
+        populate: { path: 'coeId', select: 'name' }
+      })
+      .populate('coeId', 'name')
       .populate('guideId', 'name email');
 
     if (!batch) {
@@ -1032,7 +1043,7 @@ exports.importStudentBatches = async (req, res) => {
     for (const batchData of batchesData) {
       try {
         const { batchNo, students } = batchData;
-        
+
         if (!students || students.length === 0) {
           results.failed++;
           results.errors.push({
@@ -1128,7 +1139,7 @@ exports.importStudentBatches = async (req, res) => {
           if (batch) {
             // Update existing batch - add new students
             const existingStudentIds = new Set(batch.leaderStudentId ? [batch.leaderStudentId.toString()] : []);
-            
+
             // Add all new students to the batch
             for (const studentId of studentIds) {
               const studentRecord = await Student.findById(studentId);

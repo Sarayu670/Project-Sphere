@@ -163,6 +163,7 @@ exports.getSubmission = async (req, res) => {
       .populate('batchId', 'teamName year branch section')
       .populate('timelineEventId', 'title maxMarks deadline isMarksEnabled')
       .populate('comments.guideId', 'name')
+      .populate('adminRemarks.adminId', 'name')
       .populate('marksAssignedBy', 'name');
 
     if (!submission) {
@@ -181,7 +182,8 @@ exports.getBatchSubmissions = async (req, res) => {
   try {
     const submissions = await Submission.find({ batchId: req.params.batchId })
       .populate('timelineEventId', 'title maxMarks deadline isMarksEnabled')
-      .populate('comments.guideId', 'name');
+      .populate('comments.guideId', 'name')
+      .populate('adminRemarks.adminId', 'name');
 
     res.status(200).json({ success: true, data: submissions });
   } catch (error) {
@@ -200,6 +202,7 @@ exports.getGuideSubmissions = async (req, res) => {
       .populate('batchId', 'teamName year branch section leaderStudentId')
       .populate('timelineEventId', 'title maxMarks deadline isMarksEnabled')
       .populate('comments.guideId', 'name')
+      .populate('adminRemarks.adminId', 'name')
       .sort({ updatedAt: -1 });
 
     res.status(200).json({ success: true, data: submissions });
@@ -319,12 +322,23 @@ exports.addAdminRemark = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Submission not found' });
     }
 
-    submission.adminRemarks.push({
-      adminId: req.user._id,
-      remark,
-      createdAt: new Date()
-    });
-    await submission.save();
+    // Check for duplicate remark (same admin, same content, within last 60 seconds)
+    const duplicate = submission.adminRemarks.find(r =>
+      r.adminId.toString() === req.user._id.toString() &&
+      r.remark === remark &&
+      (new Date() - new Date(r.createdAt)) < 60000
+    );
+
+    if (duplicate) {
+      console.log('⚠️ Duplicate admin remark detected, skipping...');
+    } else {
+      submission.adminRemarks.push({
+        adminId: req.user._id,
+        remark,
+        createdAt: new Date()
+      });
+      await submission.save();
+    }
 
     const updated = await Submission.findById(req.params.id)
       .populate('adminRemarks.adminId', 'name')

@@ -589,6 +589,7 @@ function TimelineManagement() {
                   <th>Team Members</th>
                   <th>Class</th>
                   <th style={{ width: "100px", maxWidth: "100px" }}>COE/RC</th>
+                  <th style={{ width: "100px", maxWidth: "100px" }}>Research Area</th>
                   <th style={{ width: "100px", maxWidth: "100px" }}>Guide</th>
                   <th>Marks</th>
                   <th style={{ width: "120px", maxWidth: "120px", overflow: "hidden", textOverflow: "ellipsis" }}>Guide's Feedback</th>
@@ -678,7 +679,8 @@ function TimelineManagement() {
                         <td>
                           {batch?.year} {batch?.branch}-{batch?.section}
                         </td>
-                        <td>{batch?.coeId?.name || "Not Assigned"}</td>
+                        <td>{batch?.problemId?.coeId?.name || batch?.coeId?.name || batch?.coe?.name || "Not Assigned"}</td>
+                        <td>{batch?.problemId?.researchArea || batch?.researchArea || "Not Assigned"}</td>
                         <td>
                           {batch?.guideId?.name ? (
                             <span

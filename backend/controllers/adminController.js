@@ -260,14 +260,14 @@ exports.importBatchData = async (req, res) => {
       }
     }
 
-     // Process each batch
-     for (const [projId, batchRows] of Object.entries(batchGroups)) {
-       try {
-         // Get batch details from first row
-         const firstRow = batchRows[0];
-         const guideName = firstRow['Internal Guide'] || firstRow['Guide'] || '';
-         const projectTitle = firstRow['Project Title'] || firstRow['Project'] || '';
-         const researchArea = firstRow['Research Area'] || firstRow['research area'] || firstRow['researchArea'] || '';
+    // Process each batch
+    for (const [projId, batchRows] of Object.entries(batchGroups)) {
+      try {
+        // Get batch details from first row
+        const firstRow = batchRows[0];
+        const guideName = firstRow['Internal Guide'] || firstRow['Guide'] || '';
+        const projectTitle = firstRow['Project Title'] || firstRow['Project'] || '';
+        const researchArea = firstRow['Research Area'] || firstRow['research area'] || firstRow['researchArea'] || '';
 
         // Collect possible COE/RC values from header-insensitive keys
         let coeName = '';
@@ -293,11 +293,11 @@ exports.importBatchData = async (req, res) => {
         const extractNameFromCell = (cell, type) => {
           if (!cell) return '';
           let str = String(cell).trim();
-          
+
           // Remove common prefixes
           str = str.replace(/^gnits\s*,\s*/i, '');
           str = str.replace(/^(?:center of excellence|centre of excellence|coe|research center|research centre|resource center|resource centre|rc)[-:\s]*/i, '');
-          
+
           return str.trim();
         };
 
@@ -311,7 +311,7 @@ exports.importBatchData = async (req, res) => {
           if (isRCContent(coeName) && !isRCContent(rcName)) {
             rcName = coeName;
             coeName = '';
-          } 
+          }
           // If they are the same value, prioritize RC if it looks like RC, otherwise COE
           else if (coeName.trim() === rcName.trim()) {
             if (isRCContent(coeName)) {
@@ -487,18 +487,18 @@ exports.importBatchData = async (req, res) => {
 
           if (!batch) {
             // Build batch data object conditionally
-             const batchData = {
-               leaderStudentId: leaderStudentId,
-               teamName: teamName,
-               guideId: guide._id,
-               year: '2nd',
-               branch: 'CSE',
-               section: 'A',
-               status: 'Not Started',
-               allotmentStatus: 'none',
-               researchArea: researchArea && researchArea.trim() ? researchArea.trim() : ''
-             };
-            
+            const batchData = {
+              leaderStudentId: leaderStudentId,
+              teamName: teamName,
+              guideId: guide._id,
+              year: '2nd',
+              branch: 'CSE',
+              section: 'A',
+              status: 'Not Started',
+              allotmentStatus: 'none',
+              researchArea: researchArea && researchArea.trim() ? researchArea.trim() : ''
+            };
+
             // Only add COE if coeName exists
             if (coeName && coeName.trim()) {
               batchData.coeId = coeId || null;
@@ -507,7 +507,7 @@ exports.importBatchData = async (req, res) => {
                 coeId: coeId
               };
             }
-            
+
             // Only add RC if rcName exists
             if (rcName && rcName.trim()) {
               batchData.rcId = rcId || null;
@@ -516,7 +516,7 @@ exports.importBatchData = async (req, res) => {
                 rcId: rcId
               };
             }
-            
+
             batch = await Batch.create(batchData);
             results.batchCount++;
           } else {
@@ -648,7 +648,7 @@ exports.searchBatchesByGuide = async (req, res) => {
     if (rcIds.length > 0) {
       batchQuery.push({ 'rc.rcId': { $in: rcIds } });
     }
-     // Also search by RC name directly for robustness
+    // Also search by RC name directly for robustness
     if (type === 'all' || type === 'coe') {
       batchQuery.push({ 'rc.name': searchRegex });
       console.log(`[Search] Added RC name query for regex: ${guideName.trim()}`);
@@ -664,13 +664,14 @@ exports.searchBatchesByGuide = async (req, res) => {
       console.log(`[Search] Executing find query with ${batchQuery.length} conditions...`);
       batches = await Batch.find({ $or: batchQuery })
         .populate('guideId', 'name email')
+        .populate('coeId', 'name')
         .lean();
-      
+
       console.log(`[Search] Raw query result: ${batches.length} batches found`);
       if (batches.length > 0) {
         console.log(`[Search] Sample batch RC data:`, batches[0].rc);
       }
-      
+
       // Deduplicate batches by ID
       const batchMap = new Map();
       batches.forEach(batch => {
@@ -713,21 +714,42 @@ exports.searchBatchesByGuide = async (req, res) => {
         const leader = await Student.findById(batch.leaderStudentId).select('name rollNumber');
         const problem = await Problem.findById(batch.problemId).select('title');
 
-        const problemDetailed = await Problem.findById(batch.problemId).select('title coeId researchArea');
-        const COE = require('../models/COE');
-        const coe = batch.coeId ? await COE.findById(batch.coeId) : (problemDetailed?.coeId ? await COE.findById(problemDetailed.coeId) : null);
-        
+        const problemDetailed = await Problem.findById(batch.problemId).populate('coeId', 'name').lean();
+
+        // Gather COE Name
+        let coeName = 'N/A';
+        if (problemDetailed?.coeId?.name) {
+          coeName = problemDetailed.coeId.name;
+        } else if (batch.coe?.name && batch.coe.name !== '--' && batch.coe.name !== 'N/A') {
+          coeName = batch.coe.name;
+        } else if (batch.coeId) {
+          try {
+            const COE = require('../models/COE');
+            const coeDoc = await COE.findById(batch.coeId).select('name');
+            if (coeDoc) coeName = coeDoc.name;
+          } catch (e) { }
+        }
+
+        // Gather Research Area
+        let researchArea = 'N/A';
+        if (problemDetailed?.researchArea) {
+          researchArea = problemDetailed.researchArea;
+        } else if (batch.researchArea && batch.researchArea !== '--' && batch.researchArea !== 'N/A') {
+          researchArea = batch.researchArea;
+        }
+
         // Handle RC lookup
         let rcName = 'N/A';
-        if (batch.rc?.rcId) {
+        if (batch.rc?.name && batch.rc.name !== '--' && batch.rc.name !== 'N/A') {
+          rcName = batch.rc.name;
+        } else if (batch.rc?.rcId) {
           try {
-            const rc = await RC.findById(batch.rc.rcId).select('name');
-            if (rc) rcName = rc.name;
+            const RC = require('../models/RC');
+            const rcDoc = await RC.findById(batch.rc.rcId).select('name');
+            if (rcDoc) rcName = rcDoc.name;
           } catch (err) {
             console.warn('Failed to fetch RC:', err.message);
           }
-        } else if (batch.rc?.name && batch.rc.name !== '--') {
-          rcName = batch.rc.name;
         }
 
         return {
@@ -743,8 +765,8 @@ exports.searchBatchesByGuide = async (req, res) => {
           studentCount: students.length,
           guideName: batch.guideId?.name || 'N/A',
           projectTitle: problemDetailed?.title || 'N/A',
-          researchArea: problemDetailed?.researchArea || 'N/A',
-          coe: coe?.name || 'N/A',
+          researchArea: researchArea,
+          coe: coeName,
           rc: rcName
         };
       })

@@ -3,7 +3,7 @@ import * as XLSX from 'xlsx';
 import * as api from '../../services/api';
 import { downloadExcelTemplate } from '../../utils/excelTemplate';
 
-function ExcelImportProblem({ coes, targetYears, onImportComplete, onCancel }) {
+function ExcelImportProblem({ coes, rcs, targetYears, onImportComplete, onCancel }) {
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -50,17 +50,18 @@ function ExcelImportProblem({ coes, targetYears, onImportComplete, onCancel }) {
   const parseExcelData = (jsonData) => {
     return jsonData.map((row, index) => {
       // Map Excel columns to expected fields
-      // Expected columns: COE, Target Year, Title, Description, Research Area, Dataset URL
-      const coeName = row['COE'] || row['coe'] || row['CoE'] || '';
+      // Expected columns: COE/RC, Target Year, Title, Description, Research Area, Dataset URL
+      const coeName = row['COE / RC'] || row['COE/RC'] || row['COE'] || row['coe'] || row['RC'] || row['rc'] || '';
       const targetYear = row['Target Year'] || row['target year'] || row['targetYear'] || '';
       const title = row['Title'] || row['title'] || '';
       const description = row['Description'] || row['description'] || '';
       const researchArea = row['Research Area'] || row['research area'] || row['researchArea'] || '';
       const datasetUrl = row['Dataset URL'] || row['dataset url'] || row['datasetUrl'] || '';
 
-      // Find matching COE ID
+      // Find matching COE or RC ID
       const coe = coes.find(c => c.name.toLowerCase() === coeName.toLowerCase());
-      const coeId = coe ? coe._id : '';
+      const rc = rcs.find(r => r.name.toLowerCase() === coeName.toLowerCase());
+      const coeId = coe ? coe._id : (rc ? rc._id : '');
 
       // Validate target year
       const validYear = targetYears.includes(targetYear) ? targetYear : '';
@@ -233,7 +234,7 @@ function ExcelImportProblem({ coes, targetYears, onImportComplete, onCancel }) {
             {file ? `Selected: ${file.name}` : 'Click to select or drag Excel file'}
           </p>
           <p style={{ margin: 0, color: '#888', fontSize: '12px' }}>
-            Format should have columns: COE, Target Year, Title, Description, Dataset URL
+            Format should have columns: COE/RC, Target Year, Title, Description, Dataset URL
           </p>
         </label>
       </div>
@@ -337,7 +338,7 @@ function ExcelImportProblem({ coes, targetYears, onImportComplete, onCancel }) {
       }}>
         <p style={{ margin: '0 0 10px 0', fontWeight: '600' }}>📋 Excel Format Guide:</p>
         <ul style={{ margin: 0, paddingLeft: '20px' }}>
-          <li>Column 1: <strong>COE</strong> - Must match available COE names exactly</li>
+          <li>Column 1: <strong>COE/RC</strong> - Must match available COE or RC names exactly</li>
           <li>Column 2: <strong>Target Year</strong> - Must be one of: 2nd, 3rd, 4th</li>
           <li>Column 3: <strong>Title</strong> - Problem statement title (required)</li>
           <li>Column 4: <strong>Description</strong> - Detailed problem description</li>

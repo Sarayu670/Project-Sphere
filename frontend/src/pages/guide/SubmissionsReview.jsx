@@ -101,7 +101,7 @@ function SubmissionsReview() {
             {selectedSubmission.versions?.length === 0 ? (
               <p style={{ color: '#888' }}>No submissions yet</p>
             ) : (
-              <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+              <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
                 {selectedSubmission.versions?.map((v, idx) => (
                   <div key={idx} style={{ padding: '10px', borderBottom: '1px solid #eee' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -110,8 +110,8 @@ function SubmissionsReview() {
                     </div>
                     {v.description && <p style={{ color: '#666', fontSize: '14px', margin: '5px 0' }}>{v.description}</p>}
                     <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
-                      {v.driveLink && <a href={v.driveLink} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm">📁 View on Drive</a>}
-                      {v.fileUrl && <a href={v.fileUrl} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm">📁 {v.fileName || 'Download'}</a>}
+                      {v.driveLink && <a href={v.driveLink} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm">📁 View</a>}
+                      {v.fileUrl && <a href={v.fileUrl} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm">📁 View</a>}
                     </div>
                   </div>
                 ))}
@@ -119,26 +119,53 @@ function SubmissionsReview() {
             )}
           </div>
 
-          <div className="card" style={{ maxWidth: '100%', minWidth: '0', overflow: 'hidden' }}>
-            <h3>💬 Comments & Feedback</h3>
-            <div style={{ maxHeight: '200px', overflowY: 'auto', marginBottom: '15px' }}>
-              {selectedSubmission.comments?.length === 0 ? (
-                <p style={{ color: '#888' }}>No comments yet</p>
-              ) : (
-                selectedSubmission.comments?.map((c, idx) => (
-                  <div key={idx} style={{ padding: '10px', background: '#f8fafc', borderRadius: '8px', marginBottom: '10px', maxWidth: '100%', minWidth: '0', wordWrap: 'break-word', overflowWrap: 'break-word', overflow: 'hidden', wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px', minWidth: '0' }}>
-                      <strong style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.guideId?.name}</strong>
-                      <small style={{ whiteSpace: 'nowrap', marginLeft: '10px' }}>{new Date(c.createdAt).toLocaleString()}</small>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div className="card" style={{ maxWidth: '100%', minWidth: '0', overflow: 'hidden' }}>
+              <h3>💬 Comments & Feedback</h3>
+              <div style={{ maxHeight: '200px', overflowY: 'auto', marginBottom: '15px' }}>
+                {selectedSubmission.comments?.length === 0 ? (
+                  <p style={{ color: '#888' }}>No comments yet</p>
+                ) : (
+                  selectedSubmission.comments?.map((c, idx) => (
+                    <div key={idx} style={{ padding: '10px', background: '#f8fafc', borderRadius: '8px', marginBottom: '10px', maxWidth: '100%', minWidth: '0', wordWrap: 'break-word', overflowWrap: 'break-word', overflow: 'hidden', wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px', minWidth: '0' }}>
+                        <strong style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.guideId?.name}</strong>
+                        <small style={{ whiteSpace: 'nowrap', marginLeft: '10px' }}>{new Date(c.createdAt).toLocaleString()}</small>
+                      </div>
+                      <p style={{ margin: '0', color: '#333', maxWidth: '100%', wordWrap: 'break-word', overflowWrap: 'break-word', whiteSpace: 'pre-wrap', wordBreak: 'break-word', minWidth: '0' }}>{c.comment}</p>
                     </div>
-                    <p style={{ margin: '0', color: '#333', maxWidth: '100%', wordWrap: 'break-word', overflowWrap: 'break-word', whiteSpace: 'pre-wrap', wordBreak: 'break-word', minWidth: '0' }}>{c.comment}</p>
-                  </div>
-                ))
-              )}
+                  ))
+                )}
+              </div>
+              <div className="form-group">
+                <textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={2} placeholder="Add feedback or revision comments..." />
+              </div>
+              <button className="btn btn-primary" onClick={handleAddComment}>Add Comment</button>
             </div>
-            <div className="form-group">
-              <textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={2} placeholder="Add feedback or revision comments..." />
-            </div>
+
+            {selectedSubmission.adminRemarks?.length > 0 && (
+              <div className="card" style={{ background: '#f0f9ff', borderColor: '#bae6fd' }}>
+                <h3 style={{ color: '#0369a1' }}>🛡️ Admin Feedback</h3>
+                <div style={{ maxHeight: '150px', overflowY: 'auto' }}>
+                  {selectedSubmission.adminRemarks
+                    .filter((r, idx, self) =>
+                      idx === self.findIndex((t) => (
+                        t.remark === r.remark && (new Date(t.createdAt) - new Date(r.createdAt)) < 60000 && (new Date(t.createdAt) - new Date(r.createdAt)) > -60000
+                      ))
+                    )
+                    .map((r, idx) => (
+                      <div key={idx} style={{ padding: '10px', borderBottom: idx !== selectedSubmission.adminRemarks.length - 1 ? '1px solid #e0f2fe' : 'none' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                          <strong style={{ color: '#0c4a6e' }}>{r.adminId?.name || 'Admin'}</strong>
+                          <small style={{ color: '#64748b' }}>{new Date(r.createdAt).toLocaleString()}</small>
+                        </div>
+                        <p style={{ margin: '0', color: '#0c4a6e', fontSize: '14px', whiteSpace: 'pre-wrap' }}>{r.remark}</p>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+>>>>>>> 5fdfb82c937bb442bf0faaf35857bc251a65c569
           </div>
         </div>
 

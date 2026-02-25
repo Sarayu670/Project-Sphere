@@ -8,6 +8,7 @@ export const registerStudent = (data) => axios.post(`${API_URL}/auth/register/st
 export const registerGuide = (data) => axios.post(`${API_URL}/auth/register/guide`, data);
 export const registerAdmin = (data) => axios.post(`${API_URL}/auth/register/admin`, data);
 export const getMe = () => axios.get(`${API_URL}/auth/me`);
+export const resetPassword = (data) => axios.post(`${API_URL}/auth/reset-password`, data);
 
 // COE
 export const getAllCOEs = () => axios.get(`${API_URL}/coe`);

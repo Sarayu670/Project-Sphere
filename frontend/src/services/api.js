@@ -101,7 +101,7 @@ export const getBatchSubmissions = (batchId) => axios.get(`${API_URL}/submission
 export const getGuideSubmissions = () => axios.get(`${API_URL}/submissions/guide`);
 export const getAllSubmissions = () => axios.get(`${API_URL}/submissions`);
 export const addSubmissionComment = (id, comment) => axios.post(`${API_URL}/submissions/${id}/comment`, { comment });
-export const assignSubmissionMarks = (id, marks, status) => axios.post(`${API_URL}/submissions/${id}/marks`, { marks, status });
+export const assignSubmissionMarks = (id, marks, status, comment) => axios.post(`${API_URL}/submissions/${id}/marks`, { marks, status, comment });
 export const addAdminRemark = (id, remark) => axios.post(`${API_URL}/submissions/${id}/admin-remark`, { remark });
 
 // Chat

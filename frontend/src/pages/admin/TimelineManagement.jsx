@@ -31,6 +31,7 @@ function TimelineManagement() {
     submissionRequirements: "",
     targetYear: "all",
     order: 0,
+    isMarksEnabled: true,
   });
 
   // Filters
@@ -164,6 +165,7 @@ function TimelineManagement() {
         submissionRequirements: "",
         targetYear: "all",
         order: 0,
+        isMarksEnabled: true,
       });
       fetchEvents();
     } catch (error) {
@@ -183,6 +185,7 @@ function TimelineManagement() {
       submissionRequirements: event.submissionRequirements || "",
       targetYear: event.targetYear,
       order: event.order || 0,
+      isMarksEnabled: event.isMarksEnabled !== undefined ? event.isMarksEnabled : true,
     });
     setShowForm(true);
   };
@@ -252,6 +255,7 @@ function TimelineManagement() {
               submissionRequirements: "",
               targetYear: "all",
               order: 0,
+              isMarksEnabled: true,
             });
           }}
         >
@@ -296,18 +300,32 @@ function TimelineManagement() {
                   Select a future date for the deadline
                 </small>
               </div>
-              <div className="form-group">
-                <label>Maximum Marks *</label>
+              <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '10px', height: '100%', marginTop: 'auto', paddingBottom: '10px' }}>
                 <input
-                  type="number"
-                  value={formData.maxMarks}
+                  type="checkbox"
+                  id="isMarksEnabled"
+                  checked={formData.isMarksEnabled}
                   onChange={(e) =>
-                    setFormData({ ...formData, maxMarks: e.target.value })
+                    setFormData({ ...formData, isMarksEnabled: e.target.checked })
                   }
-                  min="0"
-                  required
+                  style={{ width: 'auto' }}
                 />
+                <label htmlFor="isMarksEnabled" style={{ margin: 0, cursor: 'pointer' }}>Enable Marks</label>
               </div>
+              {formData.isMarksEnabled && (
+                <div className="form-group">
+                  <label>Maximum Marks *</label>
+                  <input
+                    type="number"
+                    value={formData.maxMarks}
+                    onChange={(e) =>
+                      setFormData({ ...formData, maxMarks: e.target.value })
+                    }
+                    min="0"
+                    required
+                  />
+                </div>
+              )}
               <div className="form-group">
                 <label>Target Year</label>
                 <select
@@ -1191,40 +1209,40 @@ function TimelineManagement() {
 
     // Data rows
     eventSubmissions.forEach((sub) => {
-       const batchId =
-         typeof sub.batchId === "string" ? sub.batchId : sub.batchId?._id;
-       const batch = batches.find((b) => b._id === batchId);
-       const latestAdminRemark =
-         sub.adminRemarks?.length > 0
-           ? sub.adminRemarks[sub.adminRemarks.length - 1].remark
-           : "N/A";
-       const latestGuideFeedback =
-         sub.comments?.length > 0
-           ? sub.comments[sub.comments.length - 1].comment
-           : "N/A";
-       const leaderRollNo = batch?.leaderStudentId?.rollNumber || "N/A";
-       const otherMembers =
-         batch?.teamMembers?.length > 0
-           ? batch.teamMembers.map((m) => m.rollNo).join("; ")
-           : "";
-       const allMembers = otherMembers
-         ? `${leaderRollNo}; ${otherMembers}`
-         : leaderRollNo;
-       const coe = batch?.problemId?.coeId?.name || batch?.coeId?.name || "N/A";
-       const guide = batch?.guideId?.name || "Not Assigned";
-       const rowData = {
-         teamName: batch?.teamName || "Unknown",
-         teamMembers: allMembers,
-         year: batch?.year || "N/A",
-         branch: batch?.branch || "N/A",
-         section: batch?.section || "N/A",
-         coe,
-         guide,
-         marks:
-           sub.marks !== null ? `${sub.marks}/${selectedEvent.maxMarks}` : "N/A",
-         guidesFeedback: `"${latestGuideFeedback.replace(/"/g, '""')}"`,
-         adminRemarks: `"${latestAdminRemark.replace(/"/g, '""')}"`,
-       };
+      const batchId =
+        typeof sub.batchId === "string" ? sub.batchId : sub.batchId?._id;
+      const batch = batches.find((b) => b._id === batchId);
+      const latestAdminRemark =
+        sub.adminRemarks?.length > 0
+          ? sub.adminRemarks[sub.adminRemarks.length - 1].remark
+          : "N/A";
+      const latestGuideFeedback =
+        sub.comments?.length > 0
+          ? sub.comments[sub.comments.length - 1].comment
+          : "N/A";
+      const leaderRollNo = batch?.leaderStudentId?.rollNumber || "N/A";
+      const otherMembers =
+        batch?.teamMembers?.length > 0
+          ? batch.teamMembers.map((m) => m.rollNo).join("; ")
+          : "";
+      const allMembers = otherMembers
+        ? `${leaderRollNo}; ${otherMembers}`
+        : leaderRollNo;
+      const coe = batch?.problemId?.coeId?.name || batch?.coeId?.name || "N/A";
+      const guide = batch?.guideId?.name || "Not Assigned";
+      const rowData = {
+        teamName: batch?.teamName || "Unknown",
+        teamMembers: allMembers,
+        year: batch?.year || "N/A",
+        branch: batch?.branch || "N/A",
+        section: batch?.section || "N/A",
+        coe,
+        guide,
+        marks:
+          sub.marks !== null ? `${sub.marks}/${selectedEvent.maxMarks}` : "N/A",
+        guidesFeedback: `"${latestGuideFeedback.replace(/"/g, '""')}"`,
+        adminRemarks: `"${latestAdminRemark.replace(/"/g, '""')}"`,
+      };
       const row = ALL_COLUMNS.filter((col) =>
         selectedColumns.includes(col.key)
       ).map((col) => rowData[col.key]);

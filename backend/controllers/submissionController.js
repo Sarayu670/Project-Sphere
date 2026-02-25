@@ -161,7 +161,7 @@ exports.getSubmission = async (req, res) => {
   try {
     const submission = await Submission.findById(req.params.id)
       .populate('batchId', 'teamName year branch section')
-      .populate('timelineEventId', 'title maxMarks deadline')
+      .populate('timelineEventId', 'title maxMarks deadline isMarksEnabled')
       .populate('comments.guideId', 'name')
       .populate('marksAssignedBy', 'name');
 
@@ -180,7 +180,7 @@ exports.getSubmission = async (req, res) => {
 exports.getBatchSubmissions = async (req, res) => {
   try {
     const submissions = await Submission.find({ batchId: req.params.batchId })
-      .populate('timelineEventId', 'title maxMarks deadline')
+      .populate('timelineEventId', 'title maxMarks deadline isMarksEnabled')
       .populate('comments.guideId', 'name');
 
     res.status(200).json({ success: true, data: submissions });
@@ -198,7 +198,7 @@ exports.getGuideSubmissions = async (req, res) => {
 
     const submissions = await Submission.find({ batchId: { $in: batchIds }, status: { $ne: 'not_started' } })
       .populate('batchId', 'teamName year branch section leaderStudentId')
-      .populate('timelineEventId', 'title maxMarks deadline')
+      .populate('timelineEventId', 'title maxMarks deadline isMarksEnabled')
       .populate('comments.guideId', 'name')
       .sort({ updatedAt: -1 });
 
@@ -243,7 +243,7 @@ exports.addComment = async (req, res) => {
 // @route   POST /api/submissions/:id/marks
 exports.assignMarks = async (req, res) => {
   try {
-    const { marks, status } = req.body;
+    const { marks, status, comment } = req.body;
     const submission = await Submission.findById(req.params.id)
       .populate('timelineEventId', 'maxMarks');
 
@@ -255,13 +255,29 @@ exports.assignMarks = async (req, res) => {
       return res.status(400).json({ success: false, message: `Marks cannot exceed ${submission.timelineEventId.maxMarks}` });
     }
 
+    // Add comment if provided
+    if (comment && comment.trim()) {
+      submission.comments.push({
+        guideId: req.user._id,
+        comment: comment.trim(),
+        createdAt: new Date()
+      });
+    }
+
     submission.marks = marks;
     submission.marksAssignedBy = req.user._id;
     submission.marksAssignedAt = new Date();
     submission.status = status || 'accepted';
     await submission.save();
 
-    res.status(200).json({ success: true, data: submission });
+    // Re-fetch with proper population to ensure comments are populated
+    const updated = await Submission.findById(req.params.id)
+      .populate('comments.guideId', 'name')
+      .populate('marksAssignedBy', 'name')
+      .populate('batchId', 'teamName')
+      .populate('timelineEventId', 'title maxMarks isMarksEnabled');
+
+    res.status(200).json({ success: true, data: updated });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

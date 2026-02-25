@@ -17,7 +17,7 @@ exports.createEvent = async (req, res) => {
       });
     }
 
-    const { title, description, deadline, maxMarks, submissionRequirements, targetYear, order, isMandatoryFormat } = req.body;
+    const { title, description, deadline, maxMarks, submissionRequirements, targetYear, order, isMandatoryFormat, isMarksEnabled } = req.body;
 
     let referenceFileData = null;
     if (req.file) {
@@ -27,15 +27,23 @@ exports.createEvent = async (req, res) => {
       };
     }
 
+    // Helper to parse boolean from possible form-data string
+    const parseBool = (val) => {
+      if (val === undefined || val === null) return true;
+      if (typeof val === 'boolean') return val;
+      return val === 'true' || val === '1' || val === 'on';
+    };
+
     const event = await TimelineEvent.create({
       title,
       description,
       deadline,
-      maxMarks: Number(maxMarks),
+      maxMarks: parseBool(isMarksEnabled) ? Number(maxMarks) : 0,
       submissionRequirements,
       targetYear: targetYear || 'all',
       order: Number(order) || 0,
-      isMandatoryFormat: isMandatoryFormat === 'true' || isMandatoryFormat === true,
+      isMandatoryFormat: parseBool(isMandatoryFormat),
+      isMarksEnabled: parseBool(isMarksEnabled),
       referenceFile: referenceFileData,
       createdBy: req.user._id
     });
@@ -94,21 +102,35 @@ exports.updateEvent = async (req, res) => {
       });
     }
 
-    const { title, description, deadline, maxMarks, submissionRequirements, targetYear, order, isActive, isMandatoryFormat } = req.body;
+    const { title, description, deadline, maxMarks, submissionRequirements, targetYear, order, isActive, isMandatoryFormat, isMarksEnabled } = req.body;
 
-    const updateData = {
-      title,
-      description,
-      deadline,
-      maxMarks: maxMarks !== undefined ? Number(maxMarks) : undefined,
-      submissionRequirements,
-      targetYear,
-      order: order !== undefined ? Number(order) : undefined,
-      isActive: isActive === 'true' || isActive === true
+    const updateData = {};
+    if (title !== undefined) updateData.title = title;
+    if (description !== undefined) updateData.description = description;
+    if (deadline !== undefined) updateData.deadline = deadline;
+    if (maxMarks !== undefined) updateData.maxMarks = Number(maxMarks);
+    if (submissionRequirements !== undefined) updateData.submissionRequirements = submissionRequirements;
+    if (targetYear !== undefined) updateData.targetYear = targetYear;
+    if (order !== undefined) updateData.order = Number(order);
+
+    if (isActive !== undefined) {
+      updateData.isActive = isActive === 'true' || isActive === true;
+    }
+
+    const parseBool = (val) => {
+      if (val === undefined || val === null) return true;
+      if (typeof val === 'boolean') return val;
+      return val === 'true' || val === '1' || val === 'on';
     };
 
     if (isMandatoryFormat !== undefined) {
-      updateData.isMandatoryFormat = isMandatoryFormat === 'true' || isMandatoryFormat === true;
+      updateData.isMandatoryFormat = parseBool(isMandatoryFormat);
+    }
+
+    if (isMarksEnabled !== undefined) {
+      const enabled = parseBool(isMarksEnabled);
+      updateData.isMarksEnabled = enabled;
+      if (!enabled) updateData.maxMarks = 0;
     }
 
     if (req.file) {
@@ -173,7 +195,9 @@ exports.getTimelineForBatch = async (req, res) => {
     }
 
     const events = await TimelineEvent.find(query).sort({ order: 1, deadline: 1 });
-    const submissions = await Submission.find({ batchId: req.params.batchId });
+    const submissions = await Submission.find({ batchId: req.params.batchId })
+      .populate('comments.guideId', 'name')
+      .populate('marksAssignedBy', 'name');
 
     console.log('📄 Found', submissions.length, 'submissions for batch', req.params.batchId);
     submissions.forEach(sub => {

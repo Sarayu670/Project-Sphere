@@ -117,7 +117,9 @@ function TimelineProgress({ batchId }) {
           <p style={{ color: '#666' }}>{selectedEvent.description}</p>
           <div style={{ display: 'flex', gap: '20px', marginTop: '15px' }}>
             <span><strong>📅 Deadline:</strong> {new Date(selectedEvent.deadline).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-            <span><strong>🎯 Max Marks:</strong> {selectedEvent.maxMarks}</span>
+            {selectedEvent.isMarksEnabled !== false && selectedEvent.isMarksEnabled !== 'false' && (
+              <span><strong>🎯 Max Marks:</strong> {selectedEvent.maxMarks}</span>
+            )}
             {getStatusBadge(selectedEvent.submissionStatus)}
             {selectedEvent.isMandatoryFormat && (
               <span className="timeline-badge badge-danger" title="Your submission must follow the college template">📏 Mandatory Format</span>
@@ -138,7 +140,7 @@ function TimelineProgress({ batchId }) {
           )}
         </div>
 
-        {submission?.marks !== null && submission?.marks !== undefined && (
+        {(selectedEvent.isMarksEnabled !== false && selectedEvent.isMarksEnabled !== 'false') && submission?.marks !== null && submission?.marks !== undefined && (
           <div className="card" style={{ marginBottom: '20px', background: '#f0fdf4', border: '1px solid #22c55e' }}>
             <h3 style={{ color: '#22c55e' }}>✅ Marks Assigned</h3>
             <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#22c55e' }}>{submission.marks} / {selectedEvent.maxMarks}</p>
@@ -204,7 +206,7 @@ function TimelineProgress({ batchId }) {
           <div className="card" style={{ maxWidth: '100%', minWidth: '0', overflow: 'hidden' }}>
             <h3>💬 Guide Feedback</h3>
             {!submission?.comments?.length ? (
-              <p style={{ color: '#888' }}>No feedback yet</p>
+              <p style={{ color: '#888' }}>No comments</p>
             ) : (
               <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
                 {submission.comments.map((c, idx) => (
@@ -262,7 +264,8 @@ function TimelineProgress({ batchId }) {
         <div className="timeline-list">
           {timeline.map((event, idx) => {
             const deadlineStatus = getDeadlineStatus(event.deadline);
-            const progress = event.marks !== null ? (event.marks / event.maxMarks * 100) : (event.submissionStatus === 'accepted' ? 100 : event.submissionStatus === 'submitted' ? 50 : 0);
+            const isMarksEnabled = event.isMarksEnabled !== false && event.isMarksEnabled !== 'false';
+            const progress = (isMarksEnabled && event.marks !== null) ? (event.marks / event.maxMarks * 100) : (event.submissionStatus === 'accepted' ? 100 : event.submissionStatus === 'submitted' ? 50 : 0);
 
             return (
               <div key={event._id} className="card" style={{ marginBottom: '15px', borderLeft: `4px solid ${event.submissionStatus === 'accepted' ? '#22c55e' : '#667eea'}`, cursor: 'pointer' }} onClick={() => setSelectedEvent(event)}>
@@ -293,7 +296,7 @@ function TimelineProgress({ batchId }) {
                   <div style={{ textAlign: 'right', marginLeft: '15px' }}>
                     <div style={{ color: deadlineStatus.color, fontWeight: '500' }}>{deadlineStatus.text}</div>
                     <small style={{ color: '#888' }}>{new Date(event.deadline).toLocaleDateString()}</small>
-                    {event.marks !== null && <div style={{ color: '#22c55e', fontWeight: 'bold', marginTop: '5px' }}>{event.marks}/{event.maxMarks}</div>}
+                    {(event.isMarksEnabled !== false && event.isMarksEnabled !== 'false') && event.marks !== null && <div style={{ color: '#22c55e', fontWeight: 'bold', marginTop: '5px' }}>{event.marks}/{event.maxMarks}</div>}
                   </div>
                 </div>
                 <div style={{ marginTop: '10px', background: '#e5e7eb', borderRadius: '4px', height: '6px', overflow: 'hidden' }}>

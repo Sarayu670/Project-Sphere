@@ -16,20 +16,20 @@ function GuideTimeline() {
   const fetchData = async () => {
     try {
       console.log('📡 GuideTimeline: Fetching data...');
-      
+
       const eventsRes = await api.getAllTimelineEvents();
       const batchesRes = await api.getMyBatches();
       const submissionsRes = await api.getGuideSubmissions();
-      
+
       // Extract data properly
       const eventsData = eventsRes.data?.data || eventsRes.data || [];
       const batchesData = batchesRes.data?.data || batchesRes.data || [];
       const submissionsData = submissionsRes.data?.data || submissionsRes.data || [];
-      
+
       console.log('✅ Events:', eventsData.length);
       console.log('✅ Batches:', batchesData.length);
       console.log('✅ Submissions:', submissionsData.length);
-      
+
       setTimelineEvents(eventsData);
       setBatches(batchesData);
       setSubmissions(submissionsData);
@@ -48,37 +48,29 @@ function GuideTimeline() {
   const getSubmissionsForEvent = (eventId) => {
     return submissions.filter(s => {
       // Handle both object and string formats for timelineEventId
-      const subEventId = typeof s.timelineEventId === 'string' 
-        ? s.timelineEventId 
+      const subEventId = typeof s.timelineEventId === 'string'
+        ? s.timelineEventId
         : s.timelineEventId?._id;
       return subEventId === eventId;
     });
   };
 
-  const handleAddComment = async () => {
-    if (!comment.trim()) return;
-    try {
-      await api.addSubmissionComment(selectedSubmission._id, comment);
-      setComment('');
-      const res = await api.getSubmission(selectedSubmission._id);
-      setSelectedSubmission(res.data.data);
-      fetchData();
-    } catch (error) {
-      showDialog('Error', 'Failed to add comment', 'danger');
-    }
-  };
+
 
   const handleAssignMarks = async (status) => {
-    if (!marks && status === 'accepted') {
+    const isMarksDisabled = selectedEvent?.isMarksEnabled === false || selectedEvent?.isMarksEnabled === 'false';
+    const isMarksEnabled = !isMarksDisabled;
+    if (isMarksEnabled && !marks && status === 'accepted') {
       showDialog('Error', 'Please enter marks', 'danger');
       return;
     }
     try {
-      await api.assignSubmissionMarks(selectedSubmission._id, parseFloat(marks) || 0, status);
+      await api.assignSubmissionMarks(selectedSubmission._id, parseFloat(marks) || 0, status, comment);
       const res = await api.getSubmission(selectedSubmission._id);
       setSelectedSubmission(res.data.data);
       fetchData();
       setMarks('');
+      setComment(''); // Clear comment after successful action
     } catch (error) {
       showDialog('Error', error.response?.data?.message || 'Failed to assign marks', 'danger');
     }
@@ -120,7 +112,7 @@ function GuideTimeline() {
     return (
       <div>
         <button className="btn btn-secondary" onClick={() => setSelectedSubmission(null)} style={{ marginBottom: '20px' }}>← Back to Submissions</button>
-        
+
         <div className="card" style={{ marginBottom: '20px', borderLeft: '4px solid #667eea' }}>
           <h2>{selectedEvent.title} - {submission.batchId?.teamName}</h2>
           <p style={{ color: '#666' }}>{selectedEvent.description}</p>
@@ -128,22 +120,24 @@ function GuideTimeline() {
             <span style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <strong>📅 Deadline:</strong> {new Date(selectedEvent.deadline).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
             </span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <strong>🎯 Max Marks:</strong> {selectedEvent.maxMarks}
-            </span>
+            {selectedEvent.isMarksEnabled !== false && (
+              <span style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <strong>🎯 Max Marks:</strong> {selectedEvent.maxMarks}
+              </span>
+            )}
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <strong>Status:</strong> {getStatusBadge(submission.status)}
             </div>
           </div>
           {selectedEvent.submissionRequirements && (
             <div style={{ marginTop: '15px', padding: '10px', background: '#f8fafc', borderRadius: '8px' }}>
-              <strong>📋 What to Submit:</strong><br/>
+              <strong>📋 What to Submit:</strong><br />
               <span style={{ color: '#666' }}>{selectedEvent.submissionRequirements}</span>
             </div>
           )}
         </div>
 
-        {submission.marks !== null && submission.marks !== undefined && (
+        {(selectedEvent.isMarksEnabled !== false && selectedEvent.isMarksEnabled !== 'false') && submission.marks !== null && submission.marks !== undefined && (
           <div className="card" style={{ marginBottom: '20px', background: '#f0fdf4', border: '1px solid #22c55e' }}>
             <h3 style={{ color: '#22c55e' }}>✅ Marks Assigned</h3>
             <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#22c55e' }}>{submission.marks} / {selectedEvent.maxMarks}</p>
@@ -175,7 +169,7 @@ function GuideTimeline() {
           <div className="card" style={{ maxWidth: '100%', minWidth: '0', overflow: 'hidden' }}>
             <h3>💬 Guide Feedback</h3>
             {!submission.comments?.length ? (
-              <p style={{ color: '#888' }}>No feedback yet</p>
+              <p style={{ color: '#888' }}>No comments</p>
             ) : (
               <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
                 {submission.comments.map((c, idx) => (
@@ -192,22 +186,31 @@ function GuideTimeline() {
             <div className="form-group">
               <textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={2} placeholder="Add feedback or revision comments..." />
             </div>
-            <button className="btn btn-primary" onClick={handleAddComment}>Add Comment</button>
           </div>
         </div>
 
-        <div className="card" style={{ marginTop: '20px' }}>
-          <h3>🎯 Assign Marks</h3>
-          <p style={{ color: '#666', marginBottom: '15px' }}>Max Marks: {selectedEvent.maxMarks}</p>
-          {submission.marks !== null && (
-            <p style={{ color: '#22c55e', marginBottom: '15px' }}>✅ Current Marks: <strong>{submission.marks}/{selectedEvent.maxMarks}</strong></p>
-          )}
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-            <input type="number" value={marks} onChange={(e) => setMarks(e.target.value)} placeholder="Enter marks" style={{ width: '120px' }} min="0" max={selectedEvent.maxMarks} />
-            <button className="btn btn-primary" onClick={() => handleAssignMarks('accepted')}>✅ Accept & Assign</button>
-            <button className="btn btn-warning" onClick={() => handleAssignMarks('needs_revision')}>🔄 Request Revision</button>
+        {(submission.status === 'submitted' || submission.status === 'under_review') && (
+          <div className="card" style={{ marginTop: '20px' }}>
+            <h3>🎯 {(selectedEvent.isMarksEnabled === false || selectedEvent.isMarksEnabled === 'false') ? 'Review Decision' : 'Assign Marks'}</h3>
+            {(selectedEvent.isMarksEnabled !== false && selectedEvent.isMarksEnabled !== 'false') && (
+              <>
+                <p style={{ color: '#666', marginBottom: '15px' }}>Max Marks: {selectedEvent.maxMarks}</p>
+                {submission.marks !== null && (
+                  <p style={{ color: '#22c55e', marginBottom: '15px' }}>✅ Current Marks: <strong>{submission.marks}/{selectedEvent.maxMarks}</strong></p>
+                )}
+              </>
+            )}
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              {(selectedEvent.isMarksEnabled !== false && selectedEvent.isMarksEnabled !== 'false') && (
+                <input type="number" value={marks} onChange={(e) => setMarks(e.target.value)} placeholder="Enter marks" style={{ width: '120px' }} min="0" max={selectedEvent.maxMarks} />
+              )}
+              <button className="btn btn-primary" onClick={() => handleAssignMarks('accepted')}>
+                {(selectedEvent.isMarksEnabled !== false && selectedEvent.isMarksEnabled !== 'false') ? '✅ Accept & Assign' : '✅ Accept Submission'}
+              </button>
+              <button className="btn btn-warning" onClick={() => handleAssignMarks('needs_revision')}>🔄 Request Revision</button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     );
   }
@@ -219,13 +222,13 @@ function GuideTimeline() {
     return (
       <div>
         <button className="btn btn-secondary" onClick={() => setSelectedEvent(null)} style={{ marginBottom: '20px' }}>← Back to Timeline</button>
-        
+
         <div className="card" style={{ marginBottom: '20px', borderLeft: '4px solid #667eea' }}>
           <h2>{selectedEvent.title}</h2>
           <p style={{ color: '#666' }}>{selectedEvent.description}</p>
           <div style={{ display: 'flex', gap: '20px', marginTop: '15px' }}>
             <span><strong>📅 Deadline:</strong> {new Date(selectedEvent.deadline).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-            <span><strong>🎯 Max Marks:</strong> {selectedEvent.maxMarks}</span>
+            {selectedEvent.isMarksEnabled !== false && <span><strong>🎯 Max Marks:</strong> {selectedEvent.maxMarks}</span>}
           </div>
         </div>
 
@@ -246,7 +249,7 @@ function GuideTimeline() {
                     <strong>Status:</strong>
                     {getStatusBadge(sub.status)}
                   </p>
-                  {sub.marks !== null && <p style={{ margin: '4px 0', fontSize: '14px', lineHeight: '1.6', display: 'flex', alignItems: 'center', gap: '12px' }}><strong>Marks:</strong> <span>{sub.marks}/{selectedEvent.maxMarks}</span></p>}
+                  {(selectedEvent.isMarksEnabled !== false && selectedEvent.isMarksEnabled !== 'false') && sub.marks !== null && <p style={{ margin: '4px 0', fontSize: '14px', lineHeight: '1.6', display: 'flex', alignItems: 'center', gap: '12px' }}><strong>Marks:</strong> <span>{sub.marks}/{selectedEvent.maxMarks}</span></p>}
                   <p style={{ margin: '4px 0', fontSize: '14px', lineHeight: '1.6', display: 'flex', alignItems: 'center', gap: '12px' }}><strong>Submission:</strong> <span>{sub.currentVersion}</span></p>
                   <div className="batch-action" style={{ marginTop: '6px', fontSize: '14px', color: '#667eea', fontWeight: '700' }}>Review Submission →</div>
                 </div>
@@ -262,7 +265,7 @@ function GuideTimeline() {
     <div>
       <h2 className="section-title">📅 Project Timeline</h2>
       <p style={{ color: '#666', marginBottom: '20px' }}>Review submissions from your teams across all timeline events</p>
-      
+
       {timelineEvents.length === 0 ? (
         <div className="card empty-state"><h3>No Timeline Events</h3><p>Timeline events will appear here once admin creates them</p></div>
       ) : (
@@ -272,7 +275,7 @@ function GuideTimeline() {
             const acceptedCount = eventSubs.filter(s => s.status === 'accepted').length;
             const totalSubs = eventSubs.length;
             const deadlineStatus = getDeadlineStatus(event.deadline);
-            
+
             return (
               <div key={event._id} className="card" style={{ marginBottom: '15px', borderLeft: `4px solid #667eea`, cursor: 'pointer' }} onClick={() => setSelectedEvent(event)}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>

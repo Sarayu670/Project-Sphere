@@ -180,7 +180,7 @@ const HomePage = () => {
                   <p>Chat with guides for real-time feedback</p>
                 </div>
                 <div className="feature">
-                  <span className="feature-icon">📊</span>
+                  <span className="feature-icon">✅</span>
                   <h3>Progress Tracking</h3>
                   <p>Monitor timeline and submission progress</p>
                 </div>
@@ -218,7 +218,7 @@ const HomePage = () => {
                 <p>AWS, Azure, and Infrastructure projects</p>
               </div>
               <div className="coe-card">
-                <span className="coe-icon">📊</span>
+                <span className="coe-icon">✅</span>
                 <h3>Data Analytics</h3>
                 <p>Big Data and Business Intelligence</p>
               </div>

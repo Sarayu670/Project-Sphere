@@ -23,6 +23,23 @@ function Layout() {
             <span className="logo-text">ProjectSphere</span>
           </div>
           <div className="user-info">
+            <button onClick={() => window.location.href = '/home'} className="home-btn" style={{
+              marginRight: '15px',
+              padding: '6px 12px',
+              borderRadius: '6px',
+              border: '1px solid var(--border-color)',
+              background: 'transparent',
+              color: 'var(--text-color)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '14px',
+              fontWeight: '500',
+              transition: 'all 0.2s'
+            }}>
+              🏠 Home
+            </button>
             <span className="user-name">{user?.name}</span>
             <span className="user-role" style={{ background: getRoleColor() }}>
               {user?.role?.toUpperCase()}

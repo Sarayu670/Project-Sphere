@@ -23,8 +23,13 @@ exports.registerGuide = async (req, res) => {
     const { name, email, password, department, specialization } = req.body;
 
     // Email domain validation
-    if (!email.endsWith('@gmail.com') && !email.endsWith('.ac.in')) {
-      return res.status(400).json({ success: false, message: 'Please use a valid @gmail.com or GNITS (.ac.in) email address' });
+    // Password complexity validation
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    if (!passwordRegex.test(password)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 8 characters long and include uppercase, lowercase, numbers, and special characters (@$!%*?&)'
+      });
     }
 
     const existingGuide = await Guide.findOne({ email });
@@ -54,6 +59,15 @@ exports.registerAdmin = async (req, res) => {
     // Email domain validation
     if (!email.endsWith('@gmail.com') && !email.endsWith('.ac.in')) {
       return res.status(400).json({ success: false, message: 'Please use a valid @gmail.com or GNITS (.ac.in) email address' });
+    }
+
+    // Password complexity validation
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    if (!passwordRegex.test(password)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 8 characters long and include uppercase, lowercase, numbers, and special characters (@$!%*?&)'
+      });
     }
 
     const existingAdmin = await Admin.findOne({ email });

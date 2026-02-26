@@ -45,6 +45,8 @@ function TimelineManagement() {
   const [remarkText, setRemarkText] = useState("");
   const [expandedRemarkSubmission, setExpandedRemarkSubmission] =
     useState(null);
+  const [expandedFeedbackSubmission, setExpandedFeedbackSubmission] =
+    useState(null);
   const [selectedColumns, setSelectedColumns] = useState(
     ALL_COLUMNS.map((col) => col.key)
   );
@@ -710,6 +712,9 @@ function TimelineManagement() {
                                   width: "100%",
                                   borderLeft: "3px solid #0ea5e9",
                                 }}
+                                onClick={() =>
+                                  setExpandedFeedbackSubmission(sub._id)
+                                }
                                 title="Click to expand"
                               >
                                 <strong>👨‍🏫:</strong>{" "}
@@ -951,6 +956,120 @@ function TimelineManagement() {
           ))}
         </div>
       ) : null}
+
+      {/* Expanded Guide Feedback Modal */}
+      {expandedFeedbackSubmission && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.6)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1001,
+          }}
+          onClick={() => setExpandedFeedbackSubmission(null)}
+        >
+          <div
+            className="card"
+            style={{
+              width: "90%",
+              maxWidth: "600px",
+              maxHeight: "80vh",
+              overflow: "auto",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "20px",
+              }}
+            >
+              <h3>💬 Guide's Feedback</h3>
+              <button
+                style={{
+                  background: "none",
+                  border: "none",
+                  fontSize: "24px",
+                  cursor: "pointer",
+                  color: "#999",
+                }}
+                onClick={() => setExpandedFeedbackSubmission(null)}
+              >
+                ×
+              </button>
+            </div>
+            {(() => {
+              const submission = submissions.find(
+                (s) => s._id === expandedFeedbackSubmission
+              );
+              if (!submission?.comments?.length) return null;
+
+              return (
+                <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                  {submission.comments.map((c, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        background: "#e8f4f8",
+                        padding: "12px",
+                        borderRadius: "8px",
+                        borderLeft: "3px solid #0ea5e9",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          marginBottom: "8px",
+                        }}
+                      >
+                        <strong style={{ color: "#0c4a6e" }}>
+                          👨‍🏫 {c.guideId?.name || "Guide"}
+                        </strong>
+                        <small style={{ color: "#64748b" }}>
+                          {new Date(c.createdAt).toLocaleDateString("en-IN", {
+                            weekday: "short",
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric",
+                          })}
+                        </small>
+                      </div>
+                      <p
+                        style={{
+                          margin: 0,
+                          color: "#0c4a6e",
+                          fontSize: "14px",
+                          lineHeight: "1.6",
+                          whiteSpace: "pre-wrap",
+                          wordWrap: "break-word",
+                        }}
+                      >
+                        {c.comment}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+            <button
+              className="btn btn-secondary"
+              onClick={() => setExpandedFeedbackSubmission(null)}
+              style={{ width: "100%", marginTop: "20px" }}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Expanded Remark Modal */}
       {expandedRemarkSubmission && (

@@ -57,6 +57,23 @@ function GuideTimeline() {
 
 
 
+  const handleAddComment = async () => {
+    if (!comment.trim()) {
+      showDialog('Error', 'Please enter a comment', 'danger');
+      return;
+    }
+    try {
+      await api.addSubmissionComment(selectedSubmission._id, comment);
+      const res = await api.getSubmission(selectedSubmission._id);
+      setSelectedSubmission(res.data.data);
+      setComment('');
+      showDialog('Success', 'Comment added successfully', 'success');
+    } catch (error) {
+      console.error('Error adding comment:', error);
+      showDialog('Error', error.response?.data?.message || 'Failed to add comment', 'danger');
+    }
+  };
+
   const handleAssignMarks = async (status) => {
     const isMarksDisabled = selectedEvent?.isMarksEnabled === false || selectedEvent?.isMarksEnabled === 'false';
     const isMarksEnabled = !isMarksDisabled;
@@ -174,7 +191,7 @@ function GuideTimeline() {
               {!submission.comments?.length ? (
                 <p style={{ color: '#888' }}>No feedback yet</p>
               ) : (
-                <div style={{ maxHeight: '180px', overflowY: 'auto', marginBottom: '15px' }}>
+                <div style={{ maxHeight: '180px', overflowY: 'auto' }}>
                   {submission.comments.map((c, idx) => (
                     <div key={idx} style={{ padding: '10px', background: '#fef3c7', borderRadius: '8px', marginBottom: '10px', maxWidth: '100%', minWidth: '0', wordWrap: 'break-word', overflowWrap: 'break-word', overflow: 'hidden', wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px', minWidth: '0' }}>
@@ -186,10 +203,6 @@ function GuideTimeline() {
                   ))}
                 </div>
               )}
-              <div className="form-group">
-                <textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={2} placeholder="Add feedback or revision comments..." />
-              </div>
-              <button className="btn btn-primary" onClick={handleAddComment}>Add Comment</button>
             </div>
 
             {submission.adminRemarks?.length > 0 && (
@@ -214,10 +227,6 @@ function GuideTimeline() {
                 </div>
               </div>
             )}
-            <div className="form-group">
-              <textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={2} placeholder="Add feedback or revision comments..." />
-            </div>
-            <button className="btn btn-primary" onClick={handleAddComment}>Add Comment</button>
           </div>
         </div>
 
@@ -232,7 +241,7 @@ function GuideTimeline() {
                 )}
               </>
             )}
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end', marginBottom: '15px' }}>
               {(selectedEvent.isMarksEnabled !== false && selectedEvent.isMarksEnabled !== 'false') && (
                 <input type="number" value={marks} onChange={(e) => setMarks(e.target.value)} placeholder="Enter marks" style={{ width: '120px' }} min="0" max={selectedEvent.maxMarks} />
               )}
@@ -240,6 +249,10 @@ function GuideTimeline() {
                 {(selectedEvent.isMarksEnabled !== false && selectedEvent.isMarksEnabled !== 'false') ? '✅ Accept & Assign' : '✅ Accept Submission'}
               </button>
               <button className="btn btn-warning" onClick={() => handleAssignMarks('needs_revision')}>🔄 Request Revision</button>
+            </div>
+            <div className="form-group">
+              <label style={{ marginBottom: '8px', display: 'block' }}>Add Feedback (Optional):</label>
+              <textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={3} placeholder="Add feedback or revision comments..." style={{ width: '100%' }} />
             </div>
           </div>
         )}

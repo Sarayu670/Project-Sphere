@@ -25,6 +25,23 @@ function SubmissionsReview() {
 
 
 
+  const handleAddComment = async () => {
+    if (!comment.trim()) {
+      showDialog('Error', 'Please enter a comment', 'danger');
+      return;
+    }
+    try {
+      await api.addSubmissionComment(selectedSubmission._id, comment);
+      const res = await api.getSubmission(selectedSubmission._id);
+      setSelectedSubmission(res.data.data);
+      setComment('');
+      showDialog('Success', 'Comment added successfully', 'success');
+    } catch (error) {
+      console.error('Error adding comment:', error);
+      showDialog('Error', error.response?.data?.message || 'Failed to add comment', 'danger');
+    }
+  };
+
   const handleAssignMarks = async (status) => {
     const isMarksDisabled = selectedSubmission.timelineEventId?.isMarksEnabled === false || selectedSubmission.timelineEventId?.isMarksEnabled === 'false';
     const isMarksEnabled = !isMarksDisabled;
@@ -122,7 +139,7 @@ function SubmissionsReview() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <div className="card" style={{ maxWidth: '100%', minWidth: '0', overflow: 'hidden' }}>
               <h3>💬 Comments & Feedback</h3>
-              <div style={{ maxHeight: '200px', overflowY: 'auto', marginBottom: '15px' }}>
+              <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
                 {selectedSubmission.comments?.length === 0 ? (
                   <p style={{ color: '#888' }}>No comments yet</p>
                 ) : (
@@ -137,10 +154,6 @@ function SubmissionsReview() {
                   ))
                 )}
               </div>
-              <div className="form-group">
-                <textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={2} placeholder="Add feedback or revision comments..." />
-              </div>
-              <button className="btn btn-primary" onClick={handleAddComment}>Add Comment</button>
             </div>
 
             {selectedSubmission.adminRemarks?.length > 0 && (
@@ -165,7 +178,6 @@ function SubmissionsReview() {
                 </div>
               </div>
             )}
->>>>>>> 5fdfb82c937bb442bf0faaf35857bc251a65c569
           </div>
         </div>
 
@@ -180,7 +192,7 @@ function SubmissionsReview() {
                 )}
               </>
             )}
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end', marginBottom: '15px' }}>
               {(selectedSubmission.timelineEventId?.isMarksEnabled !== false && selectedSubmission.timelineEventId?.isMarksEnabled !== 'false') && (
                 <input type="number" value={marks} onChange={(e) => setMarks(e.target.value)} placeholder="Enter marks" style={{ width: '120px' }} min="0" max={selectedSubmission.timelineEventId?.maxMarks} />
               )}
@@ -188,6 +200,10 @@ function SubmissionsReview() {
                 {(selectedSubmission.timelineEventId?.isMarksEnabled !== false && selectedSubmission.timelineEventId?.isMarksEnabled !== 'false') ? '✅ Accept & Assign' : '✅ Accept Submission'}
               </button>
               <button className="btn btn-warning" onClick={() => handleAssignMarks('needs_revision')}>🔄 Request Revision</button>
+            </div>
+            <div className="form-group">
+              <label style={{ marginBottom: '8px', display: 'block' }}>Add Feedback (Optional):</label>
+              <textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={3} placeholder="Add feedback or revision comments..." style={{ width: '100%' }} />
             </div>
           </div>
         )}

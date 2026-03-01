@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import * as api from '../../services/api';
 import COEandRCManagement from '../../components/COEandRCManagement';
 import TimelineManagement from './TimelineManagement';
 import BatchImport from './BatchImport';
-
+import usePolling from '../../utils/usePolling';
 import ImportProjectData from './ImportProjectData';
 import GuideSearch from './GuideSearch';
 import './AdminDashboard.css';
@@ -18,7 +18,9 @@ function AdminDashboard() {
   const [batches, setBatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedBatch, setSelectedBatch] = useState(null);
-  const [activeTab, setActiveTab] = useState('timeline');
+  const [activeTab, setActiveTab] = useState(
+    () => sessionStorage.getItem('adminActiveTab') || 'timeline'
+  );
 
   // Filters
   const [filterYear, setFilterYear] = useState('');
@@ -29,31 +31,34 @@ function AdminDashboard() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
-      console.log('AdminDashboard: Fetching data...');
       const [statsRes, coesRes, batchesRes] = await Promise.all([
         api.getAdminDashboard(),
         api.getAllCOEs(),
         api.getAllBatches()
       ]);
-      console.log('AdminDashboard: Stats:', statsRes.data.data);
-      console.log('AdminDashboard: COEs:', coesRes.data.data);
-      console.log('AdminDashboard: Batches:', batchesRes.data.data);
       setStats(statsRes.data.data);
       setCoes(coesRes.data.data);
       setBatches(batchesRes.data.data);
     } catch (error) {
       console.error('AdminDashboard: Failed to fetch data:', error);
-      console.error('AdminDashboard: Error response:', error.response);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchData();
-  }, [activeTab]);
+  }, [fetchData]);
+
+  // Silently poll every 25s — new teams and submissions appear automatically
+  usePolling(fetchData, 25000);
+
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    sessionStorage.setItem('adminActiveTab', tab);
+  };
 
   const getBatchesForCOE = (coeId) => batches.filter(b => b.coeId?._id === coeId || b.coeId === coeId);
   const getStatusColor = (status) => status === 'Completed' ? 'success' : status === 'In Progress' ? 'warning' : 'info';
@@ -79,7 +84,18 @@ function AdminDashboard() {
     setCurrentPage(1);
   }, [filterYear, filterBranch, filterSection]);
 
-  if (loading) return <div className="loading">Loading...</div>;
+  if (loading && !stats) return (
+    <div style={{ padding: '20px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: '15px', marginBottom: '20px' }}>
+        {[1, 2, 3, 4, 5].map(i => (
+          <div key={i} className="stat-card" style={{ opacity: 0.4 }}>
+            <div style={{ height: '40px', background: '#e2e8f0', borderRadius: '8px', marginBottom: '8px' }} />
+            <div style={{ height: '14px', background: '#e2e8f0', borderRadius: '4px', width: '60%', margin: '0 auto' }} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 
   console.log('AdminDashboard: Rendering with activeTab:', activeTab);
 
@@ -107,12 +123,12 @@ function AdminDashboard() {
       </div>
 
       <div className="tabs">
-        <button className={`tab ${activeTab === 'timeline' ? 'active' : ''}`} onClick={() => setActiveTab('timeline')}>📅 Timeline</button>
-        <button className={`tab ${activeTab === 'filter' ? 'active' : ''}`} onClick={() => { setActiveTab('filter'); setSelectedBatch(null); }}>🔍 Filter by Class</button>
-        <button className={`tab ${activeTab === 'guide-search' ? 'active' : ''}`} onClick={() => setActiveTab('guide-search')}>👨‍🏫 Search Batches</button>
-        <button className={`tab ${activeTab === 'import' ? 'active' : ''}`} onClick={() => setActiveTab('import')}>📤 Batch Import</button>
-        <button className={`tab ${activeTab === 'project-import' ? 'active' : ''}`} onClick={() => setActiveTab('project-import')}>📊 Import Projects</button>
-        <button className={`tab ${activeTab === 'manage-coe-rc' ? 'active' : ''}`} onClick={() => setActiveTab('manage-coe-rc')}>🏛️ Manage COE/RC</button>
+        <button className={`tab ${activeTab === 'timeline' ? 'active' : ''}`} onClick={() => handleTabChange('timeline')}>📅 Timeline</button>
+        <button className={`tab ${activeTab === 'filter' ? 'active' : ''}`} onClick={() => { handleTabChange('filter'); setSelectedBatch(null); }}>🔍 Filter by Class</button>
+        <button className={`tab ${activeTab === 'guide-search' ? 'active' : ''}`} onClick={() => handleTabChange('guide-search')}>👨‍🏫 Search Batches</button>
+        <button className={`tab ${activeTab === 'import' ? 'active' : ''}`} onClick={() => handleTabChange('import')}>📤 Batch Import</button>
+        <button className={`tab ${activeTab === 'project-import' ? 'active' : ''}`} onClick={() => handleTabChange('project-import')}>📊 Import Projects</button>
+        <button className={`tab ${activeTab === 'manage-coe-rc' ? 'active' : ''}`} onClick={() => handleTabChange('manage-coe-rc')}>🏛️ Manage COE/RC</button>
       </div>
 
       {activeTab === 'timeline' && <TimelineManagement />}

@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import * as api from '../../services/api';
 import ConfirmationDialog from '../../components/ConfirmationDialog';
+import usePolling from '../../utils/usePolling';
 
 function GuideTimeline() {
   const [timelineEvents, setTimelineEvents] = useState([]);
@@ -12,27 +13,30 @@ function GuideTimeline() {
   const [comment, setComment] = useState('');
   const [marks, setMarks] = useState('');
   const [dialog, setDialog] = useState({ isOpen: false, title: '', message: '', type: 'info', onConfirm: null });
+  const [lastUpdated, setLastUpdated] = useState(null);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
-      console.log('📡 GuideTimeline: Fetching data...');
-
       const eventsRes = await api.getAllTimelineEvents();
       const batchesRes = await api.getMyBatches();
       const submissionsRes = await api.getGuideSubmissions();
 
-      // Extract data properly
       const eventsData = eventsRes.data?.data || eventsRes.data || [];
       const batchesData = batchesRes.data?.data || batchesRes.data || [];
       const submissionsData = submissionsRes.data?.data || submissionsRes.data || [];
 
-      console.log('✅ Events:', eventsData.length);
-      console.log('✅ Batches:', batchesData.length);
-      console.log('✅ Submissions:', submissionsData.length);
-
       setTimelineEvents(eventsData);
       setBatches(batchesData);
       setSubmissions(submissionsData);
+
+      // Keep the open submission detail in sync with polled data
+      setSelectedSubmission(prev => {
+        if (!prev) return prev;
+        const updated = submissionsData.find(s => s._id === prev._id);
+        return updated || prev;
+      });
+
+      setLastUpdated(new Date());
       setLoading(false);
     } catch (error) {
       console.error('❌ Failed to fetch data:', error.message);
@@ -41,9 +45,19 @@ function GuideTimeline() {
       setSubmissions([]);
       setLoading(false);
     }
-  };
+  }, []);
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Auto-poll every 20s: picks up new admin timeline events + student submissions
+  usePolling(fetchData, 20000);
+
+  const getLastUpdatedText = () => {
+    if (!lastUpdated) return '';
+    const diff = Math.round((Date.now() - lastUpdated.getTime()) / 1000);
+    if (diff < 60) return `${diff}s ago`;
+    return `${Math.round(diff / 60)}m ago`;
+  };
 
   const getSubmissionsForEvent = (eventId) => {
     return submissions.filter(s => {
@@ -120,7 +134,16 @@ function GuideTimeline() {
     return { text: `${Math.ceil(diff)} days left`, color: '#22c55e' };
   };
 
-  if (loading) return <div>Loading timeline...</div>;
+  if (loading && timelineEvents.length === 0) return (
+    <div style={{ padding: '20px' }}>
+      {[1, 2, 3].map(i => (
+        <div key={i} className="card" style={{ marginBottom: '15px', opacity: 0.5 }}>
+          <div style={{ height: '18px', background: '#e2e8f0', borderRadius: '4px', width: '55%', marginBottom: '10px' }} />
+          <div style={{ height: '12px', background: '#e2e8f0', borderRadius: '4px', width: '80%' }} />
+        </div>
+      ))}
+    </div>
+  );
 
   if (selectedSubmission) {
     const submission = selectedSubmission;

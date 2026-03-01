@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import * as api from "../../services/api";
+import usePolling from "../../utils/usePolling";
 
 const TARGET_YEARS = ["all", "2nd", "3rd", "4th"];
 const ALL_COLUMNS = [
@@ -53,81 +54,53 @@ function TimelineManagement() {
   );
   const [showColumnDropdown, setShowColumnDropdown] = useState(false);
 
-  const fetchEvents = async () => {
+  const fetchEvents = useCallback(async () => {
     try {
-      setLoading(true);
-      console.log("🔄 FETCH START: Getting timeline events...");
-
       let eventsData = [];
       let batchesData = [];
       let submissionsData = [];
 
-      // Fetch events - CRITICAL
       try {
-        console.log("📡 Calling api.getAllTimelineEvents()...");
         const eventsRes = await api.getAllTimelineEvents();
-        console.log("📦 Raw eventsRes:", eventsRes);
-
         if (Array.isArray(eventsRes.data)) {
           eventsData = eventsRes.data;
         } else if (eventsRes.data?.data && Array.isArray(eventsRes.data.data)) {
           eventsData = eventsRes.data.data;
         }
-        console.log(`✅ EVENTS EXTRACTED: ${eventsData.length} events`);
-        console.log("📋 Events:", eventsData);
       } catch (error) {
-        console.error("❌ EVENTS FETCH ERROR:", error.message);
+        console.error("Events fetch error:", error.message);
       }
 
-      // Fetch batches
       try {
-        console.log("📡 Calling api.getAllBatches()...");
         const batchesRes = await api.getAllBatches();
         batchesData = batchesRes.data?.data || batchesRes.data || [];
-        console.log(`✅ BATCHES EXTRACTED: ${batchesData.length} batches`);
       } catch (error) {
-        console.error("⚠️ BATCHES FETCH ERROR:", error.message);
+        console.error("Batches fetch error:", error.message);
       }
 
-      // Fetch submissions - NOT CRITICAL
       try {
-        console.log("📡 Calling api.getAllSubmissions()...");
         const submissionsRes = await api.getAllSubmissions();
-        submissionsData =
-          submissionsRes.data?.data || submissionsRes.data || [];
-        console.log(
-          `✅ SUBMISSIONS EXTRACTED: ${submissionsData.length} submissions`
-        );
+        submissionsData = submissionsRes.data?.data || submissionsRes.data || [];
       } catch (error) {
-        console.error(
-          "⚠️ SUBMISSIONS FETCH ERROR (non-critical):",
-          error.message
-        );
-        // Don't fail completely, submissions are optional for viewing timeline
+        console.error("Submissions fetch error:", error.message);
       }
-
-      // Set state
-      console.log("💾 Setting state with:", {
-        eventsCount: eventsData.length,
-        batchesCount: batchesData.length,
-        submissionsCount: submissionsData.length,
-      });
 
       setEvents(eventsData);
       setBatches(batchesData);
       setSubmissions(submissionsData);
       setLoading(false);
-      console.log("✅ FETCH COMPLETE");
     } catch (error) {
-      console.error("❌ FETCH ERROR:", error.message);
-      console.error("❌ Full error:", error);
+      console.error("Fetch error:", error.message);
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchEvents();
-  }, []);
+  }, [fetchEvents]);
+
+  // Poll every 25s so new student submissions appear without refresh
+  usePolling(fetchEvents, 25000);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -225,17 +198,18 @@ function TimelineManagement() {
     );
   };
 
-  if (loading) {
-    console.log("⏳ TimelineManagement: Loading...");
+  if (loading && events.length === 0) {
     return (
-      <div className="card" style={{ padding: "40px", textAlign: "center" }}>
-        ⏳ Loading timeline events...
+      <div style={{ padding: '20px' }}>
+        {[1, 2, 3].map(i => (
+          <div key={i} className="card" style={{ marginBottom: '15px', opacity: 0.5 }}>
+            <div style={{ height: '18px', background: '#e2e8f0', borderRadius: '4px', width: '40%', marginBottom: '10px' }} />
+            <div style={{ height: '12px', background: '#e2e8f0', borderRadius: '4px', width: '70%' }} />
+          </div>
+        ))}
       </div>
     );
   }
-
-  console.log("🎯 TimelineManagement: Rendering. Events count:", events.length);
-  console.log("🎯 Events state:", events);
 
   return (
     <div className="tab-content">

@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import * as api from '../../services/api';
+import usePolling from '../../utils/usePolling';
 
 function TimelineProgress({ batchId }) {
   const [timeline, setTimeline] = useState([]);
@@ -10,18 +11,28 @@ function TimelineProgress({ batchId }) {
   const [validationErrors, setValidationErrors] = useState([]);
   const [notification, setNotification] = useState(null);
 
-  const fetchTimeline = async () => {
+  const fetchTimeline = useCallback(async () => {
     try {
       const res = await api.getTimelineForBatch(batchId);
-      setTimeline(res.data.data);
+      const newTimeline = res.data.data;
+      setTimeline(newTimeline);
+      // If student is viewing a specific event, keep it in sync with latest data
+      setSelectedEvent(prev => {
+        if (!prev) return prev;
+        const updated = newTimeline.find(e => e._id === prev._id);
+        return updated || prev;
+      });
     } catch (error) {
       console.error('Failed to fetch timeline');
     } finally {
       setLoading(false);
     }
-  };
+  }, [batchId]);
 
-  useEffect(() => { fetchTimeline(); }, [batchId]);
+  useEffect(() => { fetchTimeline(); }, [fetchTimeline]);
+
+  // Auto-poll every 20s: picks up guide feedback, marks, and new timeline events
+  usePolling(fetchTimeline, 20000);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -104,7 +115,16 @@ function TimelineProgress({ batchId }) {
     return { text: `${Math.ceil(diff)} days left`, color: '#22c55e' };
   };
 
-  if (loading) return <div>Loading timeline...</div>;
+  if (loading && timeline.length === 0) return (
+    <div style={{ padding: '20px' }}>
+      {[1, 2, 3].map(i => (
+        <div key={i} className="card" style={{ marginBottom: '15px', opacity: 0.5 }}>
+          <div style={{ height: '18px', background: '#e2e8f0', borderRadius: '4px', width: '50%', marginBottom: '10px' }} />
+          <div style={{ height: '12px', background: '#e2e8f0', borderRadius: '4px', width: '75%' }} />
+        </div>
+      ))}
+    </div>
+  );
 
   if (selectedEvent) {
     const submission = selectedEvent.submission;

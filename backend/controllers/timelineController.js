@@ -112,10 +112,7 @@ exports.updateEvent = async (req, res) => {
     if (submissionRequirements !== undefined) updateData.submissionRequirements = submissionRequirements;
     if (targetYear !== undefined) updateData.targetYear = targetYear;
     if (order !== undefined) updateData.order = Number(order);
-
-    if (isActive !== undefined) {
-      updateData.isActive = isActive === 'true' || isActive === true;
-    }
+    if (isActive !== undefined) updateData.isActive = isActive === 'true' || isActive === true;
 
     const parseBool = (val) => {
       if (val === undefined || val === null) return true;

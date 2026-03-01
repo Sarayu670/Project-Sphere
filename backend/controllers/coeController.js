@@ -97,11 +97,17 @@ exports.getCOEDetails = async (req, res) => {
     // Get problem statements for this COE
     const problemStatements = await ProblemStatement.find({ coeId }).populate('guideId', 'name');
     
-    // Get batches for this COE
-    const batches = await Batch.find({ coeId })
-      .populate('problemId', 'title')
+    // Get batches for this COE - check both direct coeId and problemId.coeId
+    const allBatches = await Batch.find()
+      .populate('problemId')
       .populate('guideId', 'name')
       .populate('leaderStudentId', 'name rollNumber');
+    
+    const batches = allBatches.filter(b => {
+      if (b.coeId && b.coeId.toString() === coeId) return true;
+      if (b.problemId?.coeId && b.problemId.coeId.toString() === coeId) return true;
+      return false;
+    });
     
     // Get all students in these batches
     const batchIds = batches.map(b => b._id);

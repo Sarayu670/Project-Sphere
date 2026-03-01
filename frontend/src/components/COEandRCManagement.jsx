@@ -101,21 +101,6 @@ const [loadingDetails, setLoadingDetails] = useState(false);
     }
   };
 
-  // Fetch detailed COE data
-  const handleCOECardClick = async (coeId) => {
-    setSelectedCOEId(coeId);
-    setLoadingDetails(true);
-    try {
-      const response = await api.getCOEDetails(coeId);
-      setCOEDetails(response.data.data);
-    } catch (error) {
-      showNotification('Failed to fetch COE details', 'error');
-      console.error(error);
-    } finally {
-      setLoadingDetails(false);
-    }
-  };
-
   // RC Functions
   const handleCreateRC = async (e) => {
     e.preventDefault();
@@ -183,6 +168,20 @@ const [loadingDetails, setLoadingDetails] = useState(false);
     }
   };
 
+  // Fetch detailed COE data
+  const handleCOECardClick = async (coeId) => {
+    setSelectedCOEId(coeId);
+    setLoadingDetails(true);
+    try {
+      const response = await api.getCOEDetails(coeId);
+      setCOEDetails(response.data.data);
+    } catch (error) {
+      showNotification('Failed to fetch COE details', 'error');
+      console.error(error);
+    } finally {
+      setLoadingDetails(false);
+    }
+  };
   // Get projects (batches) for COE - match by coeId or populated coeId from problem
   const getProjectsForCOE = (coeObj) => {
     if (!coeObj || !coeObj._id) return [];
@@ -369,7 +368,22 @@ const [loadingDetails, setLoadingDetails] = useState(false);
     if (!selectedItems.length) return null;
 
     const getCoeRcValue = (project) => {
-      if (activeSubTab === 'rc') {
+      // Get the current tab's selected item (COE or RC)
+      if (activeSubTab === 'coe') {
+        // For COE tab, show the COE name
+        if (project.coeId) {
+          if (typeof project.coeId === 'object' && project.coeId.name) {
+            return project.coeId.name;
+          }
+        }
+        // Fallback to problem's COE
+        if (project.problemId?.coeId) {
+          if (typeof project.problemId.coeId === 'object' && project.problemId.coeId.name) {
+            return project.problemId.coeId.name;
+          }
+        }
+      } else if (activeSubTab === 'rc') {
+        // For RC tab, show the RC name
         if (project.rcId) {
           if (typeof project.rcId === 'object' && project.rcId.name) {
             return project.rcId.name;
@@ -377,6 +391,11 @@ const [loadingDetails, setLoadingDetails] = useState(false);
         }
       }
       
+      // Fallback for embedded data
+      if (project.coe?.name && typeof project.coe.name === 'string') {
+        const name = project.coe.name;
+        return name === '--' ? 'Others' : name;
+      }
       if (project.rc?.name && typeof project.rc.name === 'string') {
         const name = project.rc.name;
         return name === '--' ? 'Others' : name;
@@ -385,11 +404,11 @@ const [loadingDetails, setLoadingDetails] = useState(false);
     };
 
     return (
-      <div className="details-modal-overlay" onClick={() => { setSelectedRCId(null); }}>
+      <div className="details-modal-overlay" onClick={() => { setSelectedCOEId(null); setSelectedRCId(null); }}>
         <div className="details-modal-content" onClick={(e) => e.stopPropagation()}>
           <div className="details-modal-header">
             <h3>{title}</h3>
-            <button className="modal-close" onClick={() => { setSelectedRCId(null); }}>&times;</button>
+            <button className="modal-close" onClick={() => { setSelectedCOEId(null); setSelectedRCId(null); }}>&times;</button>
           </div>
 
           <div className="details-table-container">
@@ -400,7 +419,7 @@ const [loadingDetails, setLoadingDetails] = useState(false);
                   <th>Project Title</th>
                   <th>Guide</th>
                   <th>Research Area</th>
-                  <th>RC</th>
+                  <th>COE/RC</th>
                 </tr>
               </thead>
               <tbody>
@@ -453,6 +472,7 @@ const [loadingDetails, setLoadingDetails] = useState(false);
           ) : (
             <div className="coe-rc-grid">
               {coes.map((coe) => {
+                const projectCount = getProjectsForCOE(coe).length;
                 return (
                   <div 
                     key={coe._id} 
@@ -462,6 +482,7 @@ const [loadingDetails, setLoadingDetails] = useState(false);
                   >
                     <div className="card-body">
                       <h4>{coe.name === '--' ? 'Others' : coe.name}</h4>
+                      <div className="project-count">{projectCount} Projects</div>
                     </div>
                     <button
                       className="btn btn-danger btn-sm"

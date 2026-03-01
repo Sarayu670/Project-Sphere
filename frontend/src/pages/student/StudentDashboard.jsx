@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import * as api from '../../services/api';
 import ChatPanel from '../../components/ChatPanel';
 import { generateChatReport, generateSummaryReport } from '../../utils/reportGenerator';
+import usePolling from '../../utils/usePolling';
 import CreateBatch from './CreateBatch';
 import TeamMembers from './TeamMembers';
 import COEList from './COEList';
@@ -14,13 +15,15 @@ import './StudentDashboard.css';
 function StudentDashboard() {
   const [batch, setBatch] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState(
+    () => sessionStorage.getItem('studentActiveTab') || 'overview'
+  );
   const [selectedCOE, setSelectedCOE] = useState(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [chatData, setChatData] = useState(null);
   const [summarizing, setSummarizing] = useState(false);
 
-  const fetchBatch = async () => {
+  const fetchBatch = useCallback(async () => {
     try {
       const res = await api.getMyBatch();
       setBatch(res.data.data);
@@ -29,11 +32,19 @@ function StudentDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchBatch();
-  }, []);
+  }, [fetchBatch]);
+
+  // Poll batch status every 20s so guide approval / rejection appears automatically
+  usePolling(fetchBatch, 20000);
+
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    sessionStorage.setItem('studentActiveTab', tab);
+  };
 
   if (loading) {
     return <div className="loading">Loading...</div>;
@@ -69,19 +80,19 @@ function StudentDashboard() {
 
   const handleOpenChat = async () => {
     try {
-      const leaderId = typeof batch.leaderStudentId === 'object' 
-        ? batch.leaderStudentId._id 
+      const leaderId = typeof batch.leaderStudentId === 'object'
+        ? batch.leaderStudentId._id
         : batch.leaderStudentId;
-      
+
       if (leaderId) {
         try {
           const response = await axios.get(`/api/chat/student/${batch._id}/${leaderId}`);
           setChatData(response.data.data);
         } catch (err) {
           // If chat doesn't exist yet, create a new one
-          setChatData({ 
+          setChatData({
             _id: batch._id,
-            batchId: batch, 
+            batchId: batch,
             teamMemberId: { _id: leaderId, teamName: batch.teamName },
             guideId: batch.guideId,
             messages: []
@@ -144,9 +155,9 @@ function StudentDashboard() {
               <button className="chat-btn" onClick={handleOpenChat} title="Chat with Guide">
                 💬 Chat
               </button>
-              <button 
-                className="report-btn" 
-                onClick={handleDownloadSummaryReport} 
+              <button
+                className="report-btn"
+                onClick={handleDownloadSummaryReport}
                 disabled={summarizing}
                 title="Download Summarized Report"
                 style={{ marginLeft: '10px' }}
@@ -159,21 +170,21 @@ function StudentDashboard() {
       </div>
 
       <div className="tabs">
-        <button className={`tab ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => setActiveTab('overview')}>
+        <button className={`tab ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => handleTabChange('overview')}>
           📊 Overview
         </button>
-        <button className={`tab ${activeTab === 'team' ? 'active' : ''}`} onClick={() => setActiveTab('team')}>
+        <button className={`tab ${activeTab === 'team' ? 'active' : ''}`} onClick={() => handleTabChange('team')}>
           👥 Team Members
         </button>
         {canSelectProblem && (
-          <button className={`tab ${activeTab === 'select' ? 'active' : ''}`} onClick={() => setActiveTab('select')}>
+          <button className={`tab ${activeTab === 'select' ? 'active' : ''}`} onClick={() => handleTabChange('select')}>
             🔍 Select Problem
           </button>
         )}
         {isAllotted && (
           <>
-            <button className={`tab ${activeTab === 'timeline' ? 'active' : ''}`} onClick={() => setActiveTab('timeline')}>
-              📅 Timeline & Submissions
+            <button className={`tab ${activeTab === 'timeline' ? 'active' : ''}`} onClick={() => handleTabChange('timeline')}>
+              📅 Timeline &amp; Submissions
             </button>
           </>
         )}
@@ -207,8 +218,8 @@ function StudentDashboard() {
         )}
       </div>
 
-      <ChatPanel 
-        batchId={batch._id} 
+      <ChatPanel
+        batchId={batch._id}
         teamMemberId={typeof batch.leaderStudentId === 'object' ? batch.leaderStudentId._id : batch.leaderStudentId}
         isOpen={chatOpen}
         onClose={handleChatClose}

@@ -96,16 +96,15 @@ exports.updateEvent = async (req, res) => {
 
     const { title, description, deadline, maxMarks, submissionRequirements, targetYear, order, isActive, isMandatoryFormat } = req.body;
 
-    const updateData = {
-      title,
-      description,
-      deadline,
-      maxMarks: maxMarks !== undefined ? Number(maxMarks) : undefined,
-      submissionRequirements,
-      targetYear,
-      order: order !== undefined ? Number(order) : undefined,
-      isActive: isActive === 'true' || isActive === true
-    };
+    const updateData = {};
+    if (title !== undefined) updateData.title = title;
+    if (description !== undefined) updateData.description = description;
+    if (deadline !== undefined) updateData.deadline = deadline;
+    if (maxMarks !== undefined) updateData.maxMarks = Number(maxMarks);
+    if (submissionRequirements !== undefined) updateData.submissionRequirements = submissionRequirements;
+    if (targetYear !== undefined) updateData.targetYear = targetYear;
+    if (order !== undefined) updateData.order = Number(order);
+    if (isActive !== undefined) updateData.isActive = isActive === 'true' || isActive === true;
 
     if (isMandatoryFormat !== undefined) {
       updateData.isMandatoryFormat = isMandatoryFormat === 'true' || isMandatoryFormat === true;

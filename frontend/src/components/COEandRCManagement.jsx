@@ -202,21 +202,6 @@ const [loadingDetails, setLoadingDetails] = useState(false);
       setSaving(false);
     }
   };
-
-  // Fetch detailed COE data
-  const handleCOECardClick = async (coeId) => {
-    setSelectedCOEId(coeId);
-    setLoadingDetails(true);
-    try {
-      const response = await api.getCOEDetails(coeId);
-      setCOEDetails(response.data.data);
-    } catch (error) {
-      showNotification('Failed to fetch COE details', 'error');
-      console.error(error);
-    } finally {
-      setLoadingDetails(false);
-    }
-  };
   // Get projects (batches) for COE - match by coeId or populated coeId from problem
   const getProjectsForCOE = (coeObj) => {
     if (!coeObj || !coeObj._id) return [];

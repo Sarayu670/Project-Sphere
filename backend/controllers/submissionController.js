@@ -288,26 +288,53 @@ exports.assignMarks = async (req, res) => {
 
 // @desc    Get all submissions (Admin)
 // @route   GET /api/submissions
+// Query params: page (default 1), limit (default 50), eventId (optional), batchId (optional)
 exports.getAllSubmissions = async (req, res) => {
   try {
-    console.log('📡 Getting all submissions...');
+    console.log('📡 Getting submissions...');
+    
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50;
+    const eventId = req.query.eventId;
+    const batchId = req.query.batchId;
+    
+    const skip = (page - 1) * limit;
 
-    const submissions = await Submission.find({})
-      .populate('batchId')
-      .populate('timelineEventId')
+    // Build filter object
+    const filter = {};
+    if (eventId) filter.timelineEventId = eventId;
+    if (batchId) filter.batchId = batchId;
+
+    const submissions = await Submission.find(filter)
+      .populate('batchId', 'teamName year branch section leaderStudentId guideId problemId coeId researchArea')
+      .populate('timelineEventId', 'title maxMarks')
       .populate('comments.guideId', 'name')
       .populate('adminRemarks.adminId', 'name')
       .populate('marksAssignedBy', 'name')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(); // Use lean() for better performance on large result sets
 
-    console.log(`✅ Found ${submissions.length} submissions`);
-    console.log('📋 Sample submission:', submissions[0]);
+    // Get total count for pagination
+    const total = await Submission.countDocuments(filter);
 
-    res.status(200).json({ success: true, data: submissions });
+    console.log(`✅ Found ${submissions.length} submissions for page ${page}`);
+
+    res.status(200).json({ 
+      success: true, 
+      data: submissions,
+      pagination: {
+        current: page,
+        total,
+        limit,
+        pages: Math.ceil(total / limit)
+      }
+    });
   } catch (error) {
     console.error('❌ Error getting submissions:', error.message);
     console.error('❌ Stack:', error.stack);
-    res.status(200).json({ success: true, data: [] });
+    res.status(200).json({ success: true, data: [], pagination: { current: 1, total: 0, limit: 50, pages: 0 } });
   }
 };
 

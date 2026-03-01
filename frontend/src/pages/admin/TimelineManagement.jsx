@@ -35,6 +35,16 @@ function TimelineManagement() {
     isMarksEnabled: true,
   });
 
+  // Pagination and lazy loading
+  const [submissionPage, setSubmissionPage] = useState(1);
+  const [submissionPagination, setSubmissionPagination] = useState({
+    current: 1,
+    total: 0,
+    limit: 50,
+    pages: 0
+  });
+  const [isLoadingMoreSubmissions, setIsLoadingMoreSubmissions] = useState(false);
+
   // Filters
   const [filterYear, setFilterYear] = useState("");
   const [filterBranch, setFilterBranch] = useState("");
@@ -57,8 +67,6 @@ function TimelineManagement() {
   const fetchEvents = useCallback(async () => {
     try {
       let eventsData = [];
-      let batchesData = [];
-      let submissionsData = [];
 
       try {
         const eventsRes = await api.getAllTimelineEvents();
@@ -71,23 +79,10 @@ function TimelineManagement() {
         console.error("Events fetch error:", error.message);
       }
 
-      try {
-        const batchesRes = await api.getAllBatches();
-        batchesData = batchesRes.data?.data || batchesRes.data || [];
-      } catch (error) {
-        console.error("Batches fetch error:", error.message);
-      }
-
-      try {
-        const submissionsRes = await api.getAllSubmissions();
-        submissionsData = submissionsRes.data?.data || submissionsRes.data || [];
-      } catch (error) {
-        console.error("Submissions fetch error:", error.message);
-      }
-
       setEvents(eventsData);
-      setBatches(batchesData);
-      setSubmissions(submissionsData);
+      // Don't fetch batches upfront - fetch only when event is selected
+      setBatches([]);
+      setSubmissions([]);
       setLoading(false);
     } catch (error) {
       console.error("Fetch error:", error.message);
@@ -95,12 +90,84 @@ function TimelineManagement() {
     }
   }, []);
 
+  // Fetch batches lazily - only when event is selected
+  const fetchBatchesForEvent = useCallback(async () => {
+    try {
+      const batchesRes = await api.getAllBatches();
+      const batchesData = batchesRes.data?.data || batchesRes.data || [];
+      setBatches(batchesData);
+      return batchesData;
+    } catch (error) {
+      console.error("Batches fetch error:", error.message);
+      return [];
+    }
+  }, []);
+
+  // Fetch submissions for selected event with pagination
+  const fetchSubmissionsForEvent = useCallback(async (eventId, page = 1) => {
+    try {
+      if (!eventId) return;
+      
+      if (page === 1) {
+        setIsLoadingMoreSubmissions(true);
+      } else {
+        setIsLoadingMoreSubmissions(true);
+      }
+
+      const submissionsRes = await api.getAllSubmissions({ 
+        eventId, 
+        page,
+        limit: 50 
+      });
+      
+      const newSubmissions = submissionsRes.data?.data || submissionsRes.data || [];
+      const pagination = submissionsRes.data?.pagination || {
+        current: page,
+        total: 0,
+        limit: 50,
+        pages: 0
+      };
+
+      if (page === 1) {
+        setSubmissions(newSubmissions);
+      } else {
+        // Append to existing submissions
+        setSubmissions(prev => [...prev, ...newSubmissions]);
+      }
+
+      setSubmissionPagination(pagination);
+      setSubmissionPage(page);
+      setIsLoadingMoreSubmissions(false);
+    } catch (error) {
+      console.error("Submissions fetch error:", error.message);
+      setIsLoadingMoreSubmissions(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchEvents();
   }, [fetchEvents]);
 
-  // Poll every 25s so new student submissions appear without refresh
-  usePolling(fetchEvents, 25000);
+  // Fetch submissions when event is selected
+  useEffect(() => {
+    if (selectedEvent?._id) {
+      setSubmissionPage(1);
+      setSubmissions([]);
+      // Fetch both batches and submissions for the selected event
+      const load = async () => {
+        // If batches haven't been fetched yet, fetch them
+        if (batches.length === 0) {
+          await fetchBatchesForEvent();
+        }
+        // Then fetch submissions
+        await fetchSubmissionsForEvent(selectedEvent._id, 1);
+      };
+      load();
+    }
+  }, [selectedEvent, fetchSubmissionsForEvent, fetchBatchesForEvent, batches]);
+
+  // Poll every 60s for new events/batches only (not submissions) - reduced from 25s
+  usePolling(fetchEvents, 60000);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -557,6 +624,13 @@ function TimelineManagement() {
             </div>
           </div>
 
+          {isLoadingMoreSubmissions && submissions.length === 0 && (
+            <div className="card" style={{ marginBottom: "20px", textAlign: "center", padding: "40px 20px" }}>
+              <div style={{ fontSize: "18px", color: "#667eea", marginBottom: "10px" }}>⏳ Loading submissions...</div>
+              <div style={{ fontSize: "13px", color: "#999" }}>This may take a moment if there are many submissions</div>
+            </div>
+          )}
+
           <div className="table-container">
             <table className="data-table">
               <thead>
@@ -828,6 +902,32 @@ function TimelineManagement() {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Controls */}
+          {submissionPagination.pages > 1 && (
+            <div style={{ 
+              marginTop: "20px", 
+              display: "flex", 
+              justifyContent: "space-between", 
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: "10px"
+            }}>
+              <div style={{ fontSize: "14px", color: "#666" }}>
+                Showing {submissions.length} of {submissionPagination.total} submissions
+                {submissionPagination.pages > 1 && ` | Page ${submissionPagination.current} of ${submissionPagination.pages}`}
+              </div>
+              {submissionPagination.current < submissionPagination.pages && (
+                <button
+                  className="btn btn-primary"
+                  onClick={() => fetchSubmissionsForEvent(selectedEvent._id, submissionPage + 1)}
+                  disabled={isLoadingMoreSubmissions}
+                >
+                  {isLoadingMoreSubmissions ? "⏳ Loading..." : `📥 Load More (${submissionPagination.limit} submissions)`}
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
 

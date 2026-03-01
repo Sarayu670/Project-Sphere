@@ -46,6 +46,11 @@
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   word-wrap: break-word;
   overflow-wrap: break-word;
+  min-height: 160px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
 }
 
 .stat-card:hover {

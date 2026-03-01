@@ -5,8 +5,53 @@ const Batch = require('../models/Batch');
 // @route   GET /api/team-members/:batchId
 exports.getTeamMembers = async (req, res) => {
   try {
-    const teamMembers = await TeamMember.find({ batchId: req.params.batchId });
-    res.status(200).json({ success: true, data: teamMembers });
+    const Batch = require('../models/Batch');
+    const Student = require('../models/Student');
+    const batch = await Batch.findById(req.params.batchId);
+    
+    if (!batch) {
+      return res.status(404).json({ success: false, message: 'Batch not found' });
+    }
+
+    // Get team members from both sources
+    const [students, teamMembers] = await Promise.all([
+      Student.find({ batchId: req.params.batchId }).select('_id name rollNumber branch'),
+      TeamMember.find({ batchId: req.params.batchId }).select('_id name rollNo branch')
+    ]);
+
+    // Merge and deduplicate using normalized keys
+    const memberMap = new Map();
+
+    // Add students first (prioritize Student records)
+    students.forEach(s => {
+      const key = (s.rollNumber || '').trim().toLowerCase();
+      if (key) { // Only add if there's a valid rollNumber
+        memberMap.set(key, {
+          _id: s._id,
+          name: s.name,
+          rollNo: s.rollNumber,
+          branch: s.branch,
+          source: 'student'
+        });
+      }
+    });
+
+    // Add team members only if not already present (avoid duplicates)
+    teamMembers.forEach(tm => {
+      const key = (tm.rollNo || '').trim().toLowerCase();
+      if (key && !memberMap.has(key)) { // Only add if key doesn't exist
+        memberMap.set(key, {
+          _id: tm._id,
+          name: tm.name,
+          rollNo: tm.rollNo,
+          branch: tm.branch,
+          source: 'team-member'
+        });
+      }
+    });
+
+    const allMembers = Array.from(memberMap.values());
+    res.status(200).json({ success: true, data: allMembers });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

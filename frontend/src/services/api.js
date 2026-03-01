@@ -100,7 +100,16 @@ export const createSubmission = (data) => axios.post(`${API_URL}/submissions`, d
 export const getSubmission = (id) => axios.get(`${API_URL}/submissions/${id}`);
 export const getBatchSubmissions = (batchId) => axios.get(`${API_URL}/submissions/batch/${batchId}`);
 export const getGuideSubmissions = () => axios.get(`${API_URL}/submissions/guide`);
-export const getAllSubmissions = () => axios.get(`${API_URL}/submissions`);
+export const getAllSubmissions = (params = {}) => {
+  const queryParams = new URLSearchParams();
+  if (params.eventId) queryParams.append('eventId', params.eventId);
+  if (params.batchId) queryParams.append('batchId', params.batchId);
+  if (params.page) queryParams.append('page', params.page);
+  if (params.limit) queryParams.append('limit', params.limit);
+  
+  const queryString = queryParams.toString();
+  return axios.get(`${API_URL}/submissions${queryString ? '?' + queryString : ''}`);
+};
 export const addSubmissionComment = (id, comment) => axios.post(`${API_URL}/submissions/${id}/comment`, { comment });
 export const assignSubmissionMarks = (id, marks, status, comment) => axios.post(`${API_URL}/submissions/${id}/marks`, { marks, status, comment });
 export const addAdminRemark = (id, remark) => axios.post(`${API_URL}/submissions/${id}/admin-remark`, { remark });

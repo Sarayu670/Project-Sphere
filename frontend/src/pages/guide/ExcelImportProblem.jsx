@@ -76,7 +76,7 @@ function ExcelImportProblem({ coes, rcs, targetYears, onImportComplete, onCancel
         datasetUrl,
         coeId,
         validYear,
-        isValid: !!coeId && !!validYear && !!title
+        isValid: !!coeId && !!validYear && !!title && !!description && !!researchArea
       };
     });
   };
@@ -114,7 +114,7 @@ function ExcelImportProblem({ coes, rcs, targetYears, onImportComplete, onCancel
           if (invalidRows.length > 0) {
             setError(
               `Invalid data in rows: ${invalidRows.map(r => r.row).join(', ')}. ` +
-              'Please ensure COE and Target Year match the available options and Title is provided.'
+              'Please ensure COE, Target Year, Title, Description, and Research Area are all provided and COE/Target Year match the available options.'
             );
             setLoading(false);
             return;

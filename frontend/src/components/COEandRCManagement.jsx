@@ -21,10 +21,11 @@ const [loadingDetails, setLoadingDetails] = useState(false);
   const fetchData = async () => {
     try {
       setLoading(true);
+      // Fetch COEs, RCs, AND batches upfront so counts display correctly from the start
       const [coesRes, rcsRes, batchesRes] = await Promise.all([
         api.getAllCOEs(),
         api.getAllRCs(),
-        api.getAllBatches()  // This returns batches with full COE/RC info
+        api.getAllBatches()
       ]);
       
       const coesData = coesRes.data.data || [];
@@ -34,17 +35,31 @@ const [loadingDetails, setLoadingDetails] = useState(false);
       console.log('?? Fetched Data:');
       console.log('COEs:', coesData);
       console.log('RCs:', rcsData);
-      console.log('Batches with COE/RC:', batchesData);
+      console.log('Batches:', batchesData);
       
       setCOEs(coesData);
       setRCs(rcsData);
-      // Store batches as projects since they contain all project info
+      // Fetch batches upfront so team counts are accurate immediately
       setProjects(batchesData);
     } catch (error) {
       showNotification('Failed to fetch data', 'error');
       console.error(error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Fetch batches lazily - only when COE/RC details are requested
+  const fetchBatches = async () => {
+    try {
+      const batchesRes = await api.getAllBatches();
+      const batchesData = batchesRes.data.data || [];
+      setProjects(batchesData);
+      return batchesData;
+    } catch (error) {
+      showNotification('Failed to fetch projects/batches', 'error');
+      console.error(error);
+      return [];
     }
   };
 
@@ -80,7 +95,7 @@ const [loadingDetails, setLoadingDetails] = useState(false);
       await api.createCOE({ name: formData.name });
       showNotification('COE created successfully', 'success');
       resetForm();
-      setShowModal(false);
+      setShowModal(false);      setProjects([]);      setProjects([]);
       fetchData();
     } catch (error) {
       showNotification(error.response?.data?.message || 'Failed to create COE', 'error');
@@ -94,6 +109,7 @@ const [loadingDetails, setLoadingDetails] = useState(false);
       try {
         await api.deleteCOE(id);
         showNotification('COE deleted successfully', 'success');
+        setSelectedCOEId(null);
         fetchData();
       } catch (error) {
         showNotification('Failed to delete COE', 'error');
@@ -106,6 +122,7 @@ const [loadingDetails, setLoadingDetails] = useState(false);
     setSelectedCOEId(coeId);
     setLoadingDetails(true);
     try {
+      // Batches are already fetched upfront, so just get COE details
       const response = await api.getCOEDetails(coeId);
       setCOEDetails(response.data.data);
     } catch (error) {
@@ -145,6 +162,8 @@ const [loadingDetails, setLoadingDetails] = useState(false);
       try {
         await api.deleteRC(id);
         showNotification('Research Center deleted successfully', 'success');
+        setSelectedRCId(null);
+        setProjects([]);
         fetchData();
       } catch (error) {
         showNotification('Failed to delete Research Center', 'error');
@@ -175,6 +194,8 @@ const [loadingDetails, setLoadingDetails] = useState(false);
       showNotification('Research Center updated successfully', 'success');
       resetForm();
       setShowModal(false);
+      setSelectedRCId(null);
+      setProjects([]);
       fetchData();
     } catch (error) {
       showNotification(error.response?.data?.message || 'Failed to update RC', 'error');
@@ -216,6 +237,11 @@ const [loadingDetails, setLoadingDetails] = useState(false);
       
       return false;
     });
+  };
+
+  // Helper to count teams for a COE (for display on card)
+  const getTeamCountForCOE = (coeObj) => {
+    return getProjectsForCOE(coeObj).length;
   };
 
   // Get projects (batches) for RC - match by rcId
@@ -287,9 +313,9 @@ const [loadingDetails, setLoadingDetails] = useState(false);
             {loadingDetails ? (
               <div className="loading">Loading COE details...</div>
             ) : (
-              <div style={{ padding: '20px' }}>
+              <div style={{ padding: '30px' }}>
                 {/* Summary Stats */}
-                <div className="stats-grid">
+                <div className="stats-grid" style={{ marginBottom: '30px' }}>
                   <div className="stat-card">
                     <div className="stat-value" style={{ color: '#5B7BD2' }}>{counts.problemStatements}</div>
                     <div className="stat-label">Problem Statements</div>
@@ -302,17 +328,13 @@ const [loadingDetails, setLoadingDetails] = useState(false);
                     <div className="stat-value" style={{ color: '#FFC000' }}>{counts.batches}</div>
                     <div className="stat-label">Batches</div>
                   </div>
-                  <div className="stat-card">
-                    <div className="stat-value" style={{ color: '#E74C3C' }}>{counts.students}</div>
-                    <div className="stat-label">Students</div>
-                  </div>
                 </div>
 
                 {/* Consolidated Batches Section */}
                 <div style={{ marginBottom: '30px' }}>
-                  <h4 className="section-title">Batch Assignments</h4>
-                  <div className="details-table-container">
-                    {batches.length > 0 ? (
+                  <h4 className="section-title" style={{ marginTop: 0, marginBottom: '20px', fontSize: '18px', fontWeight: '600', color: '#1a365d' }}>Batch Assignments</h4>
+                  <div className="details-table-container" style={{ minHeight: '200px' }}>
+                    {batches && batches.length > 0 ? (
                       <table className="details-table">
                         <thead>
                           <tr>
@@ -343,7 +365,17 @@ const [loadingDetails, setLoadingDetails] = useState(false);
                         </tbody>
                       </table>
                     ) : (
-                      <p className="no-data">No batches found for this COE</p>
+                      <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        minHeight: '200px',
+                        color: '#999',
+                        fontSize: '14px',
+                        fontStyle: 'italic'
+                      }}>
+                        No batches found for this COE
+                      </div>
                     )}
                   </div>
                 </div>
@@ -453,6 +485,7 @@ const [loadingDetails, setLoadingDetails] = useState(false);
           ) : (
             <div className="coe-rc-grid">
               {coes.map((coe) => {
+                const teamCount = getTeamCountForCOE(coe);
                 return (
                   <div 
                     key={coe._id} 
@@ -462,17 +495,46 @@ const [loadingDetails, setLoadingDetails] = useState(false);
                   >
                     <div className="card-body">
                       <h4>{coe.name === '--' ? 'Others' : coe.name}</h4>
+                      <div style={{ 
+                        marginTop: '12px', 
+                        fontSize: '32px', 
+                        fontWeight: 'bold', 
+                        color: '#ffffff',
+                        marginBottom: '4px',
+                        textShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                      }}>
+                        👥 {teamCount}
+                      </div>
+                      <div style={{ 
+                        fontSize: '12px', 
+                        color: '#e0e0e0',
+                        marginBottom: '16px'
+                      }}>
+                        team{teamCount !== 1 ? 's' : ''} assigned
+                      </div>
                     </div>
-                    <button
-                      className="btn btn-danger btn-sm"
-                      style={{ backgroundColor: 'white', color: 'black', border: '1px solid #e2e8f0' }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteCOE(coe._id);
-                      }}
-                    >
-                      DELETE
-                    </button>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        className="btn btn-primary btn-sm"
+                        style={{ flex: 1, fontSize: '13px' }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCOECardClick(coe._id);
+                        }}
+                      >
+                        VIEW
+                      </button>
+                      <button
+                        className="btn btn-danger btn-sm"
+                        style={{ flex: 1, fontSize: '13px' }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteCOE(coe._id);
+                        }}
+                      >
+                        DELETE
+                      </button>
+                    </div>
                   </div>
                 );
               })}

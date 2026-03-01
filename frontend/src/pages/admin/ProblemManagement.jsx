@@ -8,7 +8,7 @@ function ProblemManagement() {
   const [guides, setGuides] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [formData, setFormData] = useState({ coeId: '', title: '', description: '', year: new Date().getFullYear(), guideId: '', datasetUrl: '' });
+  const [formData, setFormData] = useState({ coeId: '', title: '', description: '', year: new Date().getFullYear(), guideId: '', datasetUrl: '', researchArea: '' });
   const [saving, setSaving] = useState(false);
   const [dialog, setDialog] = useState({ isOpen: false, title: '', message: '', type: 'info', onConfirm: null });
   const [searchTerm, setSearchTerm] = useState('');
@@ -60,10 +60,37 @@ function ProblemManagement() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Validate all required fields
+    if (!formData.title || !formData.title.trim()) {
+      showDialog('Validation Error', 'Please enter a Title', 'danger');
+      return;
+    }
+    if (!formData.coeId || !formData.coeId.trim()) {
+      showDialog('Validation Error', 'Please select a COE / RC', 'danger');
+      return;
+    }
+    if (!formData.guideId || !formData.guideId.trim()) {
+      showDialog('Validation Error', 'Please select a Guide', 'danger');
+      return;
+    }
+    if (!formData.year) {
+      showDialog('Validation Error', 'Please enter a Year', 'danger');
+      return;
+    }
+    if (!formData.description || !formData.description.trim()) {
+      showDialog('Validation Error', 'Please enter a Description', 'danger');
+      return;
+    }
+    if (!formData.researchArea || !formData.researchArea.trim()) {
+      showDialog('Validation Error', 'Please enter a Research Area', 'danger');
+      return;
+    }
+    
     setSaving(true);
     try {
       await api.createProblem(formData);
-      setFormData({ coeId: '', title: '', description: '', year: new Date().getFullYear(), guideId: '', datasetUrl: '' });
+      setFormData({ coeId: '', title: '', description: '', year: new Date().getFullYear(), guideId: '', datasetUrl: '', researchArea: '' });
       setShowModal(false);
       setSearchTerm('');
       fetchData();
@@ -176,33 +203,37 @@ function ProblemManagement() {
             <h3>Add New Problem Statement</h3>
             <form onSubmit={handleSubmit}>
               <div className="form-group">
-                <label>Title</label>
+                <label>Title <span style={{ color: 'red' }}>*</span></label>
                 <input type="text" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} required />
               </div>
               <div className="form-group">
-                <label>COE / RC</label>
+                <label>COE / RC <span style={{ color: 'red' }}>*</span></label>
                 <select value={formData.coeId} onChange={(e) => setFormData({ ...formData, coeId: e.target.value })} required>
                   <option value="">Select COE / RC</option>
                   {coes.map((coe) => (<option key={coe._id} value={coe._id}>{coe.name}</option>))}
                 </select>
               </div>
               <div className="form-group">
-                <label>Assigned Guide</label>
+                <label>Assigned Guide <span style={{ color: 'red' }}>*</span></label>
                 <select value={formData.guideId} onChange={(e) => setFormData({ ...formData, guideId: e.target.value })} required>
                   <option value="">Select Guide</option>
                   {guides.map((guide) => (<option key={guide._id} value={guide._id}>{guide.name} ({guide.assignedBatches}/{guide.maxBatches})</option>))}
                 </select>
               </div>
               <div className="form-group">
-                <label>Year</label>
+                <label>Year <span style={{ color: 'red' }}>*</span></label>
                 <input type="number" value={formData.year} onChange={(e) => setFormData({ ...formData, year: parseInt(e.target.value) })} required />
               </div>
               <div className="form-group">
-                <label>Description</label>
-                <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} rows={3} />
+                <label>Description <span style={{ color: 'red' }}>*</span></label>
+                <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} rows={3} required />
               </div>
               <div className="form-group">
-                <label>Dataset URL (Optional)</label>
+                <label>Research Area <span style={{ color: 'red' }}>*</span></label>
+                <input type="text" value={formData.researchArea} onChange={(e) => setFormData({ ...formData, researchArea: e.target.value })} placeholder="e.g., Machine Learning, IoT, Data Science" required />
+              </div>
+              <div className="form-group">
+                <label>Dataset URL (optional)</label>
                 <input type="url" value={formData.datasetUrl} onChange={(e) => setFormData({ ...formData, datasetUrl: e.target.value })} placeholder="https://..." />
               </div>
               <div className="modal-actions">

@@ -101,6 +101,10 @@ const SubmissionSchema = new mongoose.Schema({
 
 // Compound index to ensure one submission per batch per event
 SubmissionSchema.index({ batchId: 1, timelineEventId: 1 }, { unique: true });
+// Single index for faster filtering by timeline event
+SubmissionSchema.index({ timelineEventId: 1 });
+// Index for faster pagination
+SubmissionSchema.index({ timelineEventId: 1, createdAt: -1 });
 
 module.exports = mongoose.model('Submission', SubmissionSchema);
 

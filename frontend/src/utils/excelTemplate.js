@@ -50,11 +50,11 @@ export const downloadExcelTemplate = (coes, targetYears) => {
 
   // Add a second sheet with instructions
   const instructionsData = [
-    { 'Field': 'COE', 'Description': 'Center of Excellence name. Must exactly match available COEs.', 'Example': coes.length > 0 ? coes[0].name : 'Data Analytics' },
-    { 'Field': 'Target Year', 'Description': 'Year level (2nd, 3rd, or 4th). Must be exact match.', 'Example': '3rd' },
-    { 'Field': 'Title', 'Description': 'Problem statement title. Required field.', 'Example': 'Data Analysis Challenge' },
-    { 'Field': 'Description', 'Description': 'Detailed description of the problem. Can be multiple lines.', 'Example': 'Build a solution to analyze customer behavior...' },
-    { 'Field': 'Research Area', 'Description': 'Research area or domain (optional). Examples: Machine Learning, IoT, Data Science', 'Example': 'Machine Learning' },
+    { 'Field': 'COE *', 'Description': 'Center of Excellence name. Must exactly match available COEs. REQUIRED', 'Example': coes.length > 0 ? coes[0].name : 'Data Analytics' },
+    { 'Field': 'Target Year *', 'Description': 'Year level (2nd, 3rd, or 4th). Must be exact match. REQUIRED', 'Example': '3rd' },
+    { 'Field': 'Title *', 'Description': 'Problem statement title. REQUIRED', 'Example': 'Data Analysis Challenge' },
+    { 'Field': 'Description *', 'Description': 'Detailed description of the problem. Can be multiple lines. REQUIRED', 'Example': 'Build a solution to analyze customer behavior...' },
+    { 'Field': 'Research Area *', 'Description': 'Research area or domain. Examples: Machine Learning, IoT, Data Science. REQUIRED', 'Example': 'Machine Learning' },
     { 'Field': 'Dataset URL', 'Description': 'Link to dataset (optional). Leave blank if not applicable.', 'Example': 'https://example.com/data.csv' }
   ];
 

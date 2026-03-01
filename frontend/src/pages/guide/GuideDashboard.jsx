@@ -159,6 +159,29 @@ function GuideDashboard() {
 
   const handleAddProblem = async (e) => {
     e.preventDefault();
+    
+    // Validate all required fields
+    if (!newProblem.coeId || !newProblem.coeId.trim()) {
+      showDialog('Validation Error', 'Please select a COE/RC', 'danger');
+      return;
+    }
+    if (!newProblem.targetYear || !newProblem.targetYear.trim()) {
+      showDialog('Validation Error', 'Please select a Target Year', 'danger');
+      return;
+    }
+    if (!newProblem.title || !newProblem.title.trim()) {
+      showDialog('Validation Error', 'Please enter a Title', 'danger');
+      return;
+    }
+    if (!newProblem.description || !newProblem.description.trim()) {
+      showDialog('Validation Error', 'Please enter a Description', 'danger');
+      return;
+    }
+    if (!newProblem.researchArea || !newProblem.researchArea.trim()) {
+      showDialog('Validation Error', 'Please enter a Research Area', 'danger');
+      return;
+    }
+    
     try {
       if (editingProblem) {
         await api.updateProblem(editingProblem._id, newProblem);
@@ -344,22 +367,22 @@ function GuideDashboard() {
               </div>
               <form onSubmit={handleAddProblem}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-                  <div className="form-group"><label>COE / RC</label>
+                  <div className="form-group"><label>COE / RC <span style={{ color: 'red' }}>*</span></label>
                     <select value={newProblem.coeId} onChange={(e) => setNewProblem({ ...newProblem, coeId: e.target.value })} required>
                       <option value="">Select COE / RC</option>
                       {[...coes, ...rcs].map(item => (<option key={item._id} value={item._id}>{item.name}</option>))}
                     </select>
                   </div>
-                  <div className="form-group"><label>Target Year</label>
+                  <div className="form-group"><label>Target Year <span style={{ color: 'red' }}>*</span></label>
                     <select value={newProblem.targetYear} onChange={(e) => setNewProblem({ ...newProblem, targetYear: e.target.value })} required>
                       <option value="">Select Year</option>
                       {TARGET_YEARS.map(y => <option key={y} value={y}>{YEAR_LABELS[y]}</option>)}
                     </select>
                   </div>
                 </div>
-                <div className="form-group"><label>Title</label><input type="text" value={newProblem.title} onChange={(e) => setNewProblem({ ...newProblem, title: e.target.value })} required /></div>
-                <div className="form-group"><label>Description</label><textarea value={newProblem.description} onChange={(e) => setNewProblem({ ...newProblem, description: e.target.value })} rows={3} /></div>
-                <div className="form-group"><label>Research Area (optional)</label><input type="text" value={newProblem.researchArea} onChange={(e) => setNewProblem({ ...newProblem, researchArea: e.target.value })} placeholder="e.g., Machine Learning, IoT, Data Science" /></div>
+                <div className="form-group"><label>Title <span style={{ color: 'red' }}>*</span></label><input type="text" value={newProblem.title} onChange={(e) => setNewProblem({ ...newProblem, title: e.target.value })} required /></div>
+                <div className="form-group"><label>Description <span style={{ color: 'red' }}>*</span></label><textarea value={newProblem.description} onChange={(e) => setNewProblem({ ...newProblem, description: e.target.value })} rows={3} required /></div>
+                <div className="form-group"><label>Research Area <span style={{ color: 'red' }}>*</span></label><input type="text" value={newProblem.researchArea} onChange={(e) => setNewProblem({ ...newProblem, researchArea: e.target.value })} placeholder="e.g., Machine Learning, IoT, Data Science" required /></div>
                 <div className="form-group"><label>Dataset URL (optional)</label><input type="url" value={newProblem.datasetUrl} onChange={(e) => setNewProblem({ ...newProblem, datasetUrl: e.target.value })} /></div>
                 <div style={{ display: 'flex', gap: '10px' }}>
                   <button type="submit" className="btn btn-primary">{editingProblem ? 'Update Problem' : 'Save Problem'}</button>

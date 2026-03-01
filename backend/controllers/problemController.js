@@ -98,12 +98,30 @@ exports.getProblem = async (req, res) => {
 // @route   POST /api/problems
 exports.createProblem = async (req, res) => {
   try {
-    const { coeId, title, description, targetYear, datasetUrl } = req.body;
+    const { coeId, title, description, targetYear, datasetUrl, researchArea } = req.body;
+    
+    // Validate required fields
+    if (!coeId || !coeId.trim()) {
+      return res.status(400).json({ success: false, message: 'COE is required' });
+    }
+    if (!title || !title.trim()) {
+      return res.status(400).json({ success: false, message: 'Title is required' });
+    }
+    if (!description || !description.trim()) {
+      return res.status(400).json({ success: false, message: 'Description is required' });
+    }
+    if (!targetYear || !targetYear.trim()) {
+      return res.status(400).json({ success: false, message: 'Target year is required' });
+    }
+    if (!researchArea || !researchArea.trim()) {
+      return res.status(400).json({ success: false, message: 'Research Area is required' });
+    }
+    
     // Guide creates their own problem - use their ID
     const guideId = req.user.role === 'guide' ? req.user._id : req.body.guideId;
 
     const problem = await ProblemStatement.create({
-      coeId, title, description, targetYear, guideId, datasetUrl
+      coeId, title, description, targetYear, guideId, datasetUrl, researchArea
     });
 
     const populatedProblem = await ProblemStatement.findById(problem._id)

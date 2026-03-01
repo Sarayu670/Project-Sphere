@@ -339,6 +339,10 @@ exports.searchAllBatches = async (req, res) => {
 exports.getAllBatches = async (req, res) => {
   try {
     const RC = require('../models/RC');
+    const Student = require('../models/Student');
+    const TeamMember = require('../models/TeamMember');
+    const Guide = require('../models/Guide');
+
     let batches = await Batch.find()
       .populate('leaderStudentId', 'name rollNumber email branch')
       .populate({
@@ -350,122 +354,85 @@ exports.getAllBatches = async (req, res) => {
         }
       })
       .populate({
-        path: 'problemId',
-        select: 'title description coeId researchArea',
-        populate: { path: 'coeId', select: 'name' }
-      })
-      .populate({
         path: 'optedProblemId',
         select: 'title description researchArea coeId',
         populate: { path: 'coeId', select: 'name' }
       })
       .populate('coeId', 'name')
-      .select('+coe +rc +domain'); // Ensure COE, RC, Domain are included
+      .populate('guideId', 'name email')
+      .select('+coe +rc +domain')
+      .lean(); // Use lean() for better performance
 
-    // Get team members for each batch
-    batches = await Promise.all(
-      batches.map(async (batch) => {
-        try {
-          const batchObj = batch.toObject();
+    // Bulk fetch all related data
+    const batchIds = batches.map(b => b._id);
+    const guideIds = new Set();
+    batches.forEach(b => {
+      if (b.guideId && b.guideId._id) guideIds.add(b.guideId._id);
+    });
 
-          // Handle RC lookup from batch.rc.rcId
-          if (batchObj.rc && batchObj.rc.rcId) {
-            try {
-              const rc = await RC.findById(batchObj.rc.rcId).select('name');
-              if (rc) {
-                batchObj.rcId = rc;
-              }
-            } catch (err) {
-              console.warn('Failed to fetch RC for batch', batch._id, err.message);
-            }
-          } else if (batchObj.rc && batchObj.rc.name && batchObj.rc.name !== '--') {
-            // Try to find RC by name if not found by ID
-            try {
-              const rc = await RC.findOne({
-                name: { $regex: `^${batchObj.rc.name}$`, $options: 'i' }
-              }).select('name _id');
-              if (rc) {
-                batchObj.rcId = rc;
-                // Update batch RC data if it's missing the ID
-                if (!batchObj.rc.rcId) {
-                  batchObj.rc.rcId = rc._id;
-                }
-              }
-            } catch (err) {
-              console.warn('Failed to find RC by name:', batchObj.rc.name);
-            }
-          }
+    // Fetch all students and team members in bulk
+    const allStudents = await Student.find({ batchId: { $in: batchIds } }).select('batchId name rollNumber branch').lean();
+    const allTeamMembers = await TeamMember.find({ batchId: { $in: batchIds } }).select('batchId name rollNo branch').lean();
 
-          // Ensure problemId.coeId is properly set
-          if (batchObj.problemId && batchObj.problemId.coeId) {
-            console.log('✅ Found COE in problemId:', batchObj.problemId.coeId);
-          } else if (batchObj.coeId) {
-            console.log('✅ Found COE in batch.coeId:', batchObj.coeId);
-          } else {
-            console.log('⚠️ No COE found for batch:', batchObj.teamName);
-          }
+    // Create maps for quick lookup
+    const studentsByBatchId = {};
+    const teamMembersByBatchId = {};
+    
+    allStudents.forEach(s => {
+      if (!studentsByBatchId[s.batchId]) studentsByBatchId[s.batchId] = [];
+      studentsByBatchId[s.batchId].push(s);
+    });
 
-          // Get team members from BOTH Student and TeamMember collections to handle different import histories
-          let students = [];
-          let teamMembersList = [];
+    allTeamMembers.forEach(tm => {
+      if (!teamMembersByBatchId[tm.batchId]) teamMembersByBatchId[tm.batchId] = [];
+      teamMembersByBatchId[tm.batchId].push(tm);
+    });
 
-          try {
-            students = await require('../models/Student').find({ batchId: batch._id }).select('name rollNumber branch');
-          } catch (err) {
-            console.warn('Failed to fetch students for batch', batch._id, err.message);
-          }
-
-          try {
-            teamMembersList = await require('../models/TeamMember').find({ batchId: batch._id }).select('name rollNo branch');
-          } catch (err) {
-            console.warn('Failed to fetch team members for batch', batch._id, err.message);
-          }
-
-          // Merge and deduplicate by roll number
-          const combinedMembers = new Map();
-
-          students.forEach(s => {
-            if (s.rollNumber) combinedMembers.set(s.rollNumber.toLowerCase(), {
-              _id: s._id,
-              name: s.name,
-              rollNo: s.rollNumber,
-              branch: s.branch
-            });
-          });
-
-          teamMembersList.forEach(tm => {
-            if (tm.rollNo && !combinedMembers.has(tm.rollNo.toLowerCase())) {
-              combinedMembers.set(tm.rollNo.toLowerCase(), {
-                _id: tm._id,
-                name: tm.name,
-                rollNo: tm.rollNo,
-                branch: tm.branch
-              });
-            }
-          });
-
-          batchObj.teamMembers = Array.from(combinedMembers.values());
-
-          // Populate guide info
-          if (batch.guideId) {
-            try {
-              const guide = await require('../models/Guide').findById(batch.guideId).select('name email');
-              batchObj.guideId = guide;
-            } catch (err) {
-              console.warn('Failed to fetch guide for batch', batch._id, err.message);
-            }
-          }
-
-          return batchObj;
-        } catch (err) {
-          console.error('Error processing batch', batch._id, ':', err.message);
-          // Return batch with minimal data instead of failing completely
-          const batchObj = batch.toObject();
-          batchObj.teamMembers = [];
-          return batchObj;
+    // Process batches with bulk-fetched data
+    batches = batches.map(batch => {
+      try {
+        // Handle RC lookup
+        if (batch.rc && batch.rc.rcId) {
+          // RC ID already available, no additional lookup needed
+        } else if (batch.rc && batch.rc.name && batch.rc.name !== '--') {
+          // RC name is available
+          console.log('ℹ️  RC name:', batch.rc.name);
         }
-      })
-    );
+
+        // Merge team members from both sources
+        const students = studentsByBatchId[batch._id] || [];
+        const teamMembers = teamMembersByBatchId[batch._id] || [];
+        
+        const combinedMembers = new Map();
+        
+        students.forEach(s => {
+          if (s.rollNumber) combinedMembers.set(s.rollNumber.toLowerCase(), {
+            _id: s._id,
+            name: s.name,
+            rollNo: s.rollNumber,
+            branch: s.branch
+          });
+        });
+
+        teamMembers.forEach(tm => {
+          if (tm.rollNo && !combinedMembers.has(tm.rollNo.toLowerCase())) {
+            combinedMembers.set(tm.rollNo.toLowerCase(), {
+              _id: tm._id,
+              name: tm.name,
+              rollNo: tm.rollNo,
+              branch: tm.branch
+            });
+          }
+        });
+
+        batch.teamMembers = Array.from(combinedMembers.values());
+        return batch;
+      } catch (err) {
+        console.error('Error processing batch', batch._id, ':', err.message);
+        batch.teamMembers = [];
+        return batch;
+      }
+    });
 
     console.log('📡 getAllBatches returning:', batches.length, 'batches');
     if (batches.length > 0) {

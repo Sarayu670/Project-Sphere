@@ -32,6 +32,14 @@ function TeamMembers({ batchId, leader, batchYear }) {
 
   if (loading) return <div>Loading team members...</div>;
 
+  // Normalize roll numbers for comparison
+  const leaderRollNo = leader?.rollNumber?.toLowerCase().trim();
+  const otherMembers = members.filter(m => {
+    const memberRollNo = m.rollNo?.toLowerCase().trim();
+    // Exclude if roll number matches leader (case-insensitive)
+    return memberRollNo !== leaderRollNo && m._id !== leader?._id;
+  });
+
   return (
     <div>
       <div className="flex-between" style={{ marginBottom: '20px' }}>
@@ -55,7 +63,7 @@ function TeamMembers({ batchId, leader, batchYear }) {
               <p style={{ color: '#718096', fontSize: '14px' }}>Branch: {leader.branch}</p>
             </div>
           )}
-          {members.filter(m => m.rollNo !== leader?.rollNumber && m._id !== leader?._id).map((member) => (
+          {otherMembers.map((member) => (
             <div key={member._id} className="card" style={{ position: 'relative' }}>
               <div style={{ fontSize: '40px', marginBottom: '12px' }}>👤</div>
               <h3 style={{ color: '#2d3748', marginBottom: '8px' }}>{member.name}</h3>

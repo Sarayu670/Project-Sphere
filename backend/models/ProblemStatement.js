@@ -13,10 +13,12 @@ const ProblemStatementSchema = new mongoose.Schema({
   },
   description: {
     type: String,
+    required: [true, 'Description is required'],
     trim: true
   },
   researchArea: {
     type: String,
+    required: [true, 'Research Area is required'],
     trim: true,
     index: true
   },

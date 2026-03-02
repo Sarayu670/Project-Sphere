@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import * as api from '../services/api';
 import GuideSearch from './admin/GuideSearch';
@@ -10,6 +11,7 @@ const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 const HomePage = () => {
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const [guides, setGuides] = useState([]);
   const [problems, setProblems] = useState([]);
   const [batches, setBatches] = useState([]);
@@ -24,6 +26,32 @@ const HomePage = () => {
   const [searchType, setSearchType] = useState('guides'); // 'guides' or 'problems'
   const [isSearching, setIsSearching] = useState(false);
   const [activeSection, setActiveSection] = useState('all'); // 'all', 'achievements', 'projects'
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowDropdown(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
+  const getRoleColor = () => {
+    switch (user?.role) {
+      case 'admin': return '#e53e3e';
+      case 'guide': return '#38a169';
+      case 'student': return '#3182ce';
+      default: return '#667eea';
+    }
+  };
 
   useEffect(() => {
     fetchInitialData();
@@ -149,9 +177,36 @@ const HomePage = () => {
               </button>
             </div>
             <div className="auth-buttons">
-              <button className="btn btn-primary" onClick={() => navigate('/register')}>
-                Get Started
-              </button>
+              {user ? (
+                <div className="profile-container" ref={dropdownRef}>
+                  <div
+                    className="profile-avatar"
+                    onClick={() => setShowDropdown(!showDropdown)}
+                    style={{ backgroundColor: getRoleColor() }}
+                  >
+                    {user?.name?.charAt(0).toUpperCase() || 'U'}
+                  </div>
+                  {showDropdown && (
+                    <div className="profile-dropdown">
+                      <div className="dropdown-user-info">
+                        <span className="dropdown-name">{user?.name}</span>
+                        <span className="dropdown-role">{user?.role?.toUpperCase()}</span>
+                      </div>
+                      <div className="dropdown-divider"></div>
+                      <button onClick={() => { setShowDropdown(false); navigate('/'); }} className="dropdown-item">
+                        Dashboard
+                      </button>
+                      <button onClick={handleLogout} className="dropdown-item logout-item">
+                        Logout
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <button className="btn btn-primary" onClick={() => navigate('/register')}>
+                  Get Started
+                </button>
+              )}
             </div>
           </div>
         </div>

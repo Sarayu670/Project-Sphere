@@ -12,8 +12,8 @@ const {
 } = require('../controllers/problemController');
 const { protect, authorize } = require('../middleware/auth');
 
-router.get('/', protect, getAllProblems);
-router.get('/search', protect, searchProblems);
+router.get('/', getAllProblems);
+router.get('/search', searchProblems);
 router.get('/my-problems', protect, authorize('guide'), getMyProblems);
 router.get('/coe/:coeId', protect, getProblemsByCOE);
 router.get('/:id', protect, getProblem);

@@ -80,15 +80,13 @@ function TimelineManagement() {
       }
 
       setEvents(eventsData);
-      // Don't fetch batches upfront - fetch only when event is selected
-      setBatches([]);
-      setSubmissions([]);
-      setLoading(false);
+      // Removed clearing of batches/submissions to avoid flickering during auto-poll
+      if (loading) setLoading(false);
     } catch (error) {
       console.error("Fetch error:", error.message);
-      setLoading(false);
+      if (loading) setLoading(false);
     }
-  }, []);
+  }, [loading]);
 
   // Fetch batches lazily - only when event is selected
   const fetchBatchesForEvent = useCallback(async () => {
@@ -107,19 +105,19 @@ function TimelineManagement() {
   const fetchSubmissionsForEvent = useCallback(async (eventId, page = 1) => {
     try {
       if (!eventId) return;
-      
+
       if (page === 1) {
-        setIsLoadingMoreSubmissions(true);
+        if (submissions.length === 0) setIsLoadingMoreSubmissions(true);
       } else {
         setIsLoadingMoreSubmissions(true);
       }
 
-      const submissionsRes = await api.getAllSubmissions({ 
-        eventId, 
+      const submissionsRes = await api.getAllSubmissions({
+        eventId,
         page,
-        limit: 50 
+        limit: 50
       });
-      
+
       const newSubmissions = submissionsRes.data?.data || submissionsRes.data || [];
       const pagination = submissionsRes.data?.pagination || {
         current: page,
@@ -148,14 +146,11 @@ function TimelineManagement() {
     fetchEvents();
   }, [fetchEvents]);
 
-  // Fetch submissions when event is selected
   useEffect(() => {
     if (selectedEvent?._id) {
-      setSubmissionPage(1);
-      setSubmissions([]);
-      // Fetch both batches and submissions for the selected event
       const load = async () => {
-        // If batches haven't been fetched yet, fetch them
+        // If batches haven't been fetched yet, fetch them once for the dashboard session
+        // or if explicitly empty
         if (batches.length === 0) {
           await fetchBatchesForEvent();
         }
@@ -164,7 +159,7 @@ function TimelineManagement() {
       };
       load();
     }
-  }, [selectedEvent, fetchSubmissionsForEvent, fetchBatchesForEvent, batches]);
+  }, [selectedEvent?._id, fetchSubmissionsForEvent, fetchBatchesForEvent]); // Removed 'batches' from deps
 
   // Poll every 60s for new events/batches only (not submissions) - reduced from 25s
   usePolling(fetchEvents, 60000);
@@ -645,7 +640,6 @@ function TimelineManagement() {
                   <th style={{ width: "120px", maxWidth: "120px", overflow: "hidden", textOverflow: "ellipsis" }}>Guide's Feedback</th>
                   <th style={{ width: "120px", maxWidth: "120px", overflow: "hidden", textOverflow: "ellipsis" }}>Remarks</th>
                   <th style={{ width: "60px" }}>File</th>
-                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -840,9 +834,20 @@ function TimelineManagement() {
                                 </small>
                               </div>
                             ) : (
-                              <span style={{ color: "#999", fontSize: "12px" }}>
-                                No remarks
-                              </span>
+                              <button
+                                className="btn btn-secondary"
+                                style={{
+                                  fontSize: "11px",
+                                  padding: "5px 10px",
+                                  width: "100%"
+                                }}
+                                onClick={() => {
+                                  setSelectedSubmissionForRemark(sub);
+                                  setShowRemarkModal(true);
+                                }}
+                              >
+                                + Add Remark
+                              </button>
                             )}
                           </div>
                         </td>
@@ -876,26 +881,6 @@ function TimelineManagement() {
                             <span style={{ color: '#999', fontSize: '12px' }}>-</span>
                           )}
                         </td>
-                        <td>
-                          <div
-                            style={{
-                              display: "flex",
-                              gap: "5px",
-                              alignItems: "center",
-                            }}
-                          >
-                            <button
-                              className="btn btn-info btn-sm"
-                              onClick={() => {
-                                setSelectedSubmissionForRemark(sub);
-                                setShowRemarkModal(true);
-                              }}
-                              title="Add Admin Remark"
-                            >
-                              💬 Remark
-                            </button>
-                          </div>
-                        </td>
                       </tr>
                     );
                   })}
@@ -904,466 +889,497 @@ function TimelineManagement() {
           </div>
 
           {/* Pagination Controls */}
-          {submissionPagination.pages > 1 && (
-            <div style={{ 
-              marginTop: "20px", 
-              display: "flex", 
-              justifyContent: "space-between", 
-              alignItems: "center",
-              flexWrap: "wrap",
-              gap: "10px"
-            }}>
-              <div style={{ fontSize: "14px", color: "#666" }}>
-                Showing {submissions.length} of {submissionPagination.total} submissions
-                {submissionPagination.pages > 1 && ` | Page ${submissionPagination.current} of ${submissionPagination.pages}`}
+          {
+            submissionPagination.pages > 1 && (
+              <div style={{
+                marginTop: "20px",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                flexWrap: "wrap",
+                gap: "10px"
+              }}>
+                <div style={{ fontSize: "14px", color: "#666" }}>
+                  Showing {submissions.length} of {submissionPagination.total} submissions
+                  {submissionPagination.pages > 1 && ` | Page ${submissionPagination.current} of ${submissionPagination.pages}`}
+                </div>
+                {submissionPagination.current < submissionPagination.pages && (
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => fetchSubmissionsForEvent(selectedEvent._id, submissionPage + 1)}
+                    disabled={isLoadingMoreSubmissions}
+                  >
+                    {isLoadingMoreSubmissions ? "⏳ Loading..." : `📥 Load More (${submissionPagination.limit} submissions)`}
+                  </button>
+                )}
               </div>
-              {submissionPagination.current < submissionPagination.pages && (
-                <button
-                  className="btn btn-primary"
-                  onClick={() => fetchSubmissionsForEvent(selectedEvent._id, submissionPage + 1)}
-                  disabled={isLoadingMoreSubmissions}
-                >
-                  {isLoadingMoreSubmissions ? "⏳ Loading..." : `📥 Load More (${submissionPagination.limit} submissions)`}
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-      )}
+            )
+          }
+        </div >
+      )
+      }
 
-      {!selectedEvent && events.length === 0 ? (
-        <div className="card empty-state">
-          <h3>❌ No Timeline Events</h3>
-          <p>Create timeline events for Abstract Review, PRC-1, PRC-2, etc.</p>
-        </div>
-      ) : !selectedEvent ? (
-        <div className="timeline-container">
-          {events.map((event, idx) => (
+      {
+        !selectedEvent && events.length === 0 ? (
+          <div className="card empty-state">
+            <h3>❌ No Timeline Events</h3>
+            <p>Create timeline events for Abstract Review, PRC-1, PRC-2, etc.</p>
+          </div>
+        ) : !selectedEvent ? (
+          <div className="timeline-container">
+            {events.map((event, idx) => (
+              <div
+                key={event._id}
+                className="card timeline-event"
+                style={{ borderLeft: "4px solid #667eea", marginBottom: "15px" }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "start",
+                  }}
+                >
+                  <div>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "flex-start",
+                        gap: "18px",
+                        marginBottom: "12px",
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <span
+                        style={{
+                          background: "#667eea",
+                          color: "white",
+                          borderRadius: "50%",
+                          width: "36px",
+                          height: "36px",
+                          minWidth: "36px",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontWeight: "bold",
+                          fontSize: "16px",
+                          flexShrink: 0,
+                        }}
+                      >
+                        {idx + 1}
+                      </span>
+                      <div style={{ flex: 1, minWidth: '350px' }}>
+                        <h3 style={{ margin: '0 0 4px 0', wordBreak: 'break-word', lineHeight: '1.4', fontSize: '17px', fontWeight: '700' }}>{event.title}</h3>
+                        <div className="title-badges" style={{ marginBottom: '4px' }}>
+                          {getStatusBadge(event.deadline)}
+                        </div>
+                        <p style={{ color: "#666", margin: "0", lineHeight: '1.5', fontSize: '13px' }}>
+                          {event.description}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: "5px", flexShrink: 0 }}>
+                    <button
+                      className="btn btn-primary btn-sm"
+                      onClick={() => setSelectedEvent(event)}
+                    >
+                      👥 View Teams
+                    </button>
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => handleEdit(event)}
+                    >
+                      ✏️
+                    </button>
+                    <button
+                      className="btn btn-danger btn-sm"
+                      onClick={() => handleDelete(event._id)}
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                </div>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                    gap: "12px",
+                    marginTop: "12px",
+                    padding: "12px",
+                    background: "#f8fafc",
+                    borderRadius: "8px",
+                    lineHeight: '1.5',
+                  }}
+                >
+                  <div>
+                    <strong style={{ fontSize: '13px', display: 'block', marginBottom: '3px' }}>📅 Deadline:</strong>
+                    <span style={{ fontSize: '13px', lineHeight: '1.5', color: '#4a5568' }}>
+                      {new Date(event.deadline).toLocaleDateString("en-IN", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </span>
+                  </div>
+                  <div>
+                    <strong style={{ fontSize: '13px', display: 'block', marginBottom: '3px' }}>🎯 Max Marks:</strong>
+                    <span style={{ fontSize: '13px', lineHeight: '1.5', color: '#4a5568' }}>{event.maxMarks}</span>
+                  </div>
+                  <div>
+                    <strong style={{ fontSize: '13px', display: 'block', marginBottom: '3px' }}>📋 Requirements:</strong>
+                    <span style={{ fontSize: "12px", color: "#4a5568", lineHeight: '1.5' }}>
+                      {event.submissionRequirements || "Not specified"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : null
+      }
+
+      {/* Expanded Guide Feedback Modal */}
+      {
+        expandedFeedbackSubmission && (
+          <div
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: "rgba(0,0,0,0.6)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 1001,
+            }}
+            onClick={() => setExpandedFeedbackSubmission(null)}
+          >
             <div
-              key={event._id}
-              className="card timeline-event"
-              style={{ borderLeft: "4px solid #667eea", marginBottom: "15px" }}
+              className="card"
+              style={{
+                width: "90%",
+                maxWidth: "600px",
+                maxHeight: "80vh",
+                overflow: "auto",
+              }}
+              onClick={(e) => e.stopPropagation()}
             >
               <div
                 style={{
                   display: "flex",
                   justifyContent: "space-between",
-                  alignItems: "start",
+                  alignItems: "center",
+                  marginBottom: "20px",
                 }}
               >
-                <div>
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "flex-start",
-                      gap: "18px",
-                      marginBottom: "12px",
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    <span
-                      style={{
-                        background: "#667eea",
-                        color: "white",
-                        borderRadius: "50%",
-                        width: "36px",
-                        height: "36px",
-                        minWidth: "36px",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontWeight: "bold",
-                        fontSize: "16px",
-                        flexShrink: 0,
-                      }}
-                    >
-                      {idx + 1}
-                    </span>
-                    <div style={{ flex: 1, minWidth: '350px' }}>
-                      <h3 style={{ margin: '0 0 4px 0', wordBreak: 'break-word', lineHeight: '1.4', fontSize: '17px', fontWeight: '700' }}>{event.title}</h3>
-                      <div className="title-badges" style={{ marginBottom: '4px' }}>
-                        {getStatusBadge(event.deadline)}
-                      </div>
-                      <p style={{ color: "#666", margin: "0", lineHeight: '1.5', fontSize: '13px' }}>
-                        {event.description}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <div style={{ display: "flex", gap: "5px", flexShrink: 0 }}>
-                  <button
-                    className="btn btn-primary btn-sm"
-                    onClick={() => setSelectedEvent(event)}
-                  >
-                    👥 View Teams
-                  </button>
-                  <button
-                    className="btn btn-secondary btn-sm"
-                    onClick={() => handleEdit(event)}
-                  >
-                    ✏️
-                  </button>
-                  <button
-                    className="btn btn-danger btn-sm"
-                    onClick={() => handleDelete(event._id)}
-                  >
-                    🗑️
-                  </button>
-                </div>
+                <h3>💬 Guide's Feedback</h3>
+                <button
+                  style={{
+                    background: "none",
+                    border: "none",
+                    fontSize: "24px",
+                    cursor: "pointer",
+                    color: "#999",
+                  }}
+                  onClick={() => setExpandedFeedbackSubmission(null)}
+                >
+                  ×
+                </button>
               </div>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                  gap: "12px",
-                  marginTop: "12px",
-                  padding: "12px",
-                  background: "#f8fafc",
-                  borderRadius: "8px",
-                  lineHeight: '1.5',
-                }}
-              >
-                <div>
-                  <strong style={{ fontSize: '13px', display: 'block', marginBottom: '3px' }}>📅 Deadline:</strong>
-                  <span style={{ fontSize: '13px', lineHeight: '1.5', color: '#4a5568' }}>
-                    {new Date(event.deadline).toLocaleDateString("en-IN", {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    })}
-                  </span>
-                </div>
-                <div>
-                  <strong style={{ fontSize: '13px', display: 'block', marginBottom: '3px' }}>🎯 Max Marks:</strong>
-                  <span style={{ fontSize: '13px', lineHeight: '1.5', color: '#4a5568' }}>{event.maxMarks}</span>
-                </div>
-                <div>
-                  <strong style={{ fontSize: '13px', display: 'block', marginBottom: '3px' }}>📋 Requirements:</strong>
-                  <span style={{ fontSize: "12px", color: "#4a5568", lineHeight: '1.5' }}>
-                    {event.submissionRequirements || "Not specified"}
-                  </span>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : null}
+              {(() => {
+                const submission = submissions.find(
+                  (s) => s._id === expandedFeedbackSubmission
+                );
+                if (!submission?.comments?.length) return null;
 
-      {/* Expanded Guide Feedback Modal */}
-      {expandedFeedbackSubmission && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: "rgba(0,0,0,0.6)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1001,
-          }}
-          onClick={() => setExpandedFeedbackSubmission(null)}
-        >
-          <div
-            className="card"
-            style={{
-              width: "90%",
-              maxWidth: "600px",
-              maxHeight: "80vh",
-              overflow: "auto",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: "20px",
-              }}
-            >
-              <h3>💬 Guide's Feedback</h3>
+                return (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                    {submission.comments.map((c, idx) => (
+                      <div
+                        key={idx}
+                        style={{
+                          background: "#e8f4f8",
+                          padding: "12px",
+                          borderRadius: "8px",
+                          borderLeft: "3px solid #0ea5e9",
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            marginBottom: "8px",
+                          }}
+                        >
+                          <strong style={{ color: "#0c4a6e" }}>
+                            👨‍🏫 {c.guideId?.name || "Guide"}
+                          </strong>
+                          <small style={{ color: "#64748b" }}>
+                            {new Date(c.createdAt).toLocaleDateString("en-IN", {
+                              weekday: "short",
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                            })}
+                          </small>
+                        </div>
+                        <p
+                          style={{
+                            margin: 0,
+                            color: "#0c4a6e",
+                            fontSize: "14px",
+                            lineHeight: "1.6",
+                            whiteSpace: "pre-wrap",
+                            wordWrap: "break-word",
+                          }}
+                        >
+                          {c.comment}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
               <button
-                style={{
-                  background: "none",
-                  border: "none",
-                  fontSize: "24px",
-                  cursor: "pointer",
-                  color: "#999",
-                }}
+                className="btn btn-secondary"
                 onClick={() => setExpandedFeedbackSubmission(null)}
+                style={{ width: "100%", marginTop: "20px" }}
               >
-                ×
+                Close
               </button>
             </div>
-            {(() => {
-              const submission = submissions.find(
-                (s) => s._id === expandedFeedbackSubmission
-              );
-              if (!submission?.comments?.length) return null;
-
-              return (
-                <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                  {submission.comments.map((c, idx) => (
-                    <div
-                      key={idx}
-                      style={{
-                        background: "#e8f4f8",
-                        padding: "12px",
-                        borderRadius: "8px",
-                        borderLeft: "3px solid #0ea5e9",
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          marginBottom: "8px",
-                        }}
-                      >
-                        <strong style={{ color: "#0c4a6e" }}>
-                          👨‍🏫 {c.guideId?.name || "Guide"}
-                        </strong>
-                        <small style={{ color: "#64748b" }}>
-                          {new Date(c.createdAt).toLocaleDateString("en-IN", {
-                            weekday: "short",
-                            year: "numeric",
-                            month: "short",
-                            day: "numeric",
-                          })}
-                        </small>
-                      </div>
-                      <p
-                        style={{
-                          margin: 0,
-                          color: "#0c4a6e",
-                          fontSize: "14px",
-                          lineHeight: "1.6",
-                          whiteSpace: "pre-wrap",
-                          wordWrap: "break-word",
-                        }}
-                      >
-                        {c.comment}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              );
-            })()}
-            <button
-              className="btn btn-secondary"
-              onClick={() => setExpandedFeedbackSubmission(null)}
-              style={{ width: "100%", marginTop: "20px" }}
-            >
-              Close
-            </button>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* Expanded Remark Modal */}
-      {expandedRemarkSubmission && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: "rgba(0,0,0,0.6)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1001,
-          }}
-        >
+      {
+        expandedRemarkSubmission && (
           <div
-            className="card"
             style={{
-              width: "90%",
-              maxWidth: "600px",
-              maxHeight: "80vh",
-              overflow: "auto",
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: "rgba(0,0,0,0.6)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 1001,
             }}
           >
             <div
+              className="card"
               style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: "20px",
+                width: "90%",
+                maxWidth: "600px",
+                maxHeight: "80vh",
+                overflow: "auto",
               }}
             >
-              <h3>📝 Full Feedback</h3>
-              <button
+              <div
                 style={{
-                  background: "none",
-                  border: "none",
-                  fontSize: "24px",
-                  cursor: "pointer",
-                  color: "#999",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: "20px",
                 }}
-                onClick={() => setExpandedRemarkSubmission(null)}
               >
-                ×
-              </button>
-            </div>
-            {(() => {
-              const submission = submissions.find(
-                (s) => s._id === expandedRemarkSubmission
-              );
-              const latestRemark =
-                submission?.adminRemarks?.length > 0
-                  ? submission.adminRemarks[submission.adminRemarks.length - 1]
-                  : null;
-              if (!latestRemark) return null;
+                <h3>📝 Full Feedback</h3>
+                <button
+                  style={{
+                    background: "none",
+                    border: "none",
+                    fontSize: "24px",
+                    cursor: "pointer",
+                    color: "#999",
+                  }}
+                  onClick={() => setExpandedRemarkSubmission(null)}
+                >
+                  ×
+                </button>
+              </div>
+              {(() => {
+                const submission = submissions.find(
+                  (s) => s._id === expandedRemarkSubmission
+                );
+                const remarks = submission?.adminRemarks || [];
 
-              return (
-                <div>
-                  <div
-                    style={{
-                      background: "#f8f9fa",
-                      padding: "15px",
-                      borderRadius: "8px",
-                      marginBottom: "15px",
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontSize: "12px",
-                        color: "#667eea",
-                        fontWeight: "bold",
-                        marginBottom: "8px",
-                      }}
-                    >
-                      📅{" "}
-                      {new Date(latestRemark.createdAt).toLocaleDateString(
-                        "en-IN",
-                        {
-                          weekday: "long",
-                          year: "numeric",
-                          month: "long",
-                          day: "numeric",
-                        }
-                      )}
-                    </div>
-                    <p
-                      style={{
-                        color: "#2d3748",
-                        fontSize: "14px",
-                        lineHeight: "1.6",
-                        whiteSpace: "pre-wrap",
-                        wordWrap: "break-word",
-                      }}
-                    >
-                      {latestRemark.remark}
-                    </p>
+                return (
+                  <div style={{ maxHeight: "400px", overflowY: "auto", marginBottom: "20px", paddingRight: "5px" }}>
+                    {remarks.length > 0 ? (
+                      remarks.map((r, idx) => (
+                        <div
+                          key={idx}
+                          style={{
+                            background: "#f8f9fa",
+                            padding: "15px",
+                            borderRadius: "8px",
+                            marginBottom: "12px",
+                            borderLeft: "4px solid #667eea",
+                          }}
+                        >
+                          <div
+                            style={{
+                              fontSize: "12px",
+                              color: "#667eea",
+                              fontWeight: "bold",
+                              marginBottom: "8px",
+                              display: "flex",
+                              justifyContent: "space-between"
+                            }}
+                          >
+                            <span>📅 {new Date(r.createdAt).toLocaleDateString("en-IN", {
+                              weekday: "short",
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                            })}</span>
+                            {r.adminId?.name && <span>👤 {r.adminId.name}</span>}
+                          </div>
+                          <p
+                            style={{
+                              color: "#2d3748",
+                              fontSize: "14px",
+                              lineHeight: "1.6",
+                              whiteSpace: "pre-wrap",
+                              wordWrap: "break-word",
+                              margin: 0
+                            }}
+                          >
+                            {r.remark}
+                          </p>
+                        </div>
+                      ))
+                    ) : (
+                      <p style={{ textAlign: "center", color: "#999", padding: "20px" }}>No remarks found for this submission.</p>
+                    )}
                   </div>
-                </div>
-              );
-            })()}
-            <button
-              className="btn btn-secondary"
-              onClick={() => setExpandedRemarkSubmission(null)}
-              style={{ width: "100%" }}
-            >
-              Close
-            </button>
+                );
+              })()}
+              <div style={{ display: "flex", gap: "10px" }}>
+                <button
+                  className="btn btn-primary"
+                  onClick={() => {
+                    const sub = submissions.find(s => s._id === expandedRemarkSubmission);
+                    if (sub) {
+                      setSelectedSubmissionForRemark(sub);
+                      setShowRemarkModal(true);
+                      setExpandedRemarkSubmission(null);
+                    }
+                  }}
+                  style={{ flex: 1 }}
+                >
+                  + Add Another Remark
+                </button>
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => setExpandedRemarkSubmission(null)}
+                  style={{ flex: 1 }}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* Admin Remark Modal */}
-      {showRemarkModal && selectedSubmissionForRemark && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: "rgba(0,0,0,0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-          }}
-        >
-          <div className="card" style={{ width: "90%", maxWidth: "500px" }}>
-            <h3>Add Admin Remark</h3>
-            <div
-              style={{
-                marginBottom: "15px",
-                padding: "10px",
-                background: "#f0f0f0",
-                borderRadius: "5px",
-              }}
-            >
-              <strong>Team:</strong>{" "}
-              {
-                batches.find(
-                  (b) =>
-                    b._id ===
-                    (typeof selectedSubmissionForRemark.batchId === "string"
-                      ? selectedSubmissionForRemark.batchId
-                      : selectedSubmissionForRemark.batchId?._id)
-                )?.teamName
-              }
-            </div>
-            <textarea
-              value={remarkText}
-              onChange={(e) => setRemarkText(e.target.value)}
-              placeholder="Enter your remark here..."
-              rows={5}
-              style={{
-                width: "100%",
-                padding: "10px",
-                marginBottom: "15px",
-                borderRadius: "5px",
-                border: "1px solid #ddd",
-              }}
-            />
-            <div style={{ display: "flex", gap: "10px" }}>
-              <button
-                className="btn btn-primary"
-                onClick={async () => {
-                  try {
-                    if (!remarkText.trim()) {
-                      alert("Please enter a remark");
-                      return;
+      {
+        showRemarkModal && selectedSubmissionForRemark && (
+          <div
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: "rgba(0,0,0,0.5)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 1000,
+            }}
+          >
+            <div className="card" style={{ width: "90%", maxWidth: "500px" }}>
+              <h3>Add Admin Remark</h3>
+              <div
+                style={{
+                  marginBottom: "15px",
+                  padding: "10px",
+                  background: "#f0f0f0",
+                  borderRadius: "5px",
+                }}
+              >
+                <strong>Team:</strong>{" "}
+                {
+                  batches.find(
+                    (b) =>
+                      b._id ===
+                      (typeof selectedSubmissionForRemark.batchId === "string"
+                        ? selectedSubmissionForRemark.batchId
+                        : selectedSubmissionForRemark.batchId?._id)
+                  )?.teamName
+                }
+              </div>
+              <textarea
+                value={remarkText}
+                onChange={(e) => setRemarkText(e.target.value)}
+                placeholder="Enter your remark here..."
+                rows={5}
+                style={{
+                  width: "100%",
+                  padding: "10px",
+                  marginBottom: "15px",
+                  borderRadius: "5px",
+                  border: "1px solid #ddd",
+                }}
+              />
+              <div style={{ display: "flex", gap: "10px" }}>
+                <button
+                  className="btn btn-primary"
+                  onClick={async () => {
+                    try {
+                      if (!remarkText.trim()) {
+                        alert("Please enter a remark");
+                        return;
+                      }
+                      await api.addAdminRemark(
+                        selectedSubmissionForRemark._id,
+                        remarkText
+                      );
+                      setRemarkText("");
+                      setShowRemarkModal(false);
+                      setSelectedSubmissionForRemark(null);
+                      fetchEvents();
+                    } catch (error) {
+                      console.error("Error adding remark:", error);
                     }
-                    await api.addAdminRemark(
-                      selectedSubmissionForRemark._id,
-                      remarkText
-                    );
+                  }}
+                >
+                  Save Remark
+                </button>
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => {
                     setRemarkText("");
                     setShowRemarkModal(false);
                     setSelectedSubmissionForRemark(null);
-                    fetchEvents();
-                  } catch (error) {
-                    console.error("Error adding remark:", error);
-                  }
-                }}
-              >
-                Save Remark
-              </button>
-              <button
-                className="btn btn-secondary"
-                onClick={() => {
-                  setRemarkText("");
-                  setShowRemarkModal(false);
-                  setSelectedSubmissionForRemark(null);
-                }}
-              >
-                Cancel
-              </button>
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )
+      }
+    </div >
   );
 
   // Download report as CSV function
@@ -1407,13 +1423,13 @@ function TimelineManagement() {
       const batchId =
         typeof sub.batchId === "string" ? sub.batchId : sub.batchId?._id;
       const batch = batches.find((b) => b._id === batchId);
-      const latestAdminRemark =
+      const adminRemarksText =
         sub.adminRemarks?.length > 0
-          ? sub.adminRemarks[sub.adminRemarks.length - 1].remark
+          ? sub.adminRemarks.map(r => r.remark.replace(/"/g, '""')).join("; ")
           : "N/A";
-      const latestGuideFeedback =
+      const guideFeedbackText =
         sub.comments?.length > 0
-          ? sub.comments[sub.comments.length - 1].comment
+          ? sub.comments.map(c => c.comment.replace(/"/g, '""')).join("; ")
           : "N/A";
       const leaderRollNo = batch?.leaderStudentId?.rollNumber || "N/A";
       const otherMembers =
@@ -1435,8 +1451,8 @@ function TimelineManagement() {
         guide,
         marks:
           sub.marks !== null ? `${sub.marks}/${selectedEvent.maxMarks}` : "N/A",
-        guidesFeedback: `"${latestGuideFeedback.replace(/"/g, '""')}"`,
-        adminRemarks: `"${latestAdminRemark.replace(/"/g, '""')}"`,
+        guidesFeedback: `"${guideFeedbackText}"`,
+        adminRemarks: `"${adminRemarksText}"`,
       };
       const row = ALL_COLUMNS.filter((col) =>
         selectedColumns.includes(col.key)

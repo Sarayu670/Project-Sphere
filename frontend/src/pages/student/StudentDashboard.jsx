@@ -24,6 +24,7 @@ function StudentDashboard() {
   const [summarizing, setSummarizing] = useState(false);
 
   const fetchBatch = useCallback(async () => {
+    if (!batch) setLoading(true);
     try {
       const res = await api.getMyBatch();
       setBatch(res.data.data);
@@ -32,7 +33,7 @@ function StudentDashboard() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [batch]);
 
   useEffect(() => {
     fetchBatch();

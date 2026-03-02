@@ -79,7 +79,7 @@ function GuideDashboard() {
   }, []);
 
   const fetchRequestsData = useCallback(async () => {
-    setLoadingRequests(true);
+    if (!fetchedRequests) setLoadingRequests(true);
     try {
       const res = await api.getOptedTeams();
       setOptedTeams(res.data.data || []);
@@ -90,10 +90,10 @@ function GuideDashboard() {
     } finally {
       setLoadingRequests(false);
     }
-  }, []);
+  }, [fetchedRequests]);
 
   const fetchTeamsData = useCallback(async () => {
-    setLoadingTeams(true);
+    if (!fetchedTeams) setLoadingTeams(true);
     try {
       const [batchesRes, submissionsRes] = await Promise.all([
         api.getMyBatches(),
@@ -108,7 +108,7 @@ function GuideDashboard() {
     } finally {
       setLoadingTeams(false);
     }
-  }, []);
+  }, [fetchedTeams]);
 
   // Initial load based on active tab
   useEffect(() => {
@@ -159,7 +159,7 @@ function GuideDashboard() {
 
   const handleAddProblem = async (e) => {
     e.preventDefault();
-    
+
     // Validate all required fields
     if (!newProblem.coeId || !newProblem.coeId.trim()) {
       showDialog('Validation Error', 'Please select a COE/RC', 'danger');
@@ -181,13 +181,12 @@ function GuideDashboard() {
       showDialog('Validation Error', 'Please enter a Research Area', 'danger');
       return;
     }
-    
+
     try {
       if (editingProblem) {
         await api.updateProblem(editingProblem._id, newProblem);
-        showDialog('Success', 'Problem statement updated successfully!', 'success', () => {
-          fetchProblemsData();
-        }, false, 'OK');
+        fetchProblemsData(); // Refresh immediately
+        showDialog('Success', 'Problem statement updated successfully!', 'success', null, false, 'OK');
       } else {
         await api.createProblem(newProblem);
         fetchProblemsData();
@@ -225,9 +224,8 @@ function GuideDashboard() {
     showDialog('Delete Problem', 'Are you sure you want to delete this problem statement?', 'danger', async () => {
       try {
         await api.deleteProblem(id);
-        showDialog('Success', 'Problem statement deleted successfully!', 'success', () => {
-          fetchProblemsData();
-        }, false, 'OK');
+        fetchProblemsData(); // Refresh immediately
+        showDialog('Success', 'Problem statement deleted successfully!', 'success', null, false, 'OK');
       } catch (error) {
         showDialog('Error', error.response?.data?.message || 'Failed to delete', 'danger');
       }
@@ -237,10 +235,9 @@ function GuideDashboard() {
   const handleAllot = async (batchId, problemId) => {
     try {
       await api.allotProblem(batchId, problemId);
-      showDialog('Success', 'Team allotted successfully!', 'success', () => {
-        fetchRequestsData();
-        fetchTeamsData();
-      }, false, 'OK');
+      fetchRequestsData(); // Refresh immediately
+      fetchTeamsData();    // Refresh immediately
+      showDialog('Success', 'Team allotted successfully!', 'success', null, false, 'OK');
     } catch (error) {
       showDialog('Error', error.response?.data?.message || 'Failed to allot', 'danger');
     }
@@ -250,9 +247,8 @@ function GuideDashboard() {
     showDialog('Reject Request', 'Are you sure you want to reject this request?', 'warning', async () => {
       try {
         await api.rejectProblem(batchId, problemId);
-        showDialog('Success', 'Request rejected successfully!', 'success', () => {
-          fetchRequestsData();
-        }, false, 'OK');
+        fetchRequestsData(); // Refresh immediately
+        showDialog('Success', 'Request rejected successfully!', 'success', null, false, 'OK');
       } catch (error) {
         showDialog('Error', error.response?.data?.message || 'Failed to reject', 'danger');
       }

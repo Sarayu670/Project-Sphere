@@ -12,6 +12,7 @@ function TimelineProgress({ batchId }) {
   const [notification, setNotification] = useState(null);
 
   const fetchTimeline = useCallback(async () => {
+    if (timeline.length === 0) setLoading(true);
     try {
       const res = await api.getTimelineForBatch(batchId);
       const newTimeline = res.data.data;
@@ -27,7 +28,7 @@ function TimelineProgress({ batchId }) {
     } finally {
       setLoading(false);
     }
-  }, [batchId]);
+  }, [batchId, timeline.length]);
 
   useEffect(() => { fetchTimeline(); }, [fetchTimeline]);
 

@@ -3,20 +3,20 @@ import * as api from '../services/api';
 import './COEandRCManagement.css';
 
 function COEandRCManagement() {
-const [activeSubTab, setActiveSubTab] = useState('coe');
-const [coes, setCOEs] = useState([]);
-const [rcs, setRCs] = useState([]);
-const [projects, setProjects] = useState([]);
-const [loading, setLoading] = useState(true);
-const [showModal, setShowModal] = useState(false);
-const [formData, setFormData] = useState({ name: '' });
-const [saving, setSaving] = useState(false);
-const [editingId, setEditingId] = useState(null);
-const [notification, setNotification] = useState(null);
-const [selectedCOEId, setSelectedCOEId] = useState(null);
-const [selectedRCId, setSelectedRCId] = useState(null);
-const [coeDetails, setCOEDetails] = useState(null);
-const [loadingDetails, setLoadingDetails] = useState(false);
+  const [activeSubTab, setActiveSubTab] = useState('coe');
+  const [coes, setCOEs] = useState([]);
+  const [rcs, setRCs] = useState([]);
+  const [projects, setProjects] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [formData, setFormData] = useState({ name: '' });
+  const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [notification, setNotification] = useState(null);
+  const [selectedCOEId, setSelectedCOEId] = useState(null);
+  const [selectedRCId, setSelectedRCId] = useState(null);
+  const [coeDetails, setCOEDetails] = useState(null);
+  const [loadingDetails, setLoadingDetails] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -27,16 +27,16 @@ const [loadingDetails, setLoadingDetails] = useState(false);
         api.getAllRCs(),
         api.getAllBatches()
       ]);
-      
+
       const coesData = coesRes.data.data || [];
       const rcsData = rcsRes.data.data || [];
       const batchesData = batchesRes.data.data || [];
-      
+
       console.log('?? Fetched Data:');
       console.log('COEs:', coesData);
       console.log('RCs:', rcsData);
       console.log('Batches:', batchesData);
-      
+
       setCOEs(coesData);
       setRCs(rcsData);
       // Fetch batches upfront so team counts are accurate immediately
@@ -202,37 +202,31 @@ const [loadingDetails, setLoadingDetails] = useState(false);
       setSaving(false);
     }
   };
-  // Get projects (batches) for COE - match by coeId or populated coeId from problem
+  // Get projects (batches) for COE - match by coeId, embedded coe.coeId, or allotted problem's coeId
   const getProjectsForCOE = (coeObj) => {
     if (!coeObj || !coeObj._id) return [];
-    
+
     const coeId = coeObj._id.toString();
-    
+
     return projects.filter(p => {
-      // Only show in COE tab if it does NOT have an RC assignment
-      const hasRcId = p.rcId && (p.rcId._id || typeof p.rcId === 'string');
-      if (hasRcId) {
-        return false; // Don't show in COE if it has RC
-      }
-      
-      // Match by batch.coeId
-      if (p.coeId && p.coeId._id && p.coeId._id.toString() === coeId) {
+      // 1. Explicitly check batch.coeId (set during allotProblem)
+      const pCoeId = p.coeId?._id || p.coeId;
+      if (pCoeId && pCoeId.toString() === coeId) {
         return true;
       }
-      if (typeof p.coeId === 'string' && p.coeId === coeId) {
+
+      // 2. Check embedded batch.coe.coeId (set during Excel import)
+      const embeddedCoeId = p.coe?.coeId?._id || p.coe?.coeId;
+      if (embeddedCoeId && embeddedCoeId.toString() === coeId) {
         return true;
       }
-      
-      // Match by problem's coeId (if problem is populated)
-      if (p.problemId?.coeId) {
-        if (typeof p.problemId.coeId === 'string' && p.problemId.coeId === coeId) {
-          return true;
-        }
-        if (p.problemId.coeId._id && p.problemId.coeId._id.toString() === coeId) {
-          return true;
-        }
+
+      // 3. Check the allotted problem's COE (works for Others COE and any COE linkage)
+      const probCoeId = p.problemId?.coeId?._id || p.problemId?.coeId;
+      if (probCoeId && probCoeId.toString() === coeId) {
+        return true;
       }
-      
+
       return false;
     });
   };
@@ -245,9 +239,9 @@ const [loadingDetails, setLoadingDetails] = useState(false);
   // Get projects (batches) for RC - match by rcId
   const getProjectsForRC = (rcObj) => {
     if (!rcObj || !rcObj._id) return [];
-    
+
     const rcId = rcObj._id.toString();
-    
+
     return projects.filter(p => {
       // Match by batch.rcId
       if (p.rcId && p.rcId._id && p.rcId._id.toString() === rcId) {
@@ -256,7 +250,7 @@ const [loadingDetails, setLoadingDetails] = useState(false);
       if (typeof p.rcId === 'string' && p.rcId === rcId) {
         return true;
       }
-      
+
       return false;
     });
   };
@@ -271,11 +265,11 @@ const [loadingDetails, setLoadingDetails] = useState(false);
 
       // Check if has coeId (either directly or from problem)
       const hasCoeId = (p.coeId && (typeof p.coeId === 'string' || p.coeId._id)) ||
-                       (p.problemId?.coeId && (typeof p.problemId.coeId === 'string' || p.problemId.coeId._id));
-      
+        (p.problemId?.coeId && (typeof p.problemId.coeId === 'string' || p.problemId.coeId._id));
+
       // Check if has rcId
       const hasRcId = p.rcId && (typeof p.rcId === 'string' || p.rcId._id);
-      
+
       // Only include if NEITHER coeId nor rcId is assigned
       return !hasCoeId && !hasRcId;
     });
@@ -326,6 +320,10 @@ const [loadingDetails, setLoadingDetails] = useState(false);
                     <div className="stat-value" style={{ color: '#FFC000' }}>{counts.batches}</div>
                     <div className="stat-label">Batches</div>
                   </div>
+                  <div className="stat-card">
+                    <div className="stat-value" style={{ color: '#E74C3C' }}>{counts.students}</div>
+                    <div className="stat-label">Students</div>
+                  </div>
                 </div>
 
                 {/* Consolidated Batches Section */}
@@ -344,8 +342,8 @@ const [loadingDetails, setLoadingDetails] = useState(false);
                         </thead>
                         <tbody>
                           {batches.map((batch) => {
-                            const batchStudents = students.filter(s => 
-                              (s.batchId?._id || s.batchId) === batch._id
+                            const batchStudents = students.filter(s =>
+                              (s.batchId?._id || s.batchId)?.toString() === batch._id?.toString()
                             );
                             const rollNumbers = batchStudents.map(s => s.rollNumber).filter(Boolean).join(', ');
 
@@ -363,10 +361,10 @@ const [loadingDetails, setLoadingDetails] = useState(false);
                         </tbody>
                       </table>
                     ) : (
-                      <div style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'center', 
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
                         minHeight: '200px',
                         color: '#999',
                         fontSize: '14px',
@@ -387,7 +385,7 @@ const [loadingDetails, setLoadingDetails] = useState(false);
     // For RC tab - keep original behavior
     let selectedItems = [];
     let title = '';
-    
+
     if (activeSubTab === 'rc' && selectedRCId) {
       const rc = rcs.find(r => r._id === selectedRCId);
       if (rc) {
@@ -421,7 +419,7 @@ const [loadingDetails, setLoadingDetails] = useState(false);
           }
         }
       }
-      
+
       // Fallback for embedded data
       if (project.coe?.name && typeof project.coe.name === 'string') {
         const name = project.coe.name;
@@ -455,14 +453,14 @@ const [loadingDetails, setLoadingDetails] = useState(false);
               </thead>
               <tbody>
                 {selectedItems.map((project) => (
-                   <tr key={project._id}>
-                     <td>{project.teamName || project.batchId || 'N/A'}</td>
-                     <td>{project.problemId?.title || project.optedProblemId?.title || 'N/A'}</td>
-                     <td>{project.guideId?.name || 'N/A'}</td>
-                     <td>{project.researchArea || project.problemId?.researchArea || project.optedProblemId?.researchArea || 'N/A'}</td>
-                     <td className="coe-rc-cell">{getCoeRcValue(project)}</td>
-                   </tr>
-                 ))}
+                  <tr key={project._id}>
+                    <td>{project.teamName || project.batchId || 'N/A'}</td>
+                    <td>{project.problemId?.title || project.optedProblemId?.title || 'N/A'}</td>
+                    <td>{project.guideId?.name || 'N/A'}</td>
+                    <td>{project.researchArea || project.problemId?.researchArea || project.optedProblemId?.researchArea || 'N/A'}</td>
+                    <td className="coe-rc-cell">{getCoeRcValue(project)}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
@@ -505,26 +503,26 @@ const [loadingDetails, setLoadingDetails] = useState(false);
               {coes.map((coe) => {
                 const teamCount = getTeamCountForCOE(coe);
                 return (
-                  <div 
-                    key={coe._id} 
+                  <div
+                    key={coe._id}
                     className="coe-rc-card"
                     onClick={() => handleCOECardClick(coe._id)}
                     style={{ cursor: 'pointer' }}
                   >
                     <div className="card-body">
                       <h4>{coe.name === '--' ? 'Others' : coe.name}</h4>
-                      <div style={{ 
-                        marginTop: '12px', 
-                        fontSize: '32px', 
-                        fontWeight: 'bold', 
+                      <div style={{
+                        marginTop: '12px',
+                        fontSize: '32px',
+                        fontWeight: 'bold',
                         color: '#ffffff',
                         marginBottom: '4px',
                         textShadow: '0 2px 4px rgba(0,0,0,0.2)'
                       }}>
-                        👥 {teamCount}
+                        {teamCount}
                       </div>
-                      <div style={{ 
-                        fontSize: '12px', 
+                      <div style={{
+                        fontSize: '12px',
                         color: '#e0e0e0',
                         marginBottom: '16px'
                       }}>

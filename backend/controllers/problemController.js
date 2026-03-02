@@ -99,7 +99,7 @@ exports.getProblem = async (req, res) => {
 exports.createProblem = async (req, res) => {
   try {
     const { coeId, title, description, targetYear, datasetUrl, researchArea } = req.body;
-    
+
     // Validate required fields
     if (!coeId || !coeId.trim()) {
       return res.status(400).json({ success: false, message: 'COE is required' });
@@ -116,7 +116,7 @@ exports.createProblem = async (req, res) => {
     if (!researchArea || !researchArea.trim()) {
       return res.status(400).json({ success: false, message: 'Research Area is required' });
     }
-    
+
     // Guide creates their own problem - use their ID
     const guideId = req.user.role === 'guide' ? req.user._id : req.body.guideId;
 
@@ -149,12 +149,28 @@ exports.updateProblem = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Not authorized to update this problem statement' });
     }
 
+    const oldCoeId = problem.coeId?.toString();
+    const newCoeId = req.body.coeId;
+
     problem = await ProblemStatement.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
       runValidators: true
     })
       .populate('coeId', 'name')
       .populate('guideId', 'name email');
+
+    // If COE changed, sync it to all batches associated with this problem
+    if (newCoeId && oldCoeId !== newCoeId) {
+      await Batch.updateMany(
+        { problemId: problem._id },
+        { coeId: newCoeId }
+      );
+      // Also update any batches that have this as their optedProblemId
+      await Batch.updateMany(
+        { optedProblemId: problem._id },
+        { coeId: newCoeId }
+      );
+    }
 
     res.status(200).json({ success: true, data: problem });
   } catch (error) {

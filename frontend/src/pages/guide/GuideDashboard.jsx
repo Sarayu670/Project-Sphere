@@ -244,12 +244,18 @@ function GuideDashboard() {
   };
 
   const handleReject = async (batchId, problemId) => {
+    console.log('[Reject] Initiating for batch:', batchId, 'problem:', problemId);
+    if (!problemId) {
+      console.warn('[Reject] No problemId provided to handleReject');
+    }
     showDialog('Reject Request', 'Are you sure you want to reject this request?', 'warning', async () => {
       try {
-        await api.rejectProblem(batchId, problemId);
+        const response = await api.rejectProblem(batchId, problemId);
+        console.log('[Reject] Success:', response.data);
         fetchRequestsData(); // Refresh immediately
         showDialog('Success', 'Request rejected successfully!', 'success', null, false, 'OK');
       } catch (error) {
+        console.error('[Reject] API Error:', error.response?.data || error.message);
         showDialog('Error', error.response?.data?.message || 'Failed to reject', 'danger');
       }
     });

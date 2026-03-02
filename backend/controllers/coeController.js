@@ -64,19 +64,19 @@ exports.deleteCOE = async (req, res) => {
   try {
     const coeId = req.params.id;
     const coe = await COE.findById(coeId);
-    
+
     if (!coe) {
       return res.status(404).json({ success: false, message: 'COE not found' });
     }
 
     // Update Batches to remove reference
     await Batch.updateMany({ coeId: coeId }, { $set: { coeId: null } });
-    
+
     // Update ProblemStatements to remove reference
     await ProblemStatement.updateMany({ coeId: coeId }, { $set: { coeId: null } });
 
     await COE.findByIdAndDelete(coeId);
-    
+
     res.status(200).json({ success: true, data: {} });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -89,33 +89,56 @@ exports.getCOEDetails = async (req, res) => {
   try {
     const coeId = req.params.id;
     const coe = await COE.findById(coeId);
-    
+
     if (!coe) {
       return res.status(404).json({ success: false, message: 'COE not found' });
     }
 
     // Get problem statements for this COE
     const problemStatements = await ProblemStatement.find({ coeId }).populate('guideId', 'name');
-    
-    // Get batches for this COE - check both direct coeId and problemId.coeId
-    const allBatches = await Batch.find()
-      .populate('problemId')
+
+    // Get problem statement IDs for this COE (to find batches linked via allotted problem)
+    const problemStatementIds = problemStatements.map(p => p._id);
+
+    // Fetch batches that belong to this COE via any linkage:
+    // 1. batch.coeId directly points to this COE (set during allotProblem)
+    // 2. batch.coe.coeId embedded subdocument (set during Excel import)
+    // 3. batch.problemId is one of this COE's problem statements (correct for Others COE)
+    const batchQuery = {
+      $or: [
+        { coeId: coeId },
+        { 'coe.coeId': coeId }
+      ]
+    };
+
+    // Only add the problemId filter if there are problem statements (avoids fetching everything)
+    if (problemStatementIds.length > 0) {
+      batchQuery.$or.push({ problemId: { $in: problemStatementIds } });
+    }
+
+    const allBatches = await Batch.find(batchQuery)
+      .populate('problemId', 'title coeId')
       .populate('guideId', 'name')
       .populate('leaderStudentId', 'name rollNumber');
-    
-    const batches = allBatches.filter(b => {
-      if (b.coeId && b.coeId.toString() === coeId) return true;
-      if (b.problemId?.coeId && b.problemId.coeId.toString() === coeId) return true;
-      return false;
+
+    // Deduplicate by batch _id (in case multiple conditions matched same batch)
+    const batchMap = new Map();
+    allBatches.forEach(b => {
+      if (!batchMap.has(b._id.toString())) {
+        batchMap.set(b._id.toString(), b);
+      }
     });
-    
+    const batches = Array.from(batchMap.values());
+
     // Get all students in these batches
     const batchIds = batches.map(b => b._id);
     const students = await Student.find({ batchId: { $in: batchIds } }).select('name rollNumber batchId');
-    
-    // Get unique guides
-    const guideIds = [...new Set(problemStatements.map(p => p.guideId?._id).filter(Boolean))];
-    const guides = await Guide.find({ _id: { $in: guideIds } }).select('name');
+
+    // Get unique guides from both problem statements and batches
+    const guideIdsFromProblems = problemStatements.map(p => p.guideId?._id?.toString()).filter(Boolean);
+    const guideIdsFromBatches = batches.map(b => b.guideId?._id?.toString() || b.guideId?.toString()).filter(Boolean);
+    const uniqueGuideIds = [...new Set([...guideIdsFromProblems, ...guideIdsFromBatches])];
+    const guides = await Guide.find({ _id: { $in: uniqueGuideIds } }).select('name');
 
     res.status(200).json({
       success: true,

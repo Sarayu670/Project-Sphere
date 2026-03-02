@@ -36,20 +36,33 @@ function ConfirmationDialog({ isOpen, title, message, onConfirm, onCancel, confi
   return (
     <div style={{
       position: 'fixed',
-      top: '50%',
-      left: '50%',
-      transform: 'translate(-50%, -50%)',
-      backgroundColor: 'white',
-      borderRadius: '8px',
-      boxShadow: '0 10px 40px rgba(0, 0, 0, 0.3)',
-      minWidth: '350px',
-      maxWidth: '500px',
+      inset: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.4)',
+      backdropFilter: 'blur(3px)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
       zIndex: 10000,
-      padding: '0',
-      overflow: 'hidden',
-      margin: '0',
-      inset: 'auto',
+      padding: '20px',
     }}>
+      <div style={{
+        backgroundColor: 'white',
+        borderRadius: '12px',
+        boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+        minWidth: '320px',
+        maxWidth: '450px',
+        width: '100%',
+        overflow: 'hidden',
+        animation: 'modalScale 0.2s ease-out',
+      }}>
+        <style>
+          {`
+            @keyframes modalScale {
+              from { opacity: 0; transform: scale(0.95) translateY(10px); }
+              to { opacity: 1; transform: scale(1) translateY(0); }
+            }
+          `}
+        </style>
         <div style={{
           backgroundColor: getBackgroundColor(),
           borderBottom: `3px solid ${getBorderColor()}`,
@@ -113,6 +126,7 @@ function ConfirmationDialog({ isOpen, title, message, onConfirm, onCancel, confi
           </button>
         </div>
       </div>
+    </div>
   );
 }
 

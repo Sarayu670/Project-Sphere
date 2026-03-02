@@ -377,7 +377,7 @@ exports.getAllBatches = async (req, res) => {
     // Create maps for quick lookup
     const studentsByBatchId = {};
     const teamMembersByBatchId = {};
-    
+
     allStudents.forEach(s => {
       if (!studentsByBatchId[s.batchId]) studentsByBatchId[s.batchId] = [];
       studentsByBatchId[s.batchId].push(s);
@@ -402,9 +402,9 @@ exports.getAllBatches = async (req, res) => {
         // Merge team members from both sources
         const students = studentsByBatchId[batch._id] || [];
         const teamMembers = teamMembersByBatchId[batch._id] || [];
-        
+
         const combinedMembers = new Map();
-        
+
         students.forEach(s => {
           if (s.rollNumber) combinedMembers.set(s.rollNumber.toLowerCase(), {
             _id: s._id,
@@ -802,7 +802,10 @@ exports.allotProblem = async (req, res) => {
 exports.rejectProblem = async (req, res) => {
   try {
     const { problemId } = req.body;
-    const batch = await Batch.findById(req.params.id);
+    const batchId = req.params.id;
+    console.log(`[RejectProblem] Guide ${req.user._id} rejecting batch ${batchId} for problem ${problemId}`);
+
+    const batch = await Batch.findById(batchId);
     if (!batch) {
       return res.status(404).json({ success: false, message: 'Batch not found' });
     }

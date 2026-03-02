@@ -202,20 +202,26 @@ function COEandRCManagement() {
       setSaving(false);
     }
   };
-  // Get projects (batches) for COE - match by coeId or populated coeId from problem
+  // Get projects (batches) for COE - match by coeId, embedded coe.coeId, or allotted problem's coeId
   const getProjectsForCOE = (coeObj) => {
     if (!coeObj || !coeObj._id) return [];
 
     const coeId = coeObj._id.toString();
 
     return projects.filter(p => {
-      // 1. Explicitly check batch.coeId (now synced from backend)
+      // 1. Explicitly check batch.coeId (set during allotProblem)
       const pCoeId = p.coeId?._id || p.coeId;
       if (pCoeId && pCoeId.toString() === coeId) {
         return true;
       }
 
-      // 2. Fallback check for problem's coeId (redundant but safe)
+      // 2. Check embedded batch.coe.coeId (set during Excel import)
+      const embeddedCoeId = p.coe?.coeId?._id || p.coe?.coeId;
+      if (embeddedCoeId && embeddedCoeId.toString() === coeId) {
+        return true;
+      }
+
+      // 3. Check the allotted problem's COE (works for Others COE and any COE linkage)
       const probCoeId = p.problemId?.coeId?._id || p.problemId?.coeId;
       if (probCoeId && probCoeId.toString() === coeId) {
         return true;
@@ -314,6 +320,10 @@ function COEandRCManagement() {
                     <div className="stat-value" style={{ color: '#FFC000' }}>{counts.batches}</div>
                     <div className="stat-label">Batches</div>
                   </div>
+                  <div className="stat-card">
+                    <div className="stat-value" style={{ color: '#E74C3C' }}>{counts.students}</div>
+                    <div className="stat-label">Students</div>
+                  </div>
                 </div>
 
                 {/* Consolidated Batches Section */}
@@ -333,7 +343,7 @@ function COEandRCManagement() {
                         <tbody>
                           {batches.map((batch) => {
                             const batchStudents = students.filter(s =>
-                              (s.batchId?._id || s.batchId) === batch._id
+                              (s.batchId?._id || s.batchId)?.toString() === batch._id?.toString()
                             );
                             const rollNumbers = batchStudents.map(s => s.rollNumber).filter(Boolean).join(', ');
 

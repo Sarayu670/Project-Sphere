@@ -64,19 +64,19 @@ exports.deleteCOE = async (req, res) => {
   try {
     const coeId = req.params.id;
     const coe = await COE.findById(coeId);
-    
+
     if (!coe) {
       return res.status(404).json({ success: false, message: 'COE not found' });
     }
 
     // Update Batches to remove reference
     await Batch.updateMany({ coeId: coeId }, { $set: { coeId: null } });
-    
+
     // Update ProblemStatements to remove reference
     await ProblemStatement.updateMany({ coeId: coeId }, { $set: { coeId: null } });
 
     await COE.findByIdAndDelete(coeId);
-    
+
     res.status(200).json({ success: true, data: {} });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -89,30 +89,23 @@ exports.getCOEDetails = async (req, res) => {
   try {
     const coeId = req.params.id;
     const coe = await COE.findById(coeId);
-    
+
     if (!coe) {
       return res.status(404).json({ success: false, message: 'COE not found' });
     }
 
     // Get problem statements for this COE
     const problemStatements = await ProblemStatement.find({ coeId }).populate('guideId', 'name');
-    
-    // Get batches for this COE - check both direct coeId and problemId.coeId
-    const allBatches = await Batch.find()
+
+    const batches = await Batch.find({ coeId })
       .populate('problemId')
       .populate('guideId', 'name')
       .populate('leaderStudentId', 'name rollNumber');
-    
-    const batches = allBatches.filter(b => {
-      if (b.coeId && b.coeId.toString() === coeId) return true;
-      if (b.problemId?.coeId && b.problemId.coeId.toString() === coeId) return true;
-      return false;
-    });
-    
+
     // Get all students in these batches
     const batchIds = batches.map(b => b._id);
     const students = await Student.find({ batchId: { $in: batchIds } }).select('name rollNumber batchId');
-    
+
     // Get unique guides
     const guideIds = [...new Set(problemStatements.map(p => p.guideId?._id).filter(Boolean))];
     const guides = await Guide.find({ _id: { $in: guideIds } }).select('name');

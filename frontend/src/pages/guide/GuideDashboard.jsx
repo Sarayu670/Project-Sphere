@@ -159,7 +159,7 @@ function GuideDashboard() {
 
   const handleAddProblem = async (e) => {
     e.preventDefault();
-    
+
     // Validate all required fields
     if (!newProblem.coeId || !newProblem.coeId.trim()) {
       showDialog('Validation Error', 'Please select a COE/RC', 'danger');
@@ -181,7 +181,7 @@ function GuideDashboard() {
       showDialog('Validation Error', 'Please enter a Research Area', 'danger');
       return;
     }
-    
+
     try {
       if (editingProblem) {
         await api.updateProblem(editingProblem._id, newProblem);
@@ -247,13 +247,19 @@ function GuideDashboard() {
   };
 
   const handleReject = async (batchId, problemId) => {
+    console.log('[Reject] Initiating for batch:', batchId, 'problem:', problemId);
+    if (!problemId) {
+      console.warn('[Reject] No problemId provided to handleReject');
+    }
     showDialog('Reject Request', 'Are you sure you want to reject this request?', 'warning', async () => {
       try {
-        await api.rejectProblem(batchId, problemId);
+        const response = await api.rejectProblem(batchId, problemId);
+        console.log('[Reject] Success:', response.data);
         showDialog('Success', 'Request rejected successfully!', 'success', () => {
           fetchRequestsData();
         }, false, 'OK');
       } catch (error) {
+        console.error('[Reject] API Error:', error.response?.data || error.message);
         showDialog('Error', error.response?.data?.message || 'Failed to reject', 'danger');
       }
     });

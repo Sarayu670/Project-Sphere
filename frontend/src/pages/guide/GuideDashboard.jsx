@@ -9,6 +9,7 @@ import GuideTimeline from './GuideTimeline';
 import ExcelImportProblem from './ExcelImportProblem';
 import GuideSearch from '../admin/GuideSearch';
 import ConfirmationDialog from '../../components/ConfirmationDialog';
+import GuideMeetings from './GuideMeetings';
 import './GuideDashboard.css';
 
 function GuideDashboard() {
@@ -343,6 +344,7 @@ function GuideDashboard() {
         </button>
         <button className={`tab ${activeTab === 'teams' ? 'active' : ''}`} onClick={() => handleTabChange('teams')}>👥 My Teams</button>
         <button className={`tab ${activeTab === 'submissions' ? 'active' : ''}`} onClick={() => handleTabChange('submissions')}>📅 Timeline</button>
+        <button className={`tab ${activeTab === 'meetings' ? 'active' : ''}`} onClick={() => handleTabChange('meetings')}>🤝 Meetings</button>
         <button className={`tab ${activeTab === 'guide-search' ? 'active' : ''}`} onClick={() => handleTabChange('guide-search')}>🔍 Search Batches</button>
       </div>
 
@@ -505,6 +507,8 @@ function GuideDashboard() {
       )}
 
       {activeTab === 'submissions' && <GuideTimeline />}
+
+      {activeTab === 'meetings' && <GuideMeetings />}
 
       {activeTab === 'guide-search' && (
         <div className="tab-content"><GuideSearch /></div>

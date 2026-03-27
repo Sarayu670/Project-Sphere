@@ -181,7 +181,8 @@ exports.importBatches = async (req, res) => {
           teamName,
           year,
           branch,
-          section
+          section,
+          allottedAt: new Date()
         });
 
         // 3. Create TeamMembers
@@ -495,7 +496,8 @@ exports.importBatchData = async (req, res) => {
               branch: 'CSE',
               section: 'A',
               status: 'Not Started',
-              allotmentStatus: 'none',
+              allotmentStatus: 'allotted',
+              allottedAt: new Date(),
               researchArea: researchArea && researchArea.trim() ? researchArea.trim() : ''
             };
 

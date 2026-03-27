@@ -123,6 +123,10 @@ const BatchSchema = new mongoose.Schema({
     enum: ['none', 'pending', 'allotted', 'rejected'],
     default: 'none'
   },
+  allottedAt: {
+    type: Date,
+    default: null
+  },
   status: {
     type: String,
     enum: ['Not Started', 'In Progress', 'Completed'],
@@ -134,4 +138,3 @@ const BatchSchema = new mongoose.Schema({
 BatchSchema.index({ teamName: 'text', domain: 'text', 'coe.name': 'text', 'rc.name': 'text' });
 
 module.exports = mongoose.model('Batch', BatchSchema);
-

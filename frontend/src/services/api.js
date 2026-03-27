@@ -61,6 +61,11 @@ export const createProgressUpdate = (data) => axios.post(`${API_URL}/progress`, 
 export const addComment = (progressId, comment) => axios.post(`${API_URL}/progress/${progressId}/comment`, { comment });
 export const getGuideProgressUpdates = () => axios.get(`${API_URL}/progress/guide/all`);
 
+// Meetings
+export const getMeetingPlan = (batchId) => axios.get(`${API_URL}/meetings/${batchId}`);
+export const getAllMeetingPlans = () => axios.get(`${API_URL}/meetings`);
+export const updateMeetingPlan = (batchId, data) => axios.post(`${API_URL}/meetings/${batchId}`, data);
+
 // Admin
 export const getAdminDashboard = () => axios.get(`${API_URL}/admin/dashboard`);
 export const getAdminOverview = () => axios.get(`${API_URL}/admin/overview`);

@@ -108,6 +108,46 @@ export default function GuideMeetings() {
   const today = useMemo(() => startOfDay(now), [now]);
   const allCompleted = useMemo(() => plan?.completed.every(c => c === true) ?? false, [plan]);
 
+  // Check if meeting is within 15-day active window
+  const isMeetingWithinWindow = (meetingIndex) => {
+    if (!plan) return false;
+    const scheduledISO = plan.scheduledDates[meetingIndex];
+    const scheduledDate = parseLocalISODate(scheduledISO);
+    if (!scheduledDate) return false;
+    
+    const endDate = new Date(scheduledDate);
+    endDate.setDate(endDate.getDate() + INTERVAL_DAYS);
+    
+    return today >= startOfDay(scheduledDate) && today <= startOfDay(endDate);
+  };
+
+  // Check if meeting deadline has passed
+  const hasMeetingTimedOut = (meetingIndex) => {
+    if (!plan) return false;
+    const scheduledISO = plan.scheduledDates[meetingIndex];
+    const scheduledDate = parseLocalISODate(scheduledISO);
+    if (!scheduledDate) return false;
+    
+    const endDate = new Date(scheduledDate);
+    endDate.setDate(endDate.getDate() + INTERVAL_DAYS);
+    
+    return today > startOfDay(endDate);
+  };
+
+  // Get days remaining for a meeting
+  const getDaysRemaining = (meetingIndex) => {
+    if (!plan) return 0;
+    const scheduledISO = plan.scheduledDates[meetingIndex];
+    const scheduledDate = parseLocalISODate(scheduledISO);
+    if (!scheduledDate) return 0;
+    
+    const endDate = new Date(scheduledDate);
+    endDate.setDate(endDate.getDate() + INTERVAL_DAYS);
+    
+    const daysLeft = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    return Math.max(0, daysLeft);
+  };
+
   const persistPlan = async (nextPlan) => {
     if (!selectedBatchId) return;
     try {
@@ -124,11 +164,32 @@ export default function GuideMeetings() {
 
   const activeMeetingIndex = useMemo(() => {
     if (!plan || firstIncompleteIndex < 0) return null;
-    return firstIncompleteIndex;
-  }, [plan, firstIncompleteIndex]);
+    
+    // Meeting only becomes active on its scheduled date, not when previous is completed
+    const meetingIndex = firstIncompleteIndex;
+    const scheduledISO = plan.scheduledDates[meetingIndex];
+    const scheduledDate = parseLocalISODate(scheduledISO);
+    
+    if (!scheduledDate) return null;
+    
+    // Only activate if today >= scheduled date (not before)
+    if (today >= startOfDay(scheduledDate)) {
+      return meetingIndex;
+    }
+    
+    // Meeting not yet scheduled/active
+    return null;
+  }, [plan, firstIncompleteIndex, today]);
 
   const handleMarkCompleted = async (idx) => {
     if (!plan || idx !== activeMeetingIndex || plan.completed[idx]) return;
+    
+    // Check if meeting is within 15-day window
+    if (!isMeetingWithinWindow(idx)) {
+      alert(`❌ Meeting ${idx + 1} is no longer within its active window. The 15-day deadline has passed.`);
+      return;
+    }
+    
     const nextCompleted = [...plan.completed];
     nextCompleted[idx] = true;
     const nextCompletedDates = [...(plan.completedDates || Array(MEETING_COUNT).fill(null))];
@@ -139,7 +200,7 @@ export default function GuideMeetings() {
   };
 
   const openReschedule = (idx) => {
-    if (!plan || idx !== activeMeetingIndex || plan.completed[idx]) return;
+    if (!plan || plan.completed[idx]) return;
     setRescheduleDraftISO(plan.scheduledDates[idx]);
     setRescheduleOpen(true);
   };
@@ -150,7 +211,15 @@ export default function GuideMeetings() {
   };
 
   const handleSaveReschedule = async (idx) => {
-    if (!plan || idx !== activeMeetingIndex || !isValidISODate(rescheduleDraftISO)) return;
+    if (!plan || idx !== firstIncompleteIndex || !isValidISODate(rescheduleDraftISO)) return;
+    
+    // Validate: only allow rescheduling from today onwards
+    const newDate = parseLocalISODate(rescheduleDraftISO);
+    if (newDate && newDate < today) {
+      alert('❌ Cannot schedule a meeting for a past date. Please select today or a future date.');
+      return;
+    }
+    
     const nextScheduled = [...plan.scheduledDates];
     nextScheduled[idx] = rescheduleDraftISO;
     for (let j = idx + 1; j < MEETING_COUNT; j++) {
@@ -273,6 +342,8 @@ export default function GuideMeetings() {
 
               const statusBadgeStyle = isCompleted
                 ? { background: '#d4edda', color: '#155724', border: '1px solid #c3e6cb' }
+                : hasMeetingTimedOut(idx)
+                ? { background: '#f8d7da', color: '#721c24', border: '1px solid #f5c6cb' }
                 : isActive
                 ? { background: '#dbedfe', color: '#1e3a8a', border: '1px solid #bfdbfe' }
                 : { background: '#f1f5f9', color: '#334155', border: '1px solid #e2e8f0' };
@@ -288,6 +359,8 @@ export default function GuideMeetings() {
                     <div style={{ fontWeight: '800', color: '#111827' }}>Meeting {idx + 1}</div>
                     <div style={{ color: '#6b7280', fontSize: '12px' }}>
                       {isCompleted && completedLabel ? `Completed on ${completedLabel}` :
+                       hasMeetingTimedOut(idx) ? '⏰ Deadline passed - Cannot mark as complete' :
+                       isMeetingWithinWindow(idx) ? `Active window: ${getDaysRemaining(idx)} days remaining` :
                        isActive ? (scheduledDate && scheduledDate.getTime() > today.getTime() ? 'Upcoming actionable meeting' : 'Current active meeting') : 
                        'Locked until previous meetings are completed'}
                     </div>
@@ -297,17 +370,35 @@ export default function GuideMeetings() {
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '5px 10px', borderRadius: '999px', width: 'fit-content', ...statusBadgeStyle }}>
-                      <span>{isCompleted ? '✅' : isActive ? '🔵' : '🔒'}</span>
+                      <span>{isCompleted ? '✅' : hasMeetingTimedOut(idx) ? '⏰' : isActive ? '🔵' : '🔒'}</span>
                       <span style={{ fontWeight: 700, fontSize: '13px' }}>
-                        {isCompleted ? 'Completed' : isActive ? 'Active' : 'Locked'}
+                        {isCompleted ? 'Completed' : hasMeetingTimedOut(idx) ? 'Timed Out' : isActive ? 'Active' : 'Locked'}
                       </span>
                     </div>
 
                     {!isCompleted && isActive && (
                       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                        <button className="btn btn-primary" style={{ fontSize: '13px', padding: '6px 12px' }} onClick={() => handleMarkCompleted(idx)}>✔ Mark Completed</button>
-                        <button className="btn btn-secondary" style={{ fontSize: '13px', padding: '6px 12px' }} onClick={() => openReschedule(idx)}>🗓️ Reschedule</button>
+                        <button 
+                          className="btn btn-primary" 
+                          style={{ fontSize: '13px', padding: '6px 12px', opacity: hasMeetingTimedOut(idx) ? 0.5 : 1, cursor: hasMeetingTimedOut(idx) ? 'not-allowed' : 'pointer' }} 
+                          onClick={() => handleMarkCompleted(idx)}
+                          disabled={hasMeetingTimedOut(idx)}
+                          title={hasMeetingTimedOut(idx) ? 'Deadline passed - cannot mark as complete' : ''}
+                        >
+                          ✔ Mark Completed
+                        </button>
                       </div>
+                    )}
+
+                    {!isCompleted && idx === firstIncompleteIndex && (
+                      <button 
+                        className="btn btn-secondary" 
+                        style={{ fontSize: '13px', padding: '6px 12px', width: 'fit-content' }} 
+                        onClick={() => openReschedule(idx)}
+                        title="Reschedule this meeting to an earlier date"
+                      >
+                        🗓️ Reschedule
+                      </button>
                     )}
 
                     {isCompleted && (
@@ -317,14 +408,22 @@ export default function GuideMeetings() {
                     )}
                   </div>
 
-                  {rescheduleOpen && isActive && !isCompleted && (
+                  {rescheduleOpen && idx === firstIncompleteIndex && !isCompleted && (
                     <div style={{ gridColumn: '1 / -1', marginTop: '5px', padding: '12px', borderRadius: '10px', background: '#f8fafc', border: '1px solid #e2e8f0' }}>
                       <div style={{ fontWeight: '800', color: '#0f172a', marginBottom: '8px' }}>Reschedule Meeting {idx + 1}</div>
                       <div style={{ display: 'flex', gap: '12px', alignItems: 'end', flexWrap: 'wrap' }}>
                         <div className="form-group">
-                          <label style={{ display: 'block', marginBottom: '6px' }}>New scheduled date</label>
-                          <input type="date" value={rescheduleDraftISO} onChange={e => setRescheduleDraftISO(e.target.value)}
-                            style={{ padding: '10px 12px', borderRadius: '6px', border: '1px solid #cbd5e0' }} />
+                          <label style={{ display: 'block', marginBottom: '6px' }}>New scheduled date (from today onwards)</label>
+                          <input 
+                            type="date" 
+                            value={rescheduleDraftISO} 
+                            onChange={e => setRescheduleDraftISO(e.target.value)}
+                            min={getLocalISODate(today)}
+                            style={{ padding: '10px 12px', borderRadius: '6px', border: '1px solid #cbd5e0' }} 
+                          />
+                          <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>
+                            ℹ️ You can only schedule from today or future dates
+                          </div>
                         </div>
                         <button className="btn btn-primary" onClick={() => handleSaveReschedule(idx)} disabled={!isValidISODate(rescheduleDraftISO)}>Save & Lock Future Dates</button>
                         <button className="btn btn-secondary" onClick={handleCancelReschedule}>Cancel</button>

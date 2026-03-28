@@ -217,11 +217,11 @@ function AdminDashboard() {
                   <tr>
                     <th>Team Name</th>
                     <th>Team Members</th>
-                    <th style={{ width: "120px" }}>COE/RC</th>
-                    <th style={{ width: "120px" }}>Research Area</th>
+                    <th>COE/RC</th>
+                    <th>Research Area</th>
                     <th>Guide</th>
                     <th>Problem</th>
-                    <th>Actions</th>
+                    <th style={{ width: "120px" }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -237,10 +237,10 @@ function AdminDashboard() {
                           ))}
                         </div>
                       </td>
-
                       <td>{batch.problemId?.coeId?.name || batch.coeId?.name || batch.coe?.name || 'Not Assigned'}</td>
                       <td>{batch.problemId?.researchArea || batch.researchArea || 'Not Assigned'}</td>
                       <td>{batch.guideId?.name || 'Not Assigned'}</td>
+                      <td>{batch.problemId?.title || 'Not Assigned'}</td>
                       <td>
                         <button className="btn btn-primary btn-sm" onClick={() => handleSelectBatch(batch)}>View Details</button>
                       </td>

@@ -4,10 +4,31 @@ import * as api from '../../services/api';
 const MEETING_COUNT = 6;
 const INTERVAL_DAYS = 15;
 
+function pad2(n) {
+  return String(n).padStart(2, '0');
+}
+
+function getLocalISODate(date) {
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+}
+
 function parseLocalISODate(isoDate) {
   const [y, m, d] = (isoDate || '').split('-').map(Number);
   if (!y || !m || !d) return null;
   return new Date(y, m - 1, d);
+}
+
+function isValidISODate(iso) {
+  if (typeof iso !== 'string') return false;
+  return /^\d{4}-\d{2}-\d{2}$/.test(iso) && !!parseLocalISODate(iso);
+}
+
+function addDaysToLocalISODate(isoDate, days) {
+  const parsed = parseLocalISODate(isoDate);
+  if (!parsed) return null;
+  const next = new Date(parsed);
+  next.setDate(next.getDate() + days);
+  return getLocalISODate(next);
 }
 
 function startOfDay(date) {
@@ -22,18 +43,10 @@ function formatDate(iso) {
   return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-function addDaysToLocalISODate(isoDate, days) {
-  const parsed = parseLocalISODate(isoDate);
-  if (!parsed) return null;
-  const next = new Date(parsed);
-  next.setDate(next.getDate() + days);
-  return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-${String(next.getDate()).padStart(2, '0')}`;
-}
-
 export default function StudentMeetings({ batchId }) {
-  const [plan, setPlan] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [now] = useState(() => new Date());
+const [plan, setPlan] = useState(null);
+const [loading, setLoading] = useState(true);
+const [now] = useState(() => new Date());
 
   useEffect(() => {
     if (!batchId) {
@@ -41,17 +54,28 @@ export default function StudentMeetings({ batchId }) {
       setLoading(false);
       return;
     }
+
     const fetchPlan = async () => {
       try {
         const res = await api.getMeetingPlan(batchId);
         setPlan(res.data.data);
       } catch (error) {
+        console.error('Error fetching meeting plan:', error);
         setPlan(null);
       } finally {
         setLoading(false);
       }
     };
+
+    // Initial fetch
     fetchPlan();
+
+    // Poll every 30 seconds to auto-reflect guide's changes
+    const pollInterval = setInterval(() => {
+      fetchPlan();
+    }, 30000);
+
+    return () => clearInterval(pollInterval);
   }, [batchId]);
 
   const today = useMemo(() => startOfDay(now), [now]);
@@ -175,6 +199,19 @@ export default function StudentMeetings({ batchId }) {
           );
         })}
       </div>
+
+      <style>{`
+        @keyframes slideUp {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+      `}</style>
     </div>
   );
 }

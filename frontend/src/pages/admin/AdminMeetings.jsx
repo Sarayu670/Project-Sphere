@@ -25,16 +25,15 @@ function formatDate(iso) {
 }
 
 export default function AdminMeetings() {
-  const [batches, setBatches] = useState([]);
-  const [plans, setPlans] = useState([]);
-  const [selectedBatchId, setSelectedBatchId] = useState('');
-  const [viewMode, setViewMode] = useState('overview'); // 'overview' or 'batch'
-  const [loading, setLoading] = useState(true);
+const [batches, setBatches] = useState([]);
+const [plans, setPlans] = useState([]);
+const [selectedMeetingIndex, setSelectedMeetingIndex] = useState(null);
+const [loading, setLoading] = useState(true);
   
-  // Filters
-  const [filterYear, setFilterYear] = useState('All');
-  const [filterBranch, setFilterBranch] = useState('All');
-  const [filterSection, setFilterSection] = useState('All');
+// Filters
+const [filterYear, setFilterYear] = useState('All');
+const [filterBranch, setFilterBranch] = useState('All');
+const [filterSection, setFilterSection] = useState('All');
 
   // Load data
   useEffect(() => {
@@ -81,15 +80,22 @@ export default function AdminMeetings() {
     });
   }, [filteredBatches, plans]);
 
-  const currentBatchPlan = useMemo(() => {
-    if (viewMode !== 'batch' || !selectedBatchId) return null;
-    return plans.find(p => p.batchId.toString() === selectedBatchId.toString());
-  }, [viewMode, selectedBatchId, plans]);
-
-  const handleBatchSelect = (batchId) => {
-    setSelectedBatchId(batchId);
-    setViewMode('batch');
-  };
+  const batchesForSelectedMeeting = useMemo(() => {
+    if (selectedMeetingIndex === null) return [];
+    
+    const batchIds = new Set(filteredBatches.map(b => b._id.toString()));
+    return plans
+      .filter(p => batchIds.has(p.batchId.toString()))
+      .map(plan => {
+        const batch = batches.find(b => b._id.toString() === plan.batchId.toString());
+        return {
+          batch,
+          plan,
+          completed: plan.completed[selectedMeetingIndex] === true,
+          remark: plan.remarks?.[selectedMeetingIndex] || ''
+        };
+      });
+  }, [selectedMeetingIndex, filteredBatches, plans, batches]);
 
   const clearFilters = () => {
     setFilterYear('All');
@@ -98,46 +104,38 @@ export default function AdminMeetings() {
   };
 
   const generateStatusForm = () => {
-    if (!currentBatchPlan) return;
+    if (selectedMeetingIndex === null) return;
     const doc = new jsPDF();
-    const batch = batches.find(b => b._id.toString() === selectedBatchId.toString());
-    const batchName = batch?.teamName || selectedBatchId;
-    const guideName = batch?.guideId?.name || 'N/A';
 
     doc.setFontSize(18);
     doc.setTextColor(33, 33, 33);
-    doc.text("Guide Meetings Status Form", 14, 22);
+    doc.text(`Meeting ${selectedMeetingIndex + 1} - Completion Report`, 14, 22);
     doc.setFontSize(12);
     doc.setTextColor(100, 100, 100);
     doc.text(`Generated on: ${new Date().toLocaleDateString('en-IN')}`, 14, 32);
-    doc.text(`Guide Name: ${guideName}`, 14, 40);
-    doc.text(`Batch: ${batchName}`, 14, 48);
 
-    const tableData = currentBatchPlan.scheduledDates.map((iso, i) => {
-      const d = parseLocalISODate(iso);
+    const tableData = batchesForSelectedMeeting.map((item, idx) => {
       return [
-        i + 1,
-        currentBatchPlan.remarks[i] || 'No remark',
-        d ? d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : iso
+        idx + 1,
+        item.batch?.teamName || 'Unknown',
+        `${item.batch?.year} ${item.batch?.branch}-${item.batch?.section}`,
+        item.batch?.guideId?.name || 'N/A',
+        item.completed ? 'Completed' : 'Pending',
+        item.remark || '-'
       ];
     });
 
     doc.autoTable({
-      startY: 56,
-      head: [['S.No', 'Remark', 'Date']],
+      startY: 40,
+      head: [['S.No', 'Team Name', 'Year/Branch/Section', 'Guide', 'Status', 'Remark']],
       body: tableData,
       theme: 'grid',
       headStyles: { fillColor: [30, 58, 138] },
-      styles: { fontSize: 11, cellPadding: 5 },
-      columnStyles: { 0: { cellWidth: 20, halign: 'center' }, 2: { cellWidth: 40, halign: 'center' } }
+      styles: { fontSize: 10, cellPadding: 4 },
+      columnStyles: { 0: { cellWidth: 15, halign: 'center' } }
     });
 
-    const finalY = doc.lastAutoTable.finalY || 60;
-    doc.setFontSize(12);
-    doc.setTextColor(33, 33, 33);
-    doc.text("Guide Signature", 14, finalY + 30);
-    doc.line(14, finalY + 45, 60, finalY + 45);
-    doc.save(`Status_Form_${batchName.replace(/\s+/g, '_')}.pdf`);
+    doc.save(`Meeting_${selectedMeetingIndex + 1}_Report.pdf`);
   };
 
   if (loading) {
@@ -146,20 +144,14 @@ export default function AdminMeetings() {
 
   return (
     <div className="tab-content">
-      <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+      <div className="section-header" style={{ marginBottom: '20px' }}>
         <div>
           <h2 style={{ margin: 0 }}>Meetings Overview</h2>
-          <p style={{ color: '#666', fontSize: '14px', margin: '4px 0 0' }}>Track meeting completion status across all teams.</p>
+          <p style={{ color: '#666', fontSize: '14px', margin: '4px 0 0' }}>Click on a meeting to view all teams and their completion status.</p>
         </div>
-        <button 
-          className={`btn ${viewMode === 'overview' ? 'btn-secondary' : 'btn-primary'}`}
-          onClick={() => setViewMode(viewMode === 'overview' ? 'batch' : 'overview')}
-        >
-          {viewMode === 'overview' ? '🔍 View Specific Batch' : '🔙 Back to Overview'}
-        </button>
       </div>
 
-      {viewMode === 'overview' ? (
+      {selectedMeetingIndex === null ? (
         <>
           {/* Filters */}
           <div className="card" style={{ marginBottom: '20px', padding: '15px' }}>
@@ -194,10 +186,23 @@ export default function AdminMeetings() {
           {/* Progress List */}
           <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
             {stats.map((stat, i) => (
-              <div key={i} style={{ 
-                padding: '20px', border: '1px solid #e2e8f0', borderRadius: '12px', 
-                background: '#fff', display: 'flex', alignItems: 'center', gap: '20px'
-              }}>
+              <div 
+                key={i} 
+                onClick={() => setSelectedMeetingIndex(i)}
+                style={{ 
+                  padding: '20px', border: '1px solid #e2e8f0', borderRadius: '12px', 
+                  background: '#fff', display: 'flex', alignItems: 'center', gap: '20px',
+                  cursor: 'pointer', transition: 'all 0.2s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.boxShadow = 'none';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }}
+              >
                 <div style={{ 
                   width: '40px', height: '40px', borderRadius: '50%', background: '#3b82f6', 
                   color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', 
@@ -225,81 +230,105 @@ export default function AdminMeetings() {
         </>
       ) : (
         <div style={{ marginTop: '0' }}>
-          <div className="card" style={{ marginBottom: '15px', padding: '15px', background: '#f8fafc' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <label style={{ fontWeight: 600, color: '#444' }}>Select Batch to View Details:</label>
-              <select
-                value={selectedBatchId}
-                onChange={e => setSelectedBatchId(e.target.value)}
-                style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e0', fontSize: '14px', minWidth: '300px' }}
-              >
-                <option value="">-- Choose a Batch --</option>
-                {batches.map(b => (
-                  <option key={b._id} value={b._id}>
-                    {b.teamName} ({b.year} {b.branch}-{b.section} | {b.guideId?.name || 'No Guide'})
-                  </option>
-                ))}
-              </select>
+          <button 
+            className="btn btn-secondary" 
+            onClick={() => setSelectedMeetingIndex(null)} 
+            style={{ marginBottom: '20px' }}
+          >
+            ← Back to Overview
+          </button>
+
+          <h2>Meeting {selectedMeetingIndex + 1} - Teams Status</h2>
+
+          {/* Filters for Meeting Details */}
+          <div className="card" style={{ marginBottom: '20px', maxWidth: '100%' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr) auto', gap: '20px', alignItems: 'end' }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label>Year</label>
+                <select value={filterYear} onChange={(e) => setFilterYear(e.target.value)}>
+                  {years.map(y => <option key={y} value={y}>{y === 'All' ? 'All Years' : y}</option>)}
+                </select>
+              </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label>Branch</label>
+                <select value={filterBranch} onChange={(e) => setFilterBranch(e.target.value)}>
+                  {branches.map(b => <option key={b} value={b}>{b === 'All' ? 'All Branches' : b}</option>)}
+                </select>
+              </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label>Section</label>
+                <select value={filterSection} onChange={(e) => setFilterSection(e.target.value)}>
+                  {sections.map(s => <option key={s} value={s}>{s === 'All' ? 'All Sections' : s}</option>)}
+                </select>
+              </div>
+              <button className="btn btn-secondary" onClick={clearFilters}>
+                Clear Filters
+              </button>
             </div>
           </div>
 
-          {!currentBatchPlan ? (
+          {batchesForSelectedMeeting.length === 0 ? (
             <div className="card empty-state">
-              <div style={{ fontSize: '48px', marginBottom: '15px' }}>📅</div>
-              <h3>No Meeting Plan Found</h3>
-              <p>Please select a batch or wait for the guide to initialize the plan.</p>
+              <h3>No Teams Found</h3>
+              <p>No teams match the selected filters</p>
             </div>
           ) : (
-            <div className="card animated fadeIn">
-               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', paddingBottom: '10px', borderBottom: '1px solid #edf2f7' }}>
-                <h3 style={{ margin: 0 }}>Details for {batches.find(b => b._id.toString() === selectedBatchId.toString())?.teamName}</h3>
+            <div className="table-container">
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '15px' }}>
                 <button 
                   className="btn btn-primary"
                   onClick={generateStatusForm}
-                  disabled={!currentBatchPlan.completed.every(c => c)}
-                  style={{ opacity: currentBatchPlan.completed.every(c => c) ? 1 : 0.5 }}
                 >
-                  📄 Download Status Form
+                  📄 Download Report
                 </button>
               </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 180px 200px', gap: '10px', fontWeight: 'bold', color: '#64748b', padding: '0 12px 10px', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                <div>Meeting</div>
-                <div>Scheduled Date</div>
-                <div>Status</div>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {Array.from({ length: MEETING_COUNT }, (_, idx) => {
-                  const isCompleted = currentBatchPlan.completed[idx] === true;
-                  const statusLabel = isCompleted ? 'Completed' : 'Pending';
-                  
-                  return (
-                    <div key={idx} style={{ 
-                      display: 'grid', gridTemplateColumns: '1fr 180px 200px', gap: '10px', 
-                      alignItems: 'center', padding: '15px', borderRadius: '10px', border: '1px solid #e2e8f0',
-                      background: isCompleted ? '#f0fdf4' : '#fff'
-                    }}>
-                      <div style={{ fontWeight: 'bold' }}>Meeting {idx + 1}</div>
-                      <div style={{ fontSize: '14px', color: '#4a5568' }}>{formatDate(currentBatchPlan.scheduledDates[idx])}</div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span style={{ 
-                          padding: '4px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 'bold',
-                          background: isCompleted ? '#def7ec' : '#f3f4f6',
-                          color: isCompleted ? '#03543f' : '#4b5563'
-                        }}>
-                          {isCompleted ? '✅' : '⚪'} {statusLabel}
-                        </span>
-                      </div>
-                      {currentBatchPlan.remarks?.[idx] && (
-                        <div style={{ gridColumn: '1/-1', marginTop: '8px', fontSize: '13px', color: '#718096', padding: '8px', background: '#f8fafc', borderRadius: '6px', border: '1px solid #edf2f7' }}>
-                          <strong>Remark:</strong> {currentBatchPlan.remarks[idx]}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Team Name</th>
+                    <th>Team Members</th>
+                    <th style={{ width: "150px" }}>Guide</th>
+                    <th style={{ width: "150px" }}>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {batchesForSelectedMeeting.map((item, idx) => {
+                    const isCompleted = item.completed;
+                    const statusLabel = isCompleted ? 'COMPLETED' : 'NOT COMPLETED';
+                    const statusColor = isCompleted ? '#10b981' : '#ef4444';
+                    const statusBg = isCompleted ? '#d1fae5' : '#fee2e2';
+                    
+                    return (
+                      <tr key={idx}>
+                        <td><strong>{item.batch?.teamName || 'Unknown'}</strong></td>
+                        <td>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            {item.batch?.teamMembers && item.batch.teamMembers.map((member, memberIdx) => (
+                              <div key={memberIdx} style={{ fontSize: '12px', color: '#4a5568' }}>
+                                • {member.rollNo || member.name}
+                              </div>
+                            ))}
+                          </div>
+                        </td>
+                        <td>{item.batch?.guideId?.name || 'Not Assigned'}</td>
+                        <td>
+                          <span style={{ 
+                            padding: '6px 12px', 
+                            borderRadius: '4px', 
+                            fontSize: '12px', 
+                            fontWeight: 'bold',
+                            background: statusBg,
+                            color: statusColor,
+                            display: 'inline-block'
+                          }}>
+                            {isCompleted ? '✓' : '✕'} {statusLabel}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
         </div>

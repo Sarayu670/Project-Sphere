@@ -112,10 +112,8 @@ exports.login = async (req, res) => {
 
     // Search only in the specified role's collection
     if (role === 'student') {
-      // For students, check both email and rollNumber
-      user = await Student.findOne({
-        $or: [{ email: email }, { rollNumber: email }]
-      }).select('+password');
+      // For students, check only email
+      user = await Student.findOne({ email }).select('+password');
       userRole = 'student';
     } else if (role === 'guide') {
       user = await Guide.findOne({ email }).select('+password');
@@ -180,9 +178,7 @@ exports.resetPassword = async (req, res) => {
     let user;
 
     if (role === 'student') {
-      user = await Student.findOne({
-        $or: [{ email: email }, { rollNumber: email }]
-      });
+      user = await Student.findOne({ email });
     } else if (role === 'guide') {
       user = await Guide.findOne({ email });
     } else if (role === 'admin') {

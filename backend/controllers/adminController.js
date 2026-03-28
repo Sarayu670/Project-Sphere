@@ -143,7 +143,7 @@ exports.importBatches = async (req, res) => {
 
           if (!student) {
             // Generate a default email if not provided
-            const email = `${member.rollNo.toLowerCase()}@gmail.com`;
+            const email = `${member.rollNo.toLowerCase()}@gnits.ac.in`;
 
             student = await Student.create({
               name: member.name,
@@ -155,7 +155,8 @@ exports.importBatches = async (req, res) => {
               section
             });
           } else {
-            // Update password for existing student to match import default
+            // Update email and password for existing student to match import default
+            student.email = `${member.rollNo.toLowerCase()}@gnits.ac.in`;
             student.password = password;
             // Also update other info to be safe
             student.year = year;
@@ -453,14 +454,19 @@ exports.importBatchData = async (req, res) => {
               // Create new student with all required fields
               student = await Student.create({
                 name: studentName,
-                email: `${rollNumber}@student.gnits.ac.in`,
+                email: `${rollNumber.toLowerCase()}@gnits.ac.in`,
                 rollNumber: rollNumber,
-                password: rollNumber, // Use roll number as default password
+                password: `${projId}@123`, // Use teamNo@123 as default password
                 year: '2nd',
                 branch: 'CSE',
                 section: 'A',
                 role: 'student'
               });
+            } else {
+              // Update existing student with the correct email and password pattern
+              student.email = `${rollNumber.toLowerCase()}@gnits.ac.in`;
+              student.password = `${projId}@123`;
+              await student.save();
             }
 
             studentIds.push(student._id);

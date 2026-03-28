@@ -1,0 +1,1 @@
+{"_id":"699d0b61aa149235e4e167fe","name":"Sai Sri Aishwarya Venkatesh","email":"24251a05v4","rollNumber":"24251A05V4","year":"2nd","branch":"CSE","section":"A","batchId":"699d0b64aa149235e4e16807","role":"student","createdAt":"2026-02-24T02:22:25.962Z","updatedAt":"2026-03-28T10:38:13.358Z","__v":0}

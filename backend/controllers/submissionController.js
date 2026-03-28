@@ -95,13 +95,16 @@ exports.createOrUpdateSubmission = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Google Drive link is required' });
     }
 
-    // Verify batch exists and student is leader
+    // Verify batch exists and student is member of the batch
     const batch = await Batch.findById(batchId).populate('guideId').populate('problemId');
     if (!batch) {
       return res.status(404).json({ success: false, message: 'Batch not found' });
     }
-    if (batch.leaderStudentId.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ success: false, message: 'Only team leader can submit' });
+
+    // Check if current student belongs to this batch
+    const student = await require('../models/Student').findById(req.user._id);
+    if (!student || !student.batchId || student.batchId.toString() !== batchId.toString()) {
+      return res.status(403).json({ success: false, message: 'You are not a member of this batch' });
     }
 
     // Check if event exists
@@ -288,7 +291,7 @@ exports.assignMarks = async (req, res) => {
 
 // @desc    Get all submissions (Admin)
 // @route   GET /api/submissions
-// Query params: page (default 1), limit (default 50), eventId (optional), batchId (optional)
+// Query params: page (default 1), limit (default 50), eventId (optional), batchId (optional), status (optional - default 'accepted')
 exports.getAllSubmissions = async (req, res) => {
   try {
     console.log('📡 Getting submissions...');
@@ -297,6 +300,7 @@ exports.getAllSubmissions = async (req, res) => {
     const limit = parseInt(req.query.limit) || 50;
     const eventId = req.query.eventId;
     const batchId = req.query.batchId;
+    const status = req.query.status || 'accepted'; // Default to showing only accepted submissions
     
     const skip = (page - 1) * limit;
 
@@ -304,6 +308,8 @@ exports.getAllSubmissions = async (req, res) => {
     const filter = {};
     if (eventId) filter.timelineEventId = eventId;
     if (batchId) filter.batchId = batchId;
+    // Only show accepted submissions by default in admin timeline view
+    filter.status = status;
 
     const submissions = await Submission.find(filter)
       .populate('batchId', 'teamName year branch section leaderStudentId guideId problemId coeId researchArea')
@@ -319,7 +325,7 @@ exports.getAllSubmissions = async (req, res) => {
     // Get total count for pagination
     const total = await Submission.countDocuments(filter);
 
-    console.log(`✅ Found ${submissions.length} submissions for page ${page}`);
+    console.log(`✅ Found ${submissions.length} submissions for page ${page} with status: ${status}`);
 
     res.status(200).json({ 
       success: true, 

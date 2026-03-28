@@ -459,7 +459,8 @@ exports.getAllBatches = async (req, res) => {
 // @route   GET /api/batches/my-batch
 exports.getMyBatch = async (req, res) => {
   try {
-    const batch = await Batch.findOne({ leaderStudentId: req.user._id })
+    // First try to find by leaderStudentId (for backward compatibility)
+    let batch = await Batch.findOne({ leaderStudentId: req.user._id })
       .populate('leaderStudentId', 'name email rollNumber branch')
       .populate({
         path: 'problemId',
@@ -479,6 +480,29 @@ exports.getMyBatch = async (req, res) => {
       .populate('coeId', 'name')
       .populate('guideId', 'name email');
 
+    // If not found as leader, check if student is part of any batch via batchId
+    if (!batch) {
+      batch = await Batch.findOne({ _id: { $in: await require('../models/Student').distinct('batchId', { _id: req.user._id }) } })
+        .populate('leaderStudentId', 'name email rollNumber branch')
+        .populate({
+          path: 'problemId',
+          select: 'title description coeId datasetUrl researchArea',
+          populate: { path: 'coeId', select: 'name' }
+        })
+        .populate({
+          path: 'optedProblemId',
+          select: 'title description coeId researchArea',
+          populate: { path: 'coeId', select: 'name' }
+        })
+        .populate({
+          path: 'optedProblems.problemId',
+          select: 'title description coeId researchArea'
+        })
+        .populate('optedProblems.coeId', 'name')
+        .populate('coeId', 'name')
+        .populate('guideId', 'name email');
+    }
+
     if (!batch) {
       return res.status(404).json({ success: false, message: 'No batch found', data: null });
     }
@@ -489,6 +513,7 @@ exports.getMyBatch = async (req, res) => {
       _id: s._id,
       name: s.name,
       rollNo: s.rollNumber,
+      email: s.email,
       branch: s.branch
     }));
 
@@ -1036,7 +1061,8 @@ exports.importStudentBatches = async (req, res) => {
 
         for (let idx = 0; idx < students.length; idx++) {
           const { rollNumber, name } = students[idx];
-          const email = rollNumber.toLowerCase();
+          // Generate proper email format: rno@gnits.ac.in
+          const email = `${rollNumber.toLowerCase()}@gnits.ac.in`;
 
           try {
             // Use upsert with proper error handling for duplicates
@@ -1044,7 +1070,7 @@ exports.importStudentBatches = async (req, res) => {
             const existingStudent = await Student.findOne({ rollNumber });
 
             if (existingStudent) {
-              // Update existing student
+              // Update existing student - keep password but update email with proper domain
               student = await Student.findOneAndUpdate(
                 { rollNumber },
                 {
@@ -1056,9 +1082,9 @@ exports.importStudentBatches = async (req, res) => {
                 },
                 { new: true, runValidators: false }
               );
-              console.log(`[BatchImport] Updated existing student: ${rollNumber}`);
+              console.log(`[BatchImport] Updated existing student: ${rollNumber} with email ${email}`);
             } else {
-              // Create new student
+              // Create new student with proper email format
               student = new Student({
                 name,
                 email,
@@ -1069,9 +1095,10 @@ exports.importStudentBatches = async (req, res) => {
                 section: 'A'
               });
               await student.save();
-              console.log(`[BatchImport] Created new student: ${rollNumber} with password: ${password}`);
+              console.log(`[BatchImport] Created new student: ${rollNumber} (${email}) with password: ${password}`);
               results.createdStudents.push({
                 rollNumber,
+                email,
                 name,
                 password
               });

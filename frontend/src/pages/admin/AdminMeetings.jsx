@@ -34,6 +34,7 @@ const [loading, setLoading] = useState(true);
 const [filterYear, setFilterYear] = useState('All');
 const [filterBranch, setFilterBranch] = useState('All');
 const [filterSection, setFilterSection] = useState('All');
+const [filterCompletionStatus, setFilterCompletionStatus] = useState('All');
 
   // Load data
   useEffect(() => {
@@ -94,13 +95,21 @@ const [filterSection, setFilterSection] = useState('All');
           completed: plan.completed[selectedMeetingIndex] === true,
           remark: plan.remarks?.[selectedMeetingIndex] || ''
         };
+      })
+      .filter(item => {
+        // Apply completion status filter
+        if (filterCompletionStatus === 'All') return true;
+        if (filterCompletionStatus === 'Completed') return item.completed === true;
+        if (filterCompletionStatus === 'Not Completed') return item.completed === false;
+        return true;
       });
-  }, [selectedMeetingIndex, filteredBatches, plans, batches]);
+  }, [selectedMeetingIndex, filteredBatches, plans, batches, filterCompletionStatus]);
 
   const clearFilters = () => {
     setFilterYear('All');
     setFilterBranch('All');
     setFilterSection('All');
+    setFilterCompletionStatus('All');
   };
 
   const generateStatusForm = () => {
@@ -113,6 +122,9 @@ const [filterSection, setFilterSection] = useState('All');
     doc.setFontSize(12);
     doc.setTextColor(100, 100, 100);
     doc.text(`Generated on: ${new Date().toLocaleDateString('en-IN')}`, 14, 32);
+    if (filterCompletionStatus !== 'All') {
+      doc.text(`Status Filter: ${filterCompletionStatus}`, 14, 38);
+    }
 
     const tableData = batchesForSelectedMeeting.map((item, idx) => {
       return [
@@ -126,7 +138,7 @@ const [filterSection, setFilterSection] = useState('All');
     });
 
     doc.autoTable({
-      startY: 40,
+      startY: filterCompletionStatus !== 'All' ? 46 : 40,
       head: [['S.No', 'Team Name', 'Year/Branch/Section', 'Guide', 'Status', 'Remark']],
       body: tableData,
       theme: 'grid',
@@ -136,6 +148,36 @@ const [filterSection, setFilterSection] = useState('All');
     });
 
     doc.save(`Meeting_${selectedMeetingIndex + 1}_Report.pdf`);
+  };
+
+  const downloadAsCSV = () => {
+    if (batchesForSelectedMeeting.length === 0) {
+      alert('No data to download');
+      return;
+    }
+
+    const headers = ['S.No', 'Team Name', 'Team Members', 'Year', 'Branch', 'Section', 'Guide', 'Status', 'Remark'];
+    const rows = batchesForSelectedMeeting.map((item, idx) => [
+      idx + 1,
+      item.batch?.teamName || 'Unknown',
+      item.batch?.teamMembers?.map(m => m.rollNo || m.name).join('; ') || '',
+      item.batch?.year || '',
+      item.batch?.branch || '',
+      item.batch?.section || '',
+      item.batch?.guideId?.name || 'Not Assigned',
+      item.completed ? 'Completed' : 'Not Completed',
+      item.remark || ''
+    ]);
+
+    let csv = headers.join(',') + '\n';
+    rows.forEach(row => {
+      csv += row.map(cell => `"${cell}"`).join(',') + '\n';
+    });
+
+    const link = document.createElement('a');
+    link.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+    link.download = `Meeting_${selectedMeetingIndex + 1}_Report_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
   };
 
   if (loading) {
@@ -242,7 +284,7 @@ const [filterSection, setFilterSection] = useState('All');
 
           {/* Filters for Meeting Details */}
           <div className="card" style={{ marginBottom: '20px', maxWidth: '100%' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr) auto', gap: '20px', alignItems: 'end' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr) auto', gap: '20px', alignItems: 'end' }}>
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label>Year</label>
                 <select value={filterYear} onChange={(e) => setFilterYear(e.target.value)}>
@@ -261,6 +303,14 @@ const [filterSection, setFilterSection] = useState('All');
                   {sections.map(s => <option key={s} value={s}>{s === 'All' ? 'All Sections' : s}</option>)}
                 </select>
               </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label>Status</label>
+                <select value={filterCompletionStatus} onChange={(e) => setFilterCompletionStatus(e.target.value)}>
+                  <option value="All">All Status</option>
+                  <option value="Completed">Completed</option>
+                  <option value="Not Completed">Not Completed</option>
+                </select>
+              </div>
               <button className="btn btn-secondary" onClick={clearFilters}>
                 Clear Filters
               </button>
@@ -274,14 +324,22 @@ const [filterSection, setFilterSection] = useState('All');
             </div>
           ) : (
             <div className="table-container">
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '15px' }}>
-                <button 
-                  className="btn btn-primary"
-                  onClick={generateStatusForm}
-                >
-                  📄 Download Report
-                </button>
-              </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginBottom: '15px' }}>
+              <button 
+                className="btn btn-primary"
+                onClick={generateStatusForm}
+                title="Download filtered data as PDF"
+              >
+                📄 PDF Report
+              </button>
+              <button 
+                className="btn btn-secondary"
+                onClick={downloadAsCSV}
+                title="Download filtered data as CSV"
+              >
+                📊 CSV Export
+              </button>
+            </div>
               <table className="data-table">
                 <thead>
                   <tr>

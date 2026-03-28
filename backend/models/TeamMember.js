@@ -16,6 +16,12 @@ const TeamMemberSchema = new mongoose.Schema({
     required: [true, 'Roll number is required'],
     trim: true
   },
+  email: {
+    type: String,
+    required: [true, 'Email is required'],
+    lowercase: true,
+    trim: true
+  },
   branch: {
     type: String,
     required: [true, 'Branch is required'],

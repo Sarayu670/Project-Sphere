@@ -20,10 +20,15 @@ exports.createProgressUpdate = async (req, res) => {
   try {
     const { description, fileUrl } = req.body;
 
-    // Get student's batch
-    const batch = await Batch.findOne({ leaderStudentId: req.user._id });
+    // Get student's batch - now checking batchId from Student instead of leaderStudentId in Batch
+    const student = await require('../models/Student').findById(req.user._id);
+    if (!student || !student.batchId) {
+      return res.status(404).json({ success: false, message: 'You are not part of any batch' });
+    }
+
+    const batch = await Batch.findById(student.batchId);
     if (!batch) {
-      return res.status(404).json({ success: false, message: 'Create a batch first' });
+      return res.status(404).json({ success: false, message: 'Batch not found' });
     }
 
     if (!batch.problemId) {

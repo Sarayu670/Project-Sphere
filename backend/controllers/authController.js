@@ -23,12 +23,11 @@ exports.registerGuide = async (req, res) => {
     const { name, email, password, department, specialization } = req.body;
 
     // Email domain validation
-    // Password complexity validation
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-    if (!passwordRegex.test(password)) {
+    // Password complexity validation - Relaxed
+    if (password.length < 6) {
       return res.status(400).json({
         success: false,
-        message: 'Password must be at least 8 characters long and include uppercase, lowercase, numbers, and special characters (@$!%*?&)'
+        message: 'Password must be at least 6 characters long.'
       });
     }
 
@@ -61,12 +60,11 @@ exports.registerAdmin = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Please use a valid @gmail.com or GNITS (.ac.in) email address' });
     }
 
-    // Password complexity validation
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-    if (!passwordRegex.test(password)) {
+    // Password complexity validation - Relaxed
+    if (password.length < 6) {
       return res.status(400).json({
         success: false,
-        message: 'Password must be at least 8 characters long and include uppercase, lowercase, numbers, and special characters (@$!%*?&)'
+        message: 'Password must be at least 6 characters long.'
       });
     }
 

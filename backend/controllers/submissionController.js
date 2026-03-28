@@ -3,6 +3,8 @@ const TimelineEvent = require('../models/TimelineEvent');
 const Batch = require('../models/Batch');
 const pdf = require('pdf-parse');
 const fs = require('fs');
+const { sendGuideSubmissionEmail } = require('../utils/mailer');
+const Student = require('../models/Student');
 
 async function validateSubmission(filePath, isMandatoryFormat, context = {}) {
   if (!isMandatoryFormat) return { isValid: true, errors: [] };
@@ -102,7 +104,7 @@ exports.createOrUpdateSubmission = async (req, res) => {
     }
 
     // Check if current student belongs to this batch
-    const student = await require('../models/Student').findById(req.user._id);
+    const student = await Student.findById(req.user._id);
     if (!student || !student.batchId || student.batchId.toString() !== batchId.toString()) {
       return res.status(403).json({ success: false, message: 'You are not a member of this batch' });
     }
@@ -153,6 +155,28 @@ exports.createOrUpdateSubmission = async (req, res) => {
       data: submission,
       validation: { isValid: true, errors: [] }
     });
+
+    // Trigger Email Notification (Non-blocking)
+    try {
+      if (batch && batch.guideId && batch.guideId.email) {
+        console.log(`[Notification] Triggering email for batch: ${batch.teamName}, guide: ${batch.guideId.name} (${batch.guideId.email})`);
+        const students = await Student.find({ batchId: batch._id });
+        const studentNames = students.map(s => s.name);
+        
+        await sendGuideSubmissionEmail(
+          batch.guideId.email,
+          batch.guideId.name,
+          studentNames,
+          event.title,
+          batch.problemId ? batch.problemId.title : 'N/A',
+          description,
+          driveLink,
+          batch.teamName
+        );
+      }
+    } catch (emailError) {
+      console.error('[Notification] Error in email trigger logic:', emailError);
+    }
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

@@ -14,6 +14,14 @@ const GuideSchema = new mongoose.Schema({
     lowercase: true,
     trim: true
   },
+  department: {
+    type: String,
+    trim: true
+  },
+  specialization: {
+    type: String,
+    trim: true
+  },
   password: {
     type: String,
     required: [true, 'Password is required'],

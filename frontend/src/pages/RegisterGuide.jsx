@@ -26,10 +26,9 @@ function RegisterGuide() {
       return;
     }
 
-    // Password complexity validation
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-    if (!passwordRegex.test(password)) {
-      setError('Password must be at least 8 characters long and include uppercase, lowercase, numbers, and special characters (@$!%*?&)');
+    // Password complexity validation - Relaxed
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters long');
       return;
     }
 

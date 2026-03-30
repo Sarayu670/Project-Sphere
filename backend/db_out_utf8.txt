@@ -1,0 +1,320 @@
+﻿[dotenv@17.2.3] injecting env (12) from .env -- tip: Γ£à audit secrets and track compliance: https://dotenvx.com/ops
+{
+  "_id": "69ca132e4323ffd4023d6317",
+  "email": "bhagya.ratkal@gnits.ac.in",
+  "__v": 0,
+  "assignedBatches": 0,
+  "createdAt": "2026-03-30T06:07:43.205Z",
+  "maxBatches": 3,
+  "name": "Mrs Bhageshwari Ratkal",
+  "password": "$2b$10$tYLxUjejTzXsRB0Di50tsO66/NoVLuOpw0eZgTxEoyx9oNRxa3WDS",
+  "role": "guide",
+  "updatedAt": "2026-03-30T06:10:19.303Z"
+}
+All Guides: [
+  {
+    _id: new ObjectId('699d0c4faa149235e4e16b88'),
+    name: 'K.Sindhura',
+    email: 'sindhura@gnits.ac.in'
+  },
+  {
+    _id: new ObjectId('699d0d07aa149235e4e16bb1'),
+    name: 'Dr.Jayashree Patil',
+    email: 'jayashree@gnits.ac.in'
+  },
+  {
+    _id: new ObjectId('699d0da0aa149235e4e16bda'),
+    name: 'Dr.Y.Sravani Devi',
+    email: 'sravani@gnits.ac.in'
+  },
+  {
+    _id: new ObjectId('699d0e62aa149235e4e16c03'),
+    name: 'Ch.Mandakini',
+    email: 'mandakini@gmail.com'
+  },
+  {
+    _id: new ObjectId('699d0f0daa149235e4e16c2c'),
+    name: 'T.Divya Kumari',
+    email: 'divya@gmail.com'
+  },
+  {
+    _id: new ObjectId('699d0fe3aa149235e4e16c55'),
+    name: 'Mrs. G. Amulya',
+    email: 'amulya@gnits.ac.in'
+  },
+  {
+    _id: new ObjectId('699eefd1df465c3ee4db1701'),
+    name: 'Guide',
+    email: 'guide@gnits.ac.in'
+  },
+  {
+    _id: new ObjectId('69bcbf66ee3fbdc0ff6f1b02'),
+    name: 'John',
+    email: 'john@gmail.com'
+  },
+  {
+    _id: new ObjectId('69c0f7a1603241958f0d7afd'),
+    name: 'K.Swapna',
+    email: 'swapna@gmail.com'
+  },
+  {
+    _id: new ObjectId('69c7f7238ea183d389c0b15d'),
+    name: 'Sarayu',
+    email: 'sarayupittala295@gmail.com'
+  },
+  {
+    _id: new ObjectId('69c8b34b526606b509af11c1'),
+    name: 'Naradasi Tejaswi',
+    email: 'tejaswi.naradasi@gmail.com'
+  },
+  {
+    _id: new ObjectId('69c9ff78a21d53bc02c8f4ef'),
+    name: 'Leela',
+    email: 'leelakumari1807@gmail.com'
+  },
+  {
+    _id: new ObjectId('69ca0c4191d7d405e0cdd378'),
+    name: 'Dr. A. Sharada',
+    email: 'sharada@gnits.ac.in'
+  },
+  {
+    _id: new ObjectId('69ca0c4291d7d405e0cdd37b'),
+    name: 'Dr. M. Seetha',
+    email: 'maddala.seetha@gnits.ac.in'
+  },
+  {
+    _id: new ObjectId('69ca0c4391d7d405e0cdd37e'),
+    name: 'Dr. N. Kalyani',
+    email: 'nara.kalyani@gnits.ac.in'
+  },
+  {
+    _id: new ObjectId('69ca0c4391d7d405e0cdd381'),
+    name: 'Dr. K. L. S. Soujanya',
+    email: 'drklssoujanya@gnits.ac.in'
+  },
+  {
+    _id: new ObjectId('69ca0c4491d7d405e0cdd384'),
+    name: 'Dr. Jayashree S Patil',
+    email: 'jshivshetty@gnits.ac.in'
+  },
+  {
+    _id: new ObjectId('69ca0c4491d7d405e0cdd387'),
+    name: 'Dr. D.V. Lalita Parameswari',
+    email: 'dvlalitha@gnits.ac.in'
+  },
+  {
+    _id: new ObjectId('69ca0c4591d7d405e0cdd38a'),
+    name: 'Dr. G. Malini Devi',
+    email: 'gmalini12@gnits.ac.in'
+  },
+  {
+    _id: new ObjectId('69ca0c4691d7d405e0cdd38d'),
+    name: 'Dr. Raghavender K.V.',
+    email: 'drkvraghavender@gnits.ac.in'
+  },
+  {
+    _id: new ObjectId('69ca0c4691d7d405e0cdd390'),
+    name: 'Dr. G. Narendrababu Reddy',
+    email: 'placements@gnits.ac.in'
+  },
+  {
+    _id: new ObjectId('69ca0c4791d7d405e0cdd393'),
+    name: 'Dr. P. Sunitha Devi',
+    email: 'sunitha@gnits.ac.in'
+  },
+  {
+    _id: new ObjectId('69ca0c4791d7d405e0cdd396'),
+    name: 'Mrs. Ch. Mandakini',
+    email: 'mandakinireddy@gnits.ac.in'
+  },
+  {
+    _id: new ObjectId('69ca0c4891d7d405e0cdd399'),
+    name: 'Mrs. R. Pallavi Reddy',
+    email: 'reddygaripallavi@gnits.ac.in'
+  },
+  {
+    _id: new ObjectId('69ca0c4891d7d405e0cdd39f'),
+    name: 'Mrs. Ch. Radhika',
+    email: 'ch.radhika@gnits.ac.in'
+  },
+  {
+    _id: new ObjectId('69ca0c4991d7d405e0cdd3a2'),
+    name: 'Mrs. V. Divya Raj',
+    email: 'divyaraj.vavilala@gnits.ac.in'
+  },
+  {
+    _id: new ObjectId('69ca0c4991d7d405e0cdd3a5'),
+    name: 'Mrs. M. Lalitha',
+    email: 'mlalitha@gnits.ac.in'
+  },
+  {
+    _id: new ObjectId('69ca0c4991d7d405e0cdd3a8'),
+    name: 'Dr. T. Rajesh',
+    email: 'rajesh@gnits.ac.in'
+  },
+  {
+    _id: new ObjectId('69ca0c4991d7d405e0cdd3ab'),
+    name: 'Mrs. J. Padmavathi',
+    email: 'jpadmavathi@gnits.ac.in'
+  },
+  {
+    _id: new ObjectId('69ca0c4a91d7d405e0cdd3ae'),
+    name: 'Mr. N. Venkateswarulu',
+    email: 'venkateswarulu@gnits.ac.in'
+  },
+  {
+    _id: new ObjectId('69ca0c4a91d7d405e0cdd3b1'),
+    name: 'Mrs. S. Sandhya',
+    email: 's.sandhya@gnits.ac.in'
+  },
+  {
+    _id: new ObjectId('69ca0c4b91d7d405e0cdd3b4'),
+    name: 'Mrs. R. Mamatha',
+    email: 'mamatha.kovuru@gnits.ac.in'
+  },
+  {
+    _id: new ObjectId('69ca0c4c91d7d405e0cdd3b7'),
+    name: 'Mrs. Ch. Swathi',
+    email: 'ch.swathi@gnits.ac.in'
+  },
+  {
+    _id: new ObjectId('69ca0c4d91d7d405e0cdd3ba'),
+    name: 'Mrs. T. Swapna',
+    email: 't.swapna@gnits.ac.in'
+  },
+  {
+    _id: new ObjectId('69ca0c4e91d7d405e0cdd3bd'),
+    name: 'Mr. Ch. Sudharshan Reddy',
+    email: 'sudharshanreddycheedirala@gnits.ac.in'
+  },
+  {
+    _id: new ObjectId('69ca0c4e91d7d405e0cdd3c0'),
+    name: 'Mrs. Nanda Devi. D .R',
+    email: 'nandadevi.dr@gnits.ac.in'
+  },
+  {
+    _id: new ObjectId('69ca0c4f91d7d405e0cdd3c9'),
+    name: 'Mrs. D. Naga Swetha',
+    email: 'swetha@gnits.ac.in'
+  },
+  {
+    _id: new ObjectId('69ca0c5091d7d405e0cdd3d0'),
+    name: 'Mr. B. Vamshi',
+    email: 'vamsee@gnits.ac.in'
+  },
+  {
+    _id: new ObjectId('69ca0c5091d7d405e0cdd3d4'),
+    name: 'Dr. T. Divya Kumari',
+    email: 'divyatankala@gnits.ac.in'
+  },
+  {
+    _id: new ObjectId('69ca0c5191d7d405e0cdd3d7'),
+    name: 'Dr. Y. Sravani Devi',
+    email: 'y.sravanidevi@gnits.ac.in'
+  },
+  {
+    _id: new ObjectId('69ca0c5191d7d405e0cdd3e2'),
+    name: 'Dr. G. Nagababu',
+    email: 'g.nagababu@gnits.ac.in'
+  },
+  {
+    _id: new ObjectId('69ca0c5291d7d405e0cdd3e6'),
+    name: 'Mrs. K. Gnana Prasuna',
+    email: 'gnanaprasuna@gnits.ac.in'
+  },
+  {
+    _id: new ObjectId('69ca0c5291d7d405e0cdd3e9'),
+    name: 'Mrs. K. Sneha Reddy',
+    email: 'ksreddy@gnits.ac.in'
+  },
+  {
+    _id: new ObjectId('69ca0c5291d7d405e0cdd3ec'),
+    name: 'Mrs. M. Anusha',
+    email: 'anusha@gnits.ac.in'
+  },
+  {
+    _id: new ObjectId('69ca0c5291d7d405e0cdd3ef'),
+    name: 'Mrs. B Spandana',
+    email: 'spandana.d@gnits.ac.in'
+  },
+  {
+    _id: new ObjectId('69ca0c5391d7d405e0cdd3f2'),
+    name: 'Mrs. J. Srilatha',
+    email: 'j.srilatha@gnits.ac.in'
+  },
+  {
+    _id: new ObjectId('69ca0c5391d7d405e0cdd3f5'),
+    name: 'Mrs. G. Sandhya',
+    email: 'sandhya@gnits.ac.in'
+  },
+  {
+    _id: new ObjectId('69ca0c5391d7d405e0cdd3f8'),
+    name: 'Mrs. A. Leela Kumari',
+    email: 'allamleelakumari@gnits.ac.in'
+  },
+  {
+    _id: new ObjectId('69ca0c5391d7d405e0cdd3fb'),
+    name: 'Mrs.Sindhura Kona',
+    email: 'konasindhura@gnits.ac.in'
+  },
+  {
+    _id: new ObjectId('69ca0c5491d7d405e0cdd3fe'),
+    name: 'Mr. P. Kranthi Kiran',
+    email: 'kranthikiran.p@gnits.ac.in'
+  },
+  {
+    _id: new ObjectId('69ca0c5491d7d405e0cdd401'),
+    name: 'Mrs.Mythili Sharvani',
+    email: 'gmsharvani@gnits.ac.in'
+  },
+  {
+    _id: new ObjectId('69ca0c5591d7d405e0cdd406'),
+    name: 'Mrs. A. Jyothi',
+    email: 'jyothi@gnits.ac.in'
+  },
+  {
+    _id: new ObjectId('69ca0c5691d7d405e0cdd409'),
+    name: 'Mrs. Sulochana',
+    email: 'msulochana@gnits.ac.in'
+  },
+  {
+    _id: new ObjectId('69ca0c5691d7d405e0cdd40c'),
+    name: 'Mrs. S. Joshna',
+    email: 'sarabujoshna@gnits.ac.in'
+  },
+  {
+    _id: new ObjectId('69ca0c5691d7d405e0cdd40f'),
+    name: 'Dr. P. Vasanth Sena',
+    email: 'drpvsena@gnits.ac.in'
+  },
+  {
+    _id: new ObjectId('69ca0c5691d7d405e0cdd412'),
+    name: 'Dr. N.Anil Kumar',
+    email: 'nanilkumar@gnits.ac.in'
+  },
+  {
+    _id: new ObjectId('69ca0c5691d7d405e0cdd415'),
+    name: 'Mr. B. Syam Sundar Reddy',
+    email: 'syamasundharb@gnits.ac.in'
+  },
+  {
+    _id: new ObjectId('69ca0c5791d7d405e0cdd418'),
+    name: 'Mr. P. Kiran',
+    email: 'pkiran@gnits.ac.in'
+  },
+  {
+    _id: new ObjectId('69ca0c5791d7d405e0cdd41b'),
+    name: 'Mr. M. Kiran',
+    email: 'mkiran@gnits.ac.in'
+  },
+  {
+    _id: new ObjectId('69ca0d38a21d53bc02caba76'),
+    name: 'nithya',
+    email: 'nithyasrikonka06@gmail.com'
+  },
+  {
+    _id: new ObjectId('69ca132e4323ffd4023d6317'),
+    email: 'bhagya.ratkal@gnits.ac.in',
+    name: 'Mrs Bhageshwari Ratkal'
+  }
+]

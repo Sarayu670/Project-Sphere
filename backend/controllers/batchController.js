@@ -459,30 +459,35 @@ exports.getAllBatches = async (req, res) => {
 // @route   GET /api/batches/my-batch
 exports.getMyBatch = async (req, res) => {
   try {
-    // First try to find by leaderStudentId (for backward compatibility)
-    let batch = await Batch.findOne({ leaderStudentId: req.user._id })
-      .populate('leaderStudentId', 'name email rollNumber branch')
-      .populate({
-        path: 'problemId',
-        select: 'title description coeId datasetUrl researchArea',
-        populate: { path: 'coeId', select: 'name' }
-      })
-      .populate({
-        path: 'optedProblemId',
-        select: 'title description coeId researchArea',
-        populate: { path: 'coeId', select: 'name' }
-      })
-      .populate({
-        path: 'optedProblems.problemId',
-        select: 'title description coeId researchArea'
-      })
-      .populate('optedProblems.coeId', 'name')
-      .populate('coeId', 'name')
-      .populate('guideId', 'name email');
+    // Check if the student is assigned to any batch (preferred method)
+    const currentUser = await Student.findById(req.user._id);
+    let batch = null;
 
-    // If not found as leader, check if student is part of any batch via batchId
+    if (currentUser && currentUser.batchId) {
+      batch = await Batch.findById(currentUser.batchId)
+        .populate('leaderStudentId', 'name email rollNumber branch')
+        .populate({
+          path: 'problemId',
+          select: 'title description coeId datasetUrl researchArea',
+          populate: { path: 'coeId', select: 'name' }
+        })
+        .populate({
+          path: 'optedProblemId',
+          select: 'title description coeId researchArea',
+          populate: { path: 'coeId', select: 'name' }
+        })
+        .populate({
+          path: 'optedProblems.problemId',
+          select: 'title description coeId researchArea'
+        })
+        .populate('optedProblems.coeId', 'name')
+        .populate('coeId', 'name')
+        .populate('guideId', 'name email');
+    }
+
+    // fallback for backward compatibility
     if (!batch) {
-      batch = await Batch.findOne({ _id: { $in: await require('../models/Student').distinct('batchId', { _id: req.user._id }) } })
+      batch = await Batch.findOne({ leaderStudentId: req.user._id })
         .populate('leaderStudentId', 'name email rollNumber branch')
         .populate({
           path: 'problemId',
@@ -561,10 +566,16 @@ exports.selectProblem = async (req, res) => {
   try {
     const { problemId } = req.body;
 
-    // Get student's batch
-    const batch = await Batch.findOne({ leaderStudentId: req.user._id });
+    // Get student's batch - allow any member to select problem
+    const student = await Student.findById(req.user._id);
+    let batch = await Batch.findOne({ leaderStudentId: req.user._id });
+    
+    if (!batch && student && student.batchId) {
+      batch = await Batch.findById(student.batchId);
+    }
+    
     if (!batch) {
-      return res.status(404).json({ success: false, message: 'Create a batch first' });
+      return res.status(404).json({ success: false, message: 'Your account is not assigned to any batch yet' });
     }
 
     // Check if team already has an allotted problem

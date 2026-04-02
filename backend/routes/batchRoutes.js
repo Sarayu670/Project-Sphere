@@ -14,7 +14,8 @@ const {
   rejectProblem,
   searchBatches,
   searchAllBatches,
-  importStudentBatches
+  importStudentBatches,
+  updateBatchByAdmin
 } = require('../controllers/batchController');
 const { protect, authorize } = require('../middleware/auth');
 
@@ -51,5 +52,6 @@ router.post('/select-problem', protect, authorize('student'), selectProblem);
 router.post('/:id/allot', protect, authorize('guide'), allotProblem);
 router.post('/:id/reject', protect, authorize('guide'), rejectProblem);
 router.put('/:id/status', protect, authorize('guide'), updateBatchStatus);
+router.put('/:id/admin-update', protect, authorize('admin'), updateBatchByAdmin);
 
 module.exports = router;

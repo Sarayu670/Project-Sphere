@@ -48,6 +48,7 @@ export const updateBatchStatus = (id, status) => axios.put(`${API_URL}/batches/$
 export const getOptedTeams = () => axios.get(`${API_URL}/batches/opted-teams`);
 export const allotProblem = (batchId, problemId) => axios.post(`${API_URL}/batches/${batchId}/allot`, { problemId });
 export const rejectProblem = (batchId, problemId) => axios.post(`${API_URL}/batches/${batchId}/reject`, { problemId });
+export const updateBatchByAdmin = (id, data) => axios.put(`${API_URL}/batches/${id}/admin-update`, data);
 
 // Team Members
 export const getTeamMembers = (batchId) => axios.get(`${API_URL}/team-members/${batchId}`);

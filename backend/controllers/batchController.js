@@ -459,30 +459,35 @@ exports.getAllBatches = async (req, res) => {
 // @route   GET /api/batches/my-batch
 exports.getMyBatch = async (req, res) => {
   try {
-    // First try to find by leaderStudentId (for backward compatibility)
-    let batch = await Batch.findOne({ leaderStudentId: req.user._id })
-      .populate('leaderStudentId', 'name email rollNumber branch')
-      .populate({
-        path: 'problemId',
-        select: 'title description coeId datasetUrl researchArea',
-        populate: { path: 'coeId', select: 'name' }
-      })
-      .populate({
-        path: 'optedProblemId',
-        select: 'title description coeId researchArea',
-        populate: { path: 'coeId', select: 'name' }
-      })
-      .populate({
-        path: 'optedProblems.problemId',
-        select: 'title description coeId researchArea'
-      })
-      .populate('optedProblems.coeId', 'name')
-      .populate('coeId', 'name')
-      .populate('guideId', 'name email');
+    // Check if the student is assigned to any batch (preferred method)
+    const currentUser = await Student.findById(req.user._id);
+    let batch = null;
 
-    // If not found as leader, check if student is part of any batch via batchId
+    if (currentUser && currentUser.batchId) {
+      batch = await Batch.findById(currentUser.batchId)
+        .populate('leaderStudentId', 'name email rollNumber branch')
+        .populate({
+          path: 'problemId',
+          select: 'title description coeId datasetUrl researchArea',
+          populate: { path: 'coeId', select: 'name' }
+        })
+        .populate({
+          path: 'optedProblemId',
+          select: 'title description coeId researchArea',
+          populate: { path: 'coeId', select: 'name' }
+        })
+        .populate({
+          path: 'optedProblems.problemId',
+          select: 'title description coeId researchArea'
+        })
+        .populate('optedProblems.coeId', 'name')
+        .populate('coeId', 'name')
+        .populate('guideId', 'name email');
+    }
+
+    // fallback for backward compatibility
     if (!batch) {
-      batch = await Batch.findOne({ _id: { $in: await require('../models/Student').distinct('batchId', { _id: req.user._id }) } })
+      batch = await Batch.findOne({ leaderStudentId: req.user._id })
         .populate('leaderStudentId', 'name email rollNumber branch')
         .populate({
           path: 'problemId',
@@ -561,10 +566,16 @@ exports.selectProblem = async (req, res) => {
   try {
     const { problemId } = req.body;
 
-    // Get student's batch
-    const batch = await Batch.findOne({ leaderStudentId: req.user._id });
+    // Get student's batch - allow any member to select problem
+    const student = await Student.findById(req.user._id);
+    let batch = await Batch.findOne({ leaderStudentId: req.user._id });
+    
+    if (!batch && student && student.batchId) {
+      batch = await Batch.findById(student.batchId);
+    }
+    
     if (!batch) {
-      return res.status(404).json({ success: false, message: 'Create a batch first' });
+      return res.status(404).json({ success: false, message: 'Your account is not assigned to any batch yet' });
     }
 
     // Check if team already has an allotted problem
@@ -1206,5 +1217,99 @@ exports.importStudentBatches = async (req, res) => {
       message: 'Failed to import batches',
       error: error.message
     });
+  }
+};
+
+// @desc    Update batch assignments by admin
+// @route   PUT /api/batches/:id/admin-update
+// @access  Admin
+exports.updateBatchByAdmin = async (req, res) => {
+  try {
+    const { coeId, rcId, guideId, researchArea, problemTitle } = req.body;
+    const batch = await require('../models/Batch').findById(req.params.id);
+
+    if (!batch) {
+      return res.status(404).json({ success: false, message: 'Batch not found' });
+    }
+
+    // Update COE
+    if (coeId) {
+      const coe = await require('../models/COE').findById(coeId);
+      if (coe) {
+        batch.coeId = coe._id;
+        batch.coe = { name: coe.name, coeId: coe._id };
+      }
+    }
+
+    // Update RC
+    if (rcId) {
+      const rc = await require('../models/RC').findById(rcId);
+      if (rc) {
+        batch.rc = { name: rc.name, rcId: rc._id };
+      }
+    }
+
+    // Update Guide
+    if (guideId) {
+      batch.guideId = guideId;
+    }
+
+    // Update Research Area
+    if (researchArea !== undefined) {
+      batch.researchArea = researchArea;
+    }
+
+    // Update or Create Problem Statement if title is provided
+    if (problemTitle && problemTitle.trim() !== '') {
+      let problem = null;
+      if (batch.problemId) {
+        problem = await require('../models/ProblemStatement').findById(batch.problemId);
+        if (problem) {
+          problem.title = problemTitle;
+          if (researchArea) problem.researchArea = researchArea;
+          if (guideId) problem.guideId = guideId;
+          if (coeId) problem.coeId = coeId;
+          await problem.save();
+        }
+      } 
+      
+      if (!problem) {
+        // Create new problem statement if we have coeId and guideId
+        if (batch.coeId && batch.guideId) {
+          problem = new (require('../models/ProblemStatement'))({
+            title: problemTitle,
+            description: 'Problem statement assigned by Admin',
+            researchArea: researchArea || batch.researchArea || 'Unassigned',
+            targetYear: batch.year,
+            guideId: batch.guideId,
+            coeId: batch.coeId,
+            maxBatches: 1,
+            selectedBatchCount: 1
+          });
+          await problem.save();
+          batch.problemId = problem._id;
+          batch.optedProblemId = problem._id;
+          batch.allotmentStatus = 'allotted';
+          batch.status = 'In Progress';
+        }
+      }
+    }
+
+    await batch.save();
+
+    const updatedBatch = await require('../models/Batch').findById(batch._id)
+      .populate('leaderStudentId', 'name email rollNumber branch')
+      .populate({
+        path: 'problemId',
+        select: 'title description coeId datasetUrl researchArea',
+        populate: { path: 'coeId', select: 'name' }
+      })
+      .populate('coeId', 'name')
+      .populate('guideId', 'name email');
+
+    res.status(200).json({ success: true, data: updatedBatch, message: 'Batch assignments updated successfully' });
+  } catch (error) {
+    console.error('Update batch by admin error:', error);
+    res.status(500).json({ success: false, message: error.message });
   }
 };

@@ -16,6 +16,8 @@ const SECTIONS = ['A', 'B', 'C', 'D', 'E'];
 function AdminDashboard() {
   const [stats, setStats] = useState(null);
   const [coes, setCoes] = useState([]);
+  const [rcs, setRcs] = useState([]);
+  const [guides, setGuides] = useState([]);
   const [batches, setBatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedBatch, setSelectedBatch] = useState(null);
@@ -34,13 +36,17 @@ function AdminDashboard() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [statsRes, coesRes, batchesRes] = await Promise.all([
+      const [statsRes, coesRes, rcsRes, guidesRes, batchesRes] = await Promise.all([
         api.getAdminDashboard(),
         api.getAllCOEs(),
+        api.getAllRCs(),
+        api.getAllGuides(),
         api.getAllBatches()
       ]);
       setStats(statsRes.data.data);
       setCoes(coesRes.data.data);
+      setRcs(rcsRes.data.data);
+      setGuides(guidesRes.data.data);
       setBatches(batchesRes.data.data);
     } catch (error) {
       console.error('AdminDashboard: Failed to fetch data:', error);
@@ -76,8 +82,43 @@ function AdminDashboard() {
 
   const handleSelectBatch = (batch) => {
     setSelectedBatch(batch);
+    setIsEditingAssignments(false);
     // Scroll to top of the page to show the batch details
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const [isEditingAssignments, setIsEditingAssignments] = useState(false);
+  const [editForm, setEditForm] = useState({
+    coeId: '',
+    rcId: '',
+    guideId: '',
+    researchArea: '',
+    problemTitle: ''
+  });
+
+  const handleEditClick = () => {
+    setEditForm({
+      coeId: selectedBatch.coeId?._id || selectedBatch.problemId?.coeId?._id || selectedBatch.coeId || '',
+      rcId: selectedBatch.rcId?._id || selectedBatch.rc?.rcId || '',
+      guideId: selectedBatch.guideId?._id || selectedBatch.guideId || '',
+      researchArea: selectedBatch.problemId?.researchArea || selectedBatch.researchArea || '',
+      problemTitle: selectedBatch.problemId?.title || ''
+    });
+    setIsEditingAssignments(true);
+  };
+
+  const handleSaveAssignments = async () => {
+    try {
+      const res = await api.updateBatchByAdmin(selectedBatch._id, editForm);
+      setIsEditingAssignments(false);
+      
+      const newBatchData = res.data.data;
+      setSelectedBatch(newBatchData);
+      setBatches(batches.map(b => b._id === newBatchData._id ? newBatchData : b));
+    } catch (error) {
+      console.error('Failed to update assignments:', error);
+      alert('Failed to update assignments');
+    }
   };
 
   // Reset to page 1 when filters change
@@ -315,11 +356,70 @@ function AdminDashboard() {
                 <p><strong>Branch:</strong> {selectedBatch.branch}</p>
                 <p><strong>Section:</strong> {selectedBatch.section}</p>
               </div>
-              <div>
-                <p><strong>COE/RC:</strong> {selectedBatch.problemId?.coeId?.name || selectedBatch.coeId?.name || selectedBatch.coe?.name || 'Not Assigned'}</p>
-                <p><strong>Research Area:</strong> {selectedBatch.problemId?.researchArea || selectedBatch.researchArea || 'Not Assigned'}</p>
-                <p><strong>Guide:</strong> {selectedBatch.guideId?.name || 'Not Assigned'}</p>
-                <p><strong>Problem:</strong> {selectedBatch.problemId?.title || 'Not Assigned'}</p>
+              <div style={{ position: 'relative' }}>
+                {!isEditingAssignments ? (
+                  <>
+                    <button 
+                      className="btn btn-primary btn-sm" 
+                      onClick={handleEditClick}
+                      style={{ position: 'absolute', top: 0, right: 0 }}
+                    >
+                      ✎ Edit
+                    </button>
+                    <p><strong>COE/RC:</strong> {selectedBatch.problemId?.coeId?.name || selectedBatch.coeId?.name || selectedBatch.coe?.name || 'Not Assigned'}</p>
+                    <p><strong>Research Area:</strong> {selectedBatch.problemId?.researchArea || selectedBatch.researchArea || 'Not Assigned'}</p>
+                    <p><strong>Guide:</strong> {selectedBatch.guideId?.name || 'Not Assigned'}</p>
+                    <p><strong>Problem:</strong> {selectedBatch.problemId?.title || 'Not Assigned'}</p>
+                  </>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label style={{ fontSize: '12px', fontWeight: 'bold' }}>COE/RC</label>
+                      <select 
+                        value={editForm.coeId} 
+                        onChange={(e) => setEditForm({...editForm, coeId: e.target.value})}
+                        style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e0' }}
+                      >
+                        <option value="">-- Select COE/RC --</option>
+                        {coes.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+                      </select>
+                    </div>
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label style={{ fontSize: '12px', fontWeight: 'bold' }}>Guide</label>
+                      <select 
+                        value={editForm.guideId} 
+                        onChange={(e) => setEditForm({...editForm, guideId: e.target.value})}
+                        style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e0' }}
+                      >
+                        <option value="">-- Select Guide --</option>
+                        {guides.map(g => <option key={g._id} value={g._id}>{g.name}</option>)}
+                      </select>
+                    </div>
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label style={{ fontSize: '12px', fontWeight: 'bold' }}>Research Area</label>
+                      <input 
+                        type="text" 
+                        value={editForm.researchArea} 
+                        onChange={(e) => setEditForm({...editForm, researchArea: e.target.value})}
+                        placeholder="Research Area"
+                        style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e0' }}
+                      />
+                    </div>
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label style={{ fontSize: '12px', fontWeight: 'bold' }}>Problem Statement Title</label>
+                      <textarea 
+                        value={editForm.problemTitle} 
+                        onChange={(e) => setEditForm({...editForm, problemTitle: e.target.value})}
+                        placeholder="Problem Statement Title"
+                        style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e0', minHeight: '60px' }}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                      <button className="btn btn-primary btn-sm" onClick={handleSaveAssignments}>Save</button>
+                      <button className="btn btn-secondary btn-sm" onClick={() => setIsEditingAssignments(false)}>Cancel</button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

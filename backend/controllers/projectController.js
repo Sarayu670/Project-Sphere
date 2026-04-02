@@ -6,6 +6,7 @@ const TeamMember = require('../models/TeamMember');
 const COE = require('../models/COE');
 const ProblemStatement = require('../models/ProblemStatement');
 const { parseExcelFile, mergeRecords, validateRecord } = require('../utils/excelParser');
+const bcrypt = require('bcryptjs');
 
 
 /**
@@ -73,15 +74,17 @@ exports.importExcelFiles = async (req, res) => {
                 // 1. Find or create Guide (with error handling for duplicates)
                 let guide = null;
                 if (record.guideName && record.guideName !== 'N/A') {
-                    const email = record.guideName.toLowerCase().replace(/[^a-z0-9]/g, '') + '@gmail.com';
+                    const email = (record.guideEmail && record.guideEmail !== 'N/A')
+                        ? record.guideEmail.toLowerCase()
+                        : record.guideName.toLowerCase().replace(/[^a-z0-9]/g, '') + '@gmail.com';
 
                     try {
+                        const hashedGuidePassword = await bcrypt.hash('gnits@123', 10);
                         guide = await Guide.findOneAndUpdate(
                             { email: email },
                             {
-                                name: record.guideName,
-                                email: email,
-                                password: 'password123'
+                                $set: { name: record.guideName },
+                                $setOnInsert: { email: email, password: hashedGuidePassword }
                             },
                             { upsert: true, new: true, setDefaultsOnInsert: true }
                         );
@@ -100,19 +103,25 @@ exports.importExcelFiles = async (req, res) => {
                 // 2. Find or create Students (optimized with parallel processing and error handling)
                 const studentPromises = record.students.map(async (sName, j) => {
                     const sRoll = record.rollNumbers[j] || `TEMP_${record.teamName}_${j}`;
-                    const email = sRoll.toLowerCase() + '@gmail.com';
+                    const email = `${sRoll.toLowerCase()}@gnits.ac.in`;
+                    const sPassword = record.batchId && record.batchId !== 'N/A' ? `${record.batchId}@123` : `${record.teamName}@123`;
 
                     try {
+                        const hashedStudentPassword = await bcrypt.hash(sPassword, 10);
                         const student = await Student.findOneAndUpdate(
                             { rollNumber: sRoll },
                             {
-                                name: sName,
-                                email: email,
-                                password: 'password123',
-                                rollNumber: sRoll,
-                                year: record.year || '4th',
-                                branch: record.branch || 'CSE',
-                                section: record.section || 'A'
+                                $set: {
+                                    name: sName,
+                                    email: email,
+                                    password: hashedStudentPassword,
+                                    year: record.year || '4th',
+                                    branch: record.branch || 'CSE',
+                                    section: record.section || 'A'
+                                },
+                                $setOnInsert: {
+                                    rollNumber: sRoll
+                                }
                             },
                             { upsert: true, new: true, setDefaultsOnInsert: true }
                         );
@@ -189,13 +198,21 @@ exports.importExcelFiles = async (req, res) => {
 
                     // Update batch fields
                     if (record.batchId && record.batchId !== 'N/A') batch.batchId = record.batchId;
-                    if (guide) batch.guideId = guide._id;
+                    if (guide) {
+                        batch.guideId = guide._id;
+                        batch.allotmentStatus = 'allotted';
+                        batch.status = 'In Progress';
+                    }
                     if (problem) batch.problemId = problem._id;
                     if (coe) batch.coeId = coe._id;
                     if (studentIds.length > 0) batch.leaderStudentId = studentIds[0];
                     if (record.year) batch.year = record.year;
                     if (record.branch) batch.branch = record.branch;
                     if (record.section) batch.section = record.section;
+                    if (record.researchArea && record.researchArea !== 'N/A') {
+                        batch.researchArea = record.researchArea;
+                        batch.domain = record.researchArea;
+                    }
                     await batch.save();
                 } else {
                     batch = await Batch.create({
@@ -203,11 +220,15 @@ exports.importExcelFiles = async (req, res) => {
                         teamName: record.teamName || batchIdentifier,
                         leaderStudentId: studentIds[0] || null,
                         guideId: guide ? guide._id : null,
+                        allotmentStatus: guide ? 'allotted' : 'none',
+                        status: guide ? 'In Progress' : 'Not Started',
                         problemId: problem ? problem._id : null,
                         coeId: coe ? coe._id : null,
                         year: record.year || '4th',
                         branch: record.branch || 'CSE',
-                        section: record.section || 'A'
+                        section: record.section || 'A',
+                        researchArea: record.researchArea && record.researchArea !== 'N/A' ? record.researchArea : undefined,
+                        domain: record.researchArea && record.researchArea !== 'N/A' ? record.researchArea : undefined
                     });
                 }
 

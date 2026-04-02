@@ -74,27 +74,37 @@ exports.importExcelFiles = async (req, res) => {
                 // 1. Find or create Guide (with error handling for duplicates)
                 let guide = null;
                 if (record.guideName && record.guideName !== 'N/A') {
-                    const email = (record.guideEmail && record.guideEmail !== 'N/A')
-                        ? record.guideEmail.toLowerCase()
-                        : record.guideName.toLowerCase().replace(/[^a-z0-9]/g, '') + '@gmail.com';
+                    // Try to find by email if we have it
+                    if (record.guideEmail && record.guideEmail !== 'N/A') {
+                        guide = await Guide.findOne({ email: record.guideEmail.toLowerCase() });
+                    }
 
-                    try {
-                        const hashedGuidePassword = await bcrypt.hash('gnits@123', 10);
-                        guide = await Guide.findOneAndUpdate(
-                            { email: email },
-                            {
-                                $set: { name: record.guideName },
-                                $setOnInsert: { email: email, password: hashedGuidePassword }
-                            },
-                            { upsert: true, new: true, setDefaultsOnInsert: true }
-                        );
-                    } catch (error) {
-                        // Handle duplicate key error - guide already exists
-                        if (error.code === 11000) {
-                            console.log(`[Import] Guide already exists: ${email}, fetching...`);
-                            guide = await Guide.findOne({ email: email });
-                        } else {
-                            throw error;
+                    // If not found by email, try by name
+                    if (!guide) {
+                        guide = await Guide.findOne({ name: { $regex: `^${record.guideName}$`, $options: 'i' } });
+                    }
+
+                    // If still no guide, create one
+                    if (!guide) {
+                        const email = (record.guideEmail && record.guideEmail !== 'N/A')
+                            ? record.guideEmail.toLowerCase()
+                            : `${record.guideName.toLowerCase().replace(/[^a-z0-9]/g, '')}${Date.now()}@guide.gnits.ac.in`;
+
+                        try {
+                            const hashedGuidePassword = await bcrypt.hash('gnits@123', 10);
+                            guide = await Guide.create({
+                                name: record.guideName,
+                                email: email,
+                                password: hashedGuidePassword,
+                                role: 'guide'
+                            });
+                        } catch (error) {
+                            if (error.code === 11000) {
+                                console.log(`[Import] Guide already exists: ${email}, fetching...`);
+                                guide = await Guide.findOne({ email: email });
+                            } else {
+                                throw error;
+                            }
                         }
                     }
                 }

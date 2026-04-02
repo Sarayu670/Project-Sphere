@@ -75,13 +75,14 @@
   word-wrap: break-word;
 }
 
-.message.guide {
+.message.received {
   align-self: flex-start;
   background: #f0f0f0;
   border-left: 3px solid #667eea;
+  color: #333;
 }
 
-.message.student {
+.message.sent-by-me {
   align-self: flex-end;
   background: #667eea;
   color: white;

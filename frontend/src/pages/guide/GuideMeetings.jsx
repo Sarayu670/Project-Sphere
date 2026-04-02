@@ -59,9 +59,25 @@ export default function GuideMeetings() {
   const [rescheduleDraftISO, setRescheduleDraftISO] = useState('');
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const [editingRemarkIndex, setEditingRemarkIndex] = useState(null);
+  const [addMeetingOpen, setAddMeetingOpen] = useState(false);
+  const [addMeetingInsertAfter, setAddMeetingInsertAfter] = useState(0);
+  const [addMeetingDate, setAddMeetingDate] = useState('');
+  const [addMeetingCompleted, setAddMeetingCompleted] = useState(false);
+  const [addMeetingRemark, setAddMeetingRemark] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+  const [scheduleInstruction, setScheduleInstruction] = useState('');
   const [remarkDraft, setRemarkDraft] = useState('');
   const [now, setNow] = useState(() => new Date());
   const [loading, setLoading] = useState(true);
+
+  const persistPlan = async (newPlan) => {
+    try {
+      await api.updateMeetingPlan(selectedBatchId, newPlan);
+    } catch (err) {
+      console.error('Failed to update plan:', err);
+      alert('Failed to save changes.');
+    }
+  };
 
   // Load guide's batches
   useEffect(() => {
@@ -105,103 +121,143 @@ export default function GuideMeetings() {
     return () => clearInterval(t);
   }, []);
 
+  // Build Visual Timeline
+  const displayMeetings = useMemo(() => {
+    if (!plan) return [];
+    
+    // Parse all meetings from backend arrays
+    const rawMeetings = plan.scheduledDates.map((date, i) => {
+      const isExtra = i >= MEETING_COUNT;
+      let insertAfter = isExtra ? (MEETING_COUNT - 1) : null;
+      let cleanRemark = plan.remarks?.[i] || '';
+      
+      if (isExtra && cleanRemark) {
+        const match = cleanRemark.match(/^\[INSERT_AFTER:(\d+)\](.*)/s);
+        if (match) {
+          insertAfter = parseInt(match[1], 10);
+          cleanRemark = match[2].trim();
+        }
+      }
+      return {
+        originalIndex: i,
+        scheduledDateISO: date,
+        completed: plan.completed[i],
+        completedDateISO: plan.completedDates?.[i] || null,
+        remark: cleanRemark,
+        isExtra,
+        insertAfter
+      };
+    });
+
+    const finalOrder = [];
+    let extraCount = 0;
+    
+    // Process base meetings (0 to 5)
+    for (let i = 0; i < Math.min(MEETING_COUNT, rawMeetings.length); i++) {
+       const baseMeeting = rawMeetings[i];
+       baseMeeting.title = `Meeting ${i + 1}`;
+       finalOrder.push(baseMeeting);
+       
+       // Find any extras inserted after this base meeting
+       const extras = rawMeetings.filter(m => m.isExtra && m.insertAfter === i);
+       // Sort these extras chronologically
+       extras.sort((a, b) => {
+          const tA = parseLocalISODate(a.scheduledDateISO);
+          const tB = parseLocalISODate(b.scheduledDateISO);
+          return (tA ? tA.getTime() : 0) - (tB ? tB.getTime() : 0);
+       });
+       
+       extras.forEach(ext => {
+          extraCount++;
+          ext.title = `Extra Meeting ${extraCount}`;
+          finalOrder.push(ext);
+       });
+    }
+
+    // Process orphaned extras (failsafe)
+    const orphans = rawMeetings.filter(m => m.isExtra && (typeof m.insertAfter !== 'number' || m.insertAfter >= MEETING_COUNT || m.insertAfter < 0));
+    orphans.sort((a, b) => {
+       const tA = parseLocalISODate(a.scheduledDateISO);
+       const tB = parseLocalISODate(b.scheduledDateISO);
+       return (tA ? tA.getTime() : 0) - (tB ? tB.getTime() : 0);
+    });
+    orphans.forEach(ext => {
+      extraCount++;
+      ext.title = `Extra Meeting ${extraCount}`;
+      finalOrder.push(ext);
+    });
+
+    return finalOrder;
+  }, [plan]);
+
   const today = useMemo(() => startOfDay(now), [now]);
   const allCompleted = useMemo(() => plan?.completed.every(c => c === true) ?? false, [plan]);
 
-  // Check if meeting is within 15-day active window
-  const isMeetingWithinWindow = (meetingIndex) => {
-    if (!plan) return false;
-    const scheduledISO = plan.scheduledDates[meetingIndex];
+  const isMeetingWithinWindow = (scheduledISO) => {
     const scheduledDate = parseLocalISODate(scheduledISO);
     if (!scheduledDate) return false;
-    
     const endDate = new Date(scheduledDate);
     endDate.setDate(endDate.getDate() + INTERVAL_DAYS);
-    
     return today >= startOfDay(scheduledDate) && today <= startOfDay(endDate);
   };
 
-  // Check if meeting deadline has passed
-  const hasMeetingTimedOut = (meetingIndex) => {
-    if (!plan) return false;
-    const scheduledISO = plan.scheduledDates[meetingIndex];
+  const hasMeetingTimedOut = (scheduledISO) => {
     const scheduledDate = parseLocalISODate(scheduledISO);
     if (!scheduledDate) return false;
-    
     const endDate = new Date(scheduledDate);
     endDate.setDate(endDate.getDate() + INTERVAL_DAYS);
-    
     return today > startOfDay(endDate);
   };
 
-  // Get days remaining for a meeting
-  const getDaysRemaining = (meetingIndex) => {
-    if (!plan) return 0;
-    const scheduledISO = plan.scheduledDates[meetingIndex];
+  const getDaysRemaining = (scheduledISO) => {
     const scheduledDate = parseLocalISODate(scheduledISO);
     if (!scheduledDate) return 0;
-    
     const endDate = new Date(scheduledDate);
     endDate.setDate(endDate.getDate() + INTERVAL_DAYS);
-    
     const daysLeft = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
     return Math.max(0, daysLeft);
   };
 
-  const persistPlan = async (nextPlan) => {
-    if (!selectedBatchId) return;
-    try {
-      await api.updateMeetingPlan(selectedBatchId, nextPlan);
-    } catch (error) {
-      console.error('Error saving meeting plan:', error);
-    }
-  };
+  const firstIncompleteDisplayIndex = useMemo(() => {
+    if (displayMeetings.length === 0) return -1;
+    return displayMeetings.findIndex(m => m.completed !== true);
+  }, [displayMeetings]);
 
-  const firstIncompleteIndex = useMemo(() => {
-    if (!plan) return -1;
-    return plan.completed.findIndex(c => c !== true);
-  }, [plan]);
-
-  const activeMeetingIndex = useMemo(() => {
-    if (!plan || firstIncompleteIndex < 0) return null;
-    
-    // Meeting only becomes active on its scheduled date, not when previous is completed
-    const meetingIndex = firstIncompleteIndex;
-    const scheduledISO = plan.scheduledDates[meetingIndex];
-    const scheduledDate = parseLocalISODate(scheduledISO);
-    
+  const activeMeetingDisplayIndex = useMemo(() => {
+    if (firstIncompleteDisplayIndex < 0) return null;
+    const m = displayMeetings[firstIncompleteDisplayIndex];
+    const scheduledDate = parseLocalISODate(m.scheduledDateISO);
     if (!scheduledDate) return null;
-    
-    // Only activate if today >= scheduled date (not before)
     if (today >= startOfDay(scheduledDate)) {
-      return meetingIndex;
+      return firstIncompleteDisplayIndex;
     }
-    
-    // Meeting not yet scheduled/active
     return null;
-  }, [plan, firstIncompleteIndex, today]);
+  }, [displayMeetings, firstIncompleteDisplayIndex, today]);
 
-  const handleMarkCompleted = async (idx) => {
-    if (!plan || idx !== activeMeetingIndex || plan.completed[idx]) return;
+  const handleMarkCompleted = async (displayIdx) => {
+    if (!plan || displayIdx !== activeMeetingDisplayIndex) return;
+    const m = displayMeetings[displayIdx];
+    if (m.completed) return;
     
-    // Check if meeting is within 15-day window
-    if (!isMeetingWithinWindow(idx)) {
-      alert(`❌ Meeting ${idx + 1} is no longer within its active window. The 15-day deadline has passed.`);
+    if (!isMeetingWithinWindow(m.scheduledDateISO)) {
+      alert(`❌ ${m.title} is no longer within its active window. The 15-day deadline has passed.`);
       return;
     }
     
     const nextCompleted = [...plan.completed];
-    nextCompleted[idx] = true;
-    const nextCompletedDates = [...(plan.completedDates || Array(MEETING_COUNT).fill(null))];
-    nextCompletedDates[idx] = getLocalISODate(new Date());
+    nextCompleted[m.originalIndex] = true;
+    const nextCompletedDates = [...(plan.completedDates || Array(plan.scheduledDates.length).fill(null))];
+    nextCompletedDates[m.originalIndex] = getLocalISODate(new Date());
     const nextPlan = { ...plan, completed: nextCompleted, completedDates: nextCompletedDates };
     setPlan(nextPlan);
     await persistPlan(nextPlan);
   };
 
-  const openReschedule = (idx) => {
-    if (!plan || plan.completed[idx]) return;
-    setRescheduleDraftISO(plan.scheduledDates[idx]);
+  const openReschedule = (displayIdx) => {
+    if (!plan) return;
+    const m = displayMeetings[displayIdx];
+    if (m.completed) return;
+    setRescheduleDraftISO(m.scheduledDateISO);
     setRescheduleOpen(true);
   };
 
@@ -210,21 +266,29 @@ export default function GuideMeetings() {
     setRescheduleDraftISO('');
   };
 
-  const handleSaveReschedule = async (idx) => {
-    if (!plan || idx !== firstIncompleteIndex || !isValidISODate(rescheduleDraftISO)) return;
+  const handleSaveReschedule = async (displayIdx) => {
+    if (!plan || displayIdx !== firstIncompleteDisplayIndex || !isValidISODate(rescheduleDraftISO)) return;
     
-    // Validate: only allow rescheduling from today onwards
     const newDate = parseLocalISODate(rescheduleDraftISO);
     if (newDate && newDate < today) {
       alert('❌ Cannot schedule a meeting for a past date. Please select today or a future date.');
       return;
     }
     
+    const m = displayMeetings[displayIdx];
     const nextScheduled = [...plan.scheduledDates];
-    nextScheduled[idx] = rescheduleDraftISO;
-    for (let j = idx + 1; j < MEETING_COUNT; j++) {
-      nextScheduled[j] = addDaysToLocalISODate(rescheduleDraftISO, (j - idx) * INTERVAL_DAYS);
+    
+    if (!m.isExtra) {
+      // Cascade schedule downstream chronologically ONLY for original meetings
+      nextScheduled[m.originalIndex] = rescheduleDraftISO;
+      for (let j = m.originalIndex + 1; j < Math.min(6, plan.scheduledDates.length); j++) {
+        nextScheduled[j] = addDaysToLocalISODate(rescheduleDraftISO, (j - m.originalIndex) * INTERVAL_DAYS);
+      }
+    } else {
+      // Just update this extra meeting
+      nextScheduled[m.originalIndex] = rescheduleDraftISO;
     }
+    
     const nextPlan = { ...plan, scheduledDates: nextScheduled };
     setPlan(nextPlan);
     await persistPlan(nextPlan);
@@ -232,10 +296,11 @@ export default function GuideMeetings() {
     setRescheduleDraftISO('');
   };
 
-  const openRemark = (idx) => {
+  const openRemark = (displayIdx) => {
     if (!plan) return;
-    setEditingRemarkIndex(idx);
-    setRemarkDraft(plan.remarks[idx] || '');
+    const m = displayMeetings[displayIdx];
+    setEditingRemarkIndex(m.originalIndex);
+    setRemarkDraft(m.remark);
   };
 
   const cancelRemark = () => {
@@ -243,15 +308,105 @@ export default function GuideMeetings() {
     setRemarkDraft('');
   };
 
-  const saveRemark = async (idx) => {
+  const saveRemark = async (originalIdx) => {
     if (!plan) return;
+    
+    let prefix = '';
+    if (originalIdx >= 6) {
+       // preserve serialization tag if any
+       const rawRemark = plan.remarks[originalIdx] || '';
+       const match = rawRemark.match(/^\[INSERT_AFTER:\d+\]/);
+       if (match) prefix = match[0] + ' ';
+    }
+    
     const nextRemarks = [...plan.remarks];
-    nextRemarks[idx] = remarkDraft;
+    nextRemarks[originalIdx] = prefix + remarkDraft;
     const nextPlan = { ...plan, remarks: nextRemarks };
     setPlan(nextPlan);
     await persistPlan(nextPlan);
     setEditingRemarkIndex(null);
     setRemarkDraft('');
+  };
+
+  const openAddMeeting = () => {
+    if (!plan) return;
+    setAddMeetingInsertAfter(0); // Default to inserting after Meeting 1
+    setAddMeetingDate(getLocalISODate(today));
+    setAddMeetingCompleted(false);
+    setAddMeetingRemark('');
+    setAddMeetingOpen(true);
+    
+    setScheduleInstruction('Scroll down to schedule a meeting ↓');
+    setTimeout(() => setScheduleInstruction(''), 4000);
+    
+    setTimeout(() => {
+      document.getElementById('add-meeting-form')?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }, 100);
+  };
+
+  const cancelAddMeeting = () => {
+    setAddMeetingOpen(false);
+    setAddMeetingDate('');
+    setAddMeetingCompleted(false);
+    setAddMeetingRemark('');
+  };
+
+  const handleSaveNewMeeting = async () => {
+    if (!plan || !isValidISODate(addMeetingDate)) return;
+    
+    const newDate = parseLocalISODate(addMeetingDate);
+    if (newDate && newDate < today) {
+       alert('❌ Cannot schedule a meeting for a past date. Please select today or a future date.');
+       return;
+    }
+    
+    const m1Date = parseLocalISODate(plan.scheduledDates[0]);
+    if (newDate < m1Date) {
+      alert(`Meeting date cannot be before Meeting 1 (${plan.scheduledDates[0]}).`);
+      return;
+    }
+
+    const prevDate = parseLocalISODate(plan.scheduledDates[addMeetingInsertAfter]);
+    const nextDate = addMeetingInsertAfter < 5 ? parseLocalISODate(plan.scheduledDates[addMeetingInsertAfter + 1]) : null;
+
+    let isOutofBounds = false;
+    if (newDate < prevDate) isOutofBounds = true;
+    if (nextDate && newDate > nextDate) isOutofBounds = true;
+
+    if (isOutofBounds) {
+       let suggestedIndex = 5;
+       for(let i=0; i<5; i++) {
+          const lower = parseLocalISODate(plan.scheduledDates[i]);
+          const upper = parseLocalISODate(plan.scheduledDates[i+1]);
+          if (newDate >= lower && newDate <= upper) {
+             suggestedIndex = i;
+             break;
+          }
+       }
+       if (suggestedIndex === 5) {
+          alert(`You can insert this meeting after Meeting 6`);
+       } else {
+          alert(`You can insert this meeting between Meeting ${suggestedIndex + 1} and Meeting ${suggestedIndex + 2}`);
+       }
+       return;
+    }
+
+    const nextPlan = { ...plan };
+    nextPlan.scheduledDates = [...(plan.scheduledDates || []), addMeetingDate];
+    nextPlan.completed = [...(plan.completed || []), addMeetingCompleted];
+    
+    const newCompletedDate = addMeetingCompleted ? getLocalISODate(new Date()) : null;
+    nextPlan.completedDates = [...(plan.completedDates || Array(plan.scheduledDates.length).fill(null)), newCompletedDate];
+    
+    const baseRemark = addMeetingCompleted ? addMeetingRemark : '';
+    const newRemark = `[INSERT_AFTER:${addMeetingInsertAfter}] ${baseRemark}`;
+    nextPlan.remarks = [...(plan.remarks || Array(plan.scheduledDates.length).fill('')), newRemark];
+
+    setPlan(nextPlan);
+    await persistPlan(nextPlan);
+    setSuccessMessage('Meeting is scheduled');
+    setTimeout(() => setSuccessMessage(''), 4000); // Auto-hide after 4s
+    setAddMeetingOpen(false);
   };
 
   const generateStatusForm = () => {
@@ -266,12 +421,14 @@ export default function GuideMeetings() {
     doc.text(`Generated on: ${new Date().toLocaleDateString('en-IN')}`, 14, 32);
     if (user?.name) doc.text(`Guide Name: ${user.name}`, 14, 40);
     doc.text(`Batch: ${batchName}`, 14, 48);
-    const tableData = plan.scheduledDates.map((iso, i) => {
-      const d = parseLocalISODate(iso);
+    
+    // AutoTable utilizes the chronological displayMeetings
+    const tableData = displayMeetings.map((m, i) => {
+      const d = parseLocalISODate(m.scheduledDateISO);
       return [
-        i + 1,
-        plan.remarks[i] || 'No remark',
-        d ? d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : iso
+        m.title,
+        m.remark || 'No remark',
+        d ? d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : m.scheduledDateISO
       ];
     });
     doc.autoTable({
@@ -304,7 +461,7 @@ export default function GuideMeetings() {
       <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
         <h2>Meetings</h2>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
             <label style={{ fontWeight: 600, marginRight: '8px', color: '#444' }}>Batch:</label>
             <select
               value={selectedBatchId}
@@ -314,9 +471,78 @@ export default function GuideMeetings() {
               {batches.map(b => <option key={b._id} value={b._id}>{b.teamName}</option>)}
             </select>
           </div>
-          <span style={{ color: '#666', fontSize: '13px' }}>One meeting active at a time</span>
+          <button 
+            className="btn btn-primary"
+            onClick={openAddMeeting}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', padding: '8px 16px', background: '#3b82f6', borderColor: '#3b82f6' }}
+            disabled={!plan}
+          >
+            ➕ Schedule Meeting
+          </button>
         </div>
       </div>
+
+      {successMessage && (
+        <div style={{
+          position: 'fixed',
+          bottom: '24px',
+          right: '24px',
+          zIndex: 9999,
+          backgroundColor: '#ecfdf5',
+          color: '#065f46',
+          padding: '12px 24px',
+          borderRadius: '8px',
+          border: '1px solid #10b981',
+          fontWeight: '600',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '16px',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          animation: 'slideUpFade 0.3s ease-out'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '18px' }}>✅</span>
+            {successMessage}
+          </div>
+          <button 
+            onClick={() => setSuccessMessage('')} 
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '20px', color: '#065f46', padding: '0 4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            ×
+          </button>
+        </div>
+      )}
+
+      {scheduleInstruction && (
+        <div style={{
+          position: 'fixed',
+          bottom: '24px',
+          right: '24px',
+          zIndex: 9999,
+          backgroundColor: '#eff6ff',
+          color: '#1e40af',
+          padding: '12px 24px',
+          borderRadius: '8px',
+          border: '1px solid #3b82f6',
+          fontWeight: '600',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '16px',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          animation: 'slideUpFade 0.3s ease-out'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '18px' }}>ℹ️</span>
+            {scheduleInstruction}
+          </div>
+          <button 
+            onClick={() => setScheduleInstruction('')} 
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '20px', color: '#1e40af', padding: '0 4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {plan && (
         <div className="card" style={{ marginTop: '15px' }}>
@@ -327,40 +553,44 @@ export default function GuideMeetings() {
           </div>
 
           <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {Array.from({ length: MEETING_COUNT }, (_, idx) => {
-              const isCompleted = plan.completed[idx] === true;
-              const isActive = idx === activeMeetingIndex;
-              const scheduledISO = plan.scheduledDates[idx];
+            {displayMeetings.map((m, displayIdx) => {
+              const isCompleted = m.completed === true;
+              const isActive = displayIdx === activeMeetingDisplayIndex;
+              const scheduledISO = m.scheduledDateISO;
               const scheduledDate = parseLocalISODate(scheduledISO);
               const scheduledLabel = scheduledDate
                 ? scheduledDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
                 : scheduledISO;
-              const completedDate = plan.completedDates?.[idx];
+              const completedDate = m.completedDateISO;
               const completedLabel = completedDate
                 ? parseLocalISODate(completedDate)?.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
                 : null;
 
               const statusBadgeStyle = isCompleted
                 ? { background: '#d4edda', color: '#155724', border: '1px solid #c3e6cb' }
-                : hasMeetingTimedOut(idx)
+                : hasMeetingTimedOut(scheduledISO)
                 ? { background: '#f8d7da', color: '#721c24', border: '1px solid #f5c6cb' }
                 : isActive
                 ? { background: '#dbedfe', color: '#1e3a8a', border: '1px solid #bfdbfe' }
                 : { background: '#f1f5f9', color: '#334155', border: '1px solid #e2e8f0' };
 
               return (
-                <div key={idx} style={{
+                <div key={m.originalIndex} style={{
                   display: 'grid', gridTemplateColumns: '1fr 180px 200px', gap: '10px',
                   alignItems: 'center', padding: '12px', borderRadius: '10px',
-                  border: '1px solid #e5e7eb', background: isCompleted ? '#f0fdf4' : '#fff',
+                  border: m.isExtra ? '2px dashed #93c5fd' : '1px solid #e5e7eb',
+                  background: isCompleted ? '#f0fdf4' : (m.isExtra ? '#f8fafc' : '#fff'),
                   opacity: !isActive && !isCompleted ? 0.9 : 1
                 }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                    <div style={{ fontWeight: '800', color: '#111827' }}>Meeting {idx + 1}</div>
+                    <div style={{ fontWeight: '800', color: '#111827', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {m.title}
+                      {m.isExtra && <span style={{ padding: '2px 6px', fontSize: '10px', background: '#e0f2fe', color: '#0369a1', borderRadius: '4px', border: '1px solid #bae6fd' }}>EXTRA</span>}
+                    </div>
                     <div style={{ color: '#6b7280', fontSize: '12px' }}>
                       {isCompleted && completedLabel ? `Completed on ${completedLabel}` :
-                       hasMeetingTimedOut(idx) ? '⏰ Deadline passed - Cannot mark as complete' :
-                       isMeetingWithinWindow(idx) ? `Active window: ${getDaysRemaining(idx)} days remaining` :
+                       hasMeetingTimedOut(scheduledISO) ? '⏰ Deadline passed - Cannot mark as complete' :
+                       isMeetingWithinWindow(scheduledISO) ? `Active window: ${getDaysRemaining(scheduledISO)} days remaining` :
                        isActive ? (scheduledDate && scheduledDate.getTime() > today.getTime() ? 'Upcoming actionable meeting' : 'Current active meeting') : 
                        'Locked until previous meetings are completed'}
                     </div>
@@ -370,9 +600,9 @@ export default function GuideMeetings() {
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '5px 10px', borderRadius: '999px', width: 'fit-content', ...statusBadgeStyle }}>
-                      <span>{isCompleted ? '✅' : hasMeetingTimedOut(idx) ? '⏰' : isActive ? '🔵' : '🔒'}</span>
+                      <span>{isCompleted ? '✅' : hasMeetingTimedOut(scheduledISO) ? '⏰' : isActive ? '🔵' : '🔒'}</span>
                       <span style={{ fontWeight: 700, fontSize: '13px' }}>
-                        {isCompleted ? 'Completed' : hasMeetingTimedOut(idx) ? 'Timed Out' : isActive ? 'Active' : 'Locked'}
+                        {isCompleted ? 'Completed' : hasMeetingTimedOut(scheduledISO) ? 'Timed Out' : isActive ? 'Active' : 'Locked'}
                       </span>
                     </div>
 
@@ -380,21 +610,21 @@ export default function GuideMeetings() {
                       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                         <button 
                           className="btn btn-primary" 
-                          style={{ fontSize: '13px', padding: '6px 12px', opacity: hasMeetingTimedOut(idx) ? 0.5 : 1, cursor: hasMeetingTimedOut(idx) ? 'not-allowed' : 'pointer' }} 
-                          onClick={() => handleMarkCompleted(idx)}
-                          disabled={hasMeetingTimedOut(idx)}
-                          title={hasMeetingTimedOut(idx) ? 'Deadline passed - cannot mark as complete' : ''}
+                          style={{ fontSize: '13px', padding: '6px 12px', opacity: hasMeetingTimedOut(scheduledISO) ? 0.5 : 1, cursor: hasMeetingTimedOut(scheduledISO) ? 'not-allowed' : 'pointer' }} 
+                          onClick={() => handleMarkCompleted(displayIdx)}
+                          disabled={hasMeetingTimedOut(scheduledISO)}
+                          title={hasMeetingTimedOut(scheduledISO) ? 'Deadline passed - cannot mark as complete' : ''}
                         >
                           ✔ Mark Completed
                         </button>
                       </div>
                     )}
 
-                    {!isCompleted && idx === firstIncompleteIndex && (
+                    {!isCompleted && displayIdx === firstIncompleteDisplayIndex && (
                       <button 
                         className="btn btn-secondary" 
                         style={{ fontSize: '13px', padding: '6px 12px', width: 'fit-content' }} 
-                        onClick={() => openReschedule(idx)}
+                        onClick={() => openReschedule(displayIdx)}
                         title="Reschedule this meeting to an earlier date"
                       >
                         🗓️ Reschedule
@@ -402,15 +632,15 @@ export default function GuideMeetings() {
                     )}
 
                     {isCompleted && (
-                      <button className="btn btn-secondary" style={{ fontSize: '13px', padding: '6px 12px', width: 'fit-content' }} onClick={() => openRemark(idx)}>
-                        📝 {plan.remarks[idx] ? 'Edit Remark' : 'Add Remark'}
+                      <button className="btn btn-secondary" style={{ fontSize: '13px', padding: '6px 12px', width: 'fit-content' }} onClick={() => openRemark(displayIdx)}>
+                        📝 {m.remark ? 'Edit Remark' : 'Add Remark'}
                       </button>
                     )}
                   </div>
 
-                  {rescheduleOpen && idx === firstIncompleteIndex && !isCompleted && (
+                  {rescheduleOpen && displayIdx === firstIncompleteDisplayIndex && !isCompleted && (
                     <div style={{ gridColumn: '1 / -1', marginTop: '5px', padding: '12px', borderRadius: '10px', background: '#f8fafc', border: '1px solid #e2e8f0' }}>
-                      <div style={{ fontWeight: '800', color: '#0f172a', marginBottom: '8px' }}>Reschedule Meeting {idx + 1}</div>
+                      <div style={{ fontWeight: '800', color: '#0f172a', marginBottom: '8px' }}>Reschedule {m.title}</div>
                       <div style={{ display: 'flex', gap: '12px', alignItems: 'end', flexWrap: 'wrap' }}>
                         <div className="form-group">
                           <label style={{ display: 'block', marginBottom: '6px' }}>New scheduled date (from today onwards)</label>
@@ -425,7 +655,7 @@ export default function GuideMeetings() {
                             ℹ️ You can only schedule from today or future dates
                           </div>
                         </div>
-                        <button className="btn btn-primary" onClick={() => handleSaveReschedule(idx)} disabled={!isValidISODate(rescheduleDraftISO)}>Save & Lock Future Dates</button>
+                        <button className="btn btn-primary" onClick={() => handleSaveReschedule(displayIdx)} disabled={!isValidISODate(rescheduleDraftISO)}>Save & Lock Future Dates</button>
                         <button className="btn btn-secondary" onClick={handleCancelReschedule}>Cancel</button>
                       </div>
                       <div style={{ marginTop: '8px', color: '#64748b', fontSize: '12px' }}>
@@ -434,24 +664,24 @@ export default function GuideMeetings() {
                     </div>
                   )}
 
-                  {plan.remarks[idx] && editingRemarkIndex !== idx && (
+                  {m.remark && editingRemarkIndex !== m.originalIndex && (
                     <div style={{ gridColumn: '1 / -1', marginTop: '5px', padding: '10px 12px', borderRadius: '8px', background: '#f8fafc', border: '1px solid #e2e8f0' }}>
                       <span style={{ fontWeight: '600', color: '#444' }}>Remark: </span>
-                      <span style={{ color: '#333', whiteSpace: 'pre-wrap' }}>{plan.remarks[idx]}</span>
+                      <span style={{ color: '#333', whiteSpace: 'pre-wrap' }}>{m.remark}</span>
                     </div>
                   )}
 
-                  {editingRemarkIndex === idx && (
+                  {editingRemarkIndex === m.originalIndex && (
                     <div style={{ gridColumn: '1 / -1', marginTop: '5px', padding: '12px', borderRadius: '10px', background: '#f8fafc', border: '1px solid #e2e8f0' }}>
                       <div style={{ fontWeight: '800', color: '#0f172a', marginBottom: '8px' }}>
-                        {plan.remarks[idx] ? 'Edit Remark' : 'Add Remark'} for Meeting {idx + 1}
+                        {m.remark ? 'Edit Remark' : 'Add Remark'} for {m.title}
                       </div>
                       <textarea value={remarkDraft} onChange={e => setRemarkDraft(e.target.value)}
                         placeholder="Type short notes or comments about this meeting..."
                         style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e0', minHeight: '70px', fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' }}
                       />
                       <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
-                        <button className="btn btn-primary" onClick={() => saveRemark(idx)}>Save Remark</button>
+                        <button className="btn btn-primary" onClick={() => saveRemark(m.originalIndex)}>Save Remark</button>
                         <button className="btn btn-secondary" onClick={cancelRemark}>Cancel</button>
                       </div>
                     </div>
@@ -459,6 +689,80 @@ export default function GuideMeetings() {
                 </div>
               );
             })}
+
+            {/* Add Meeting Form */}
+            {addMeetingOpen && (
+              <div id="add-meeting-form" style={{
+                display: 'flex', flexDirection: 'column', gap: '12px',
+                padding: '16px', borderRadius: '10px',
+                border: '1px solid #2563eb', background: '#eff6ff'
+              }}>
+                <div style={{ fontWeight: '800', color: '#1e3a8a', fontSize: '16px' }}>Schedule Extra Meeting</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label style={{ display: 'block', marginBottom: '6px', fontWeight: 600, color: '#334155' }}>Insert After</label>
+                    <select 
+                      value={addMeetingInsertAfter} 
+                      onChange={e => setAddMeetingInsertAfter(Number(e.target.value))}
+                      style={{ padding: '10px 12px', borderRadius: '6px', border: '1px solid #cbd5e0', width: 'fit-content' }}
+                    >
+                      {Array.from({length: Math.min(MEETING_COUNT, plan.scheduledDates.length)}).map((_, i) => (
+                        <option key={i} value={i}>Meeting {i + 1}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label style={{ display: 'block', marginBottom: '6px', fontWeight: 600, color: '#334155' }}>Date</label>
+                    <input 
+                      type="date" 
+                      value={addMeetingDate} 
+                      onChange={e => setAddMeetingDate(e.target.value)}
+                      min={getLocalISODate(today)}
+                      style={{ padding: '10px 12px', borderRadius: '6px', border: '1px solid #cbd5e0', width: 'fit-content' }} 
+                    />
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 0, display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0' }}>
+                    <input 
+                      type="checkbox" 
+                      id="addMeetingCompletedStatus"
+                      checked={addMeetingCompleted}
+                      onChange={e => setAddMeetingCompleted(e.target.checked)}
+                      disabled={!allCompleted}
+                      style={{ width: '16px', height: '16px', cursor: !allCompleted ? 'not-allowed' : 'pointer' }}
+                    />
+                    <label htmlFor="addMeetingCompletedStatus" style={{ fontWeight: 600, color: '#334155', cursor: !allCompleted ? 'not-allowed' : 'pointer', margin: 0 }}>
+                      Mark as Completed
+                    </label>
+                    {!allCompleted && (
+                      <span style={{ fontSize: '12px', color: '#ef4444', marginLeft: '4px' }}>
+                        (Cannot mark as complete until all previous meetings are completed)
+                      </span>
+                    )}
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 0, opacity: addMeetingCompleted ? 1 : 0.6 }}>
+                    <label style={{ display: 'block', marginBottom: '6px', fontWeight: 600, color: '#334155' }}>Remark</label>
+                    <textarea 
+                      value={addMeetingRemark} 
+                      onChange={e => setAddMeetingRemark(e.target.value)}
+                      placeholder={addMeetingCompleted ? "Type short notes or agenda for this meeting..." : "Requires 'Completed' status to add remarks"}
+                      disabled={!addMeetingCompleted}
+                      style={{ 
+                        width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e0', 
+                        minHeight: '70px', fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box',
+                        cursor: !addMeetingCompleted ? 'not-allowed' : 'text',
+                        backgroundColor: !addMeetingCompleted ? '#f1f5f9' : '#fff'
+                      }}
+                    />
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
+                  <button className="btn btn-primary" onClick={handleSaveNewMeeting} disabled={!isValidISODate(addMeetingDate)}>Save and Lock</button>
+                  <button className="btn btn-secondary" onClick={cancelAddMeeting}>Cancel</button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -481,6 +785,17 @@ export default function GuideMeetings() {
           📄 Generate Status Form
         </button>
       </div>
+
+      <style>{`
+        @keyframes slideDownFade {
+          from { opacity: 0; transform: translateY(-10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes slideUpFade {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
     </div>
   );
 }

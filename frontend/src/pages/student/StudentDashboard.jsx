@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import axios from 'axios';
 import * as api from '../../services/api';
 import ChatPanel from '../../components/ChatPanel';
@@ -23,6 +24,8 @@ function StudentDashboard() {
   const [chatOpen, setChatOpen] = useState(false);
   const [chatData, setChatData] = useState(null);
   const [summarizing, setSummarizing] = useState(false);
+  const { user } = useAuth();
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const fetchBatch = useCallback(async () => {
     if (!batch) setLoading(true);
@@ -42,6 +45,33 @@ function StudentDashboard() {
 
   // Poll batch status every 20s so guide approval / rejection appears automatically
   usePolling(fetchBatch, 20000);
+
+  const fetchUnreadCount = useCallback(async () => {
+    if (!batch || !user) return;
+    try {
+      const leaderId = typeof batch.leaderStudentId === 'object' ? batch.leaderStudentId._id : batch.leaderStudentId;
+      if (!leaderId) return;
+      
+      const response = await axios.get(`${import.meta.env.VITE_API_URL || '/api'}/chat/student/${batch._id}/${leaderId}`);
+      if (response.data && response.data.data) {
+        const chat = response.data.data;
+        const readRecord = chat.readBy?.find(r => String(r.userId) === String(user._id) || String(r.userId) === String(user.id));
+        const lastRead = readRecord ? new Date(readRecord.lastReadAt).getTime() : 0;
+        
+        const unreadMsgs = chat.messages?.filter(m => {
+          const isFromMe = String(m.senderId) === String(user._id) || String(m.senderId) === String(user.id);
+          const isNewer = new Date(m.timestamp).getTime() > lastRead;
+          return !isFromMe && isNewer;
+        }) || [];
+        
+        setUnreadCount(unreadMsgs.length);
+      }
+    } catch (err) {
+      // Chat might not exist yet, ignore
+    }
+  }, [batch, user]);
+
+  usePolling(fetchUnreadCount, 15000, !!batch && !!user);
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
@@ -139,6 +169,7 @@ function StudentDashboard() {
 
   const handleChatClose = () => {
     setChatOpen(false);
+    fetchUnreadCount();
   };
 
   return (
@@ -154,8 +185,11 @@ function StudentDashboard() {
         <div className="header-right">
           {isAllotted && (
             <div className="header-actions">
-              <button className="chat-btn" onClick={handleOpenChat} title="Chat with Guide">
+              <button className="chat-btn" onClick={handleOpenChat} title="Chat with Guide" style={{ position: 'relative' }}>
                 💬 Chat
+                {unreadCount > 0 && (
+                  <span className="unread-badge">{unreadCount}</span>
+                )}
               </button>
               <button
                 className="report-btn"

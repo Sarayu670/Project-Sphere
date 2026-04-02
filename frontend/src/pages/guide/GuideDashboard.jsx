@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import * as api from '../../services/api';
 import ChatPanel from '../../components/ChatPanel';
 import ChatsListPanel from '../../components/ChatsListPanel';
@@ -16,6 +17,8 @@ function GuideDashboard() {
   const [activeTab, setActiveTab] = useState(
     () => sessionStorage.getItem('guideActiveTab') || 'problems'
   );
+  const { user } = useAuth();
+  const [unreadCounts, setUnreadCounts] = useState({});
 
   // Per-section state – loaded lazily
   const [problems, setProblems] = useState([]);
@@ -118,10 +121,40 @@ function GuideDashboard() {
     if (activeTab === 'teams' && !fetchedTeams) fetchTeamsData();
   }, [activeTab]); // eslint-disable-line
 
+  const fetchUnreadCounts = useCallback(async () => {
+    try {
+      if (!user) return;
+      const res = await api.getGuideChats();
+      const chats = res.data.data || [];
+      const newUnread = {};
+      
+      chats.forEach(chat => {
+        const readRecord = chat.readBy?.find(r => String(r.userId) === String(user._id) || String(r.userId) === String(user.id));
+        const lastRead = readRecord ? new Date(readRecord.lastReadAt).getTime() : 0;
+        
+        const unreadMsgs = chat.messages?.filter(m => {
+          const isFromMe = String(m.senderId) === String(user._id) || String(m.senderId) === String(user.id);
+          const isNewer = new Date(m.timestamp).getTime() > lastRead;
+          return !isFromMe && isNewer;
+        }) || [];
+        
+        if (unreadMsgs.length > 0) {
+          const bid = chat.batchId?._id || chat.batchId;
+          newUnread[bid] = unreadMsgs.length;
+        }
+      });
+      
+      setUnreadCounts(newUnread);
+    } catch (error) {
+      console.error('Failed to fetch unread counts:', error);
+    }
+  }, [user]);
+
   // Also preload teams data once (needed for stats row)
   useEffect(() => {
     fetchTeamsData();
     fetchRequestsData();
+    fetchUnreadCounts();
   }, []); // eslint-disable-line
 
   // ── Auto-polling ─────────────────────────────────────────────────────────
@@ -130,6 +163,8 @@ function GuideDashboard() {
   usePolling(fetchRequestsData, 15000, activeTab === 'requests' || true);
   // Poll teams/submissions every 20 s
   usePolling(fetchTeamsData, 20000, true);
+  // Poll for unread counts
+  usePolling(fetchUnreadCounts, 15000, true);
 
   // ── Tab switching ────────────────────────────────────────────────────────
 
@@ -279,7 +314,7 @@ function GuideDashboard() {
   };
 
   const handleSelectTeam = (teamData) => { setSelectedChat(teamData); setChatOpen(true); };
-  const handleChatClose = () => setChatOpen(false);
+  const handleChatClose = () => { setChatOpen(false); fetchUnreadCounts(); };
 
   const handleDownloadReport = async () => {
     if (selectedChat && currentChatData) {
@@ -319,8 +354,11 @@ function GuideDashboard() {
           <p>Manage your problem statements and teams</p>
         </div>
         <div className="header-right">
-          <button className="messages-btn" onClick={() => setChatsListOpen(true)} title="View team messages">
+          <button className="messages-btn" onClick={() => setChatsListOpen(true)} title="View team messages" style={{ position: 'relative' }}>
             💬 Messages
+            {Object.values(unreadCounts).reduce((a, b) => a + b, 0) > 0 && (
+              <span className="unread-badge">{Object.values(unreadCounts).reduce((a, b) => a + b, 0)}</span>
+            )}
           </button>
           {chatOpen && selectedChat && (
             <button className="download-report-btn" onClick={handleDownloadReport} title="Download chat report">
@@ -520,7 +558,7 @@ function GuideDashboard() {
         confirmText={dialog.confirmText} cancelText={dialog.cancelText} showCancel={dialog.showCancel}
       />
 
-      <ChatsListPanel batches={batches} isOpen={chatsListOpen} onClose={() => setChatsListOpen(false)} onSelectTeam={handleSelectTeam} />
+      <ChatsListPanel batches={batches} isOpen={chatsListOpen} onClose={() => setChatsListOpen(false)} onSelectTeam={handleSelectTeam} unreadCounts={unreadCounts} />
 
       {selectedChat && (
         <ChatPanel

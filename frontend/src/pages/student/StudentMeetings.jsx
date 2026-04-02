@@ -80,10 +80,73 @@ const [now] = useState(() => new Date());
 
   const today = useMemo(() => startOfDay(now), [now]);
 
-  const firstIncompleteIndex = useMemo(() => {
-    if (!plan) return -1;
-    return plan.completed.findIndex(c => c !== true);
+  const displayMeetings = useMemo(() => {
+    if (!plan) return [];
+    
+    const rawMeetings = plan.scheduledDates.map((date, i) => {
+      const isExtra = i >= MEETING_COUNT;
+      let insertAfter = isExtra ? (MEETING_COUNT - 1) : null;
+      let cleanRemark = plan.remarks?.[i] || '';
+      
+      if (isExtra && cleanRemark) {
+        const match = cleanRemark.match(/^\[INSERT_AFTER:(\d+)\](.*)/s);
+        if (match) {
+          insertAfter = parseInt(match[1], 10);
+          cleanRemark = match[2].trim();
+        }
+      }
+      return {
+        originalIndex: i,
+        scheduledDateISO: date,
+        completed: plan.completed[i],
+        completedDateISO: plan.completedDates?.[i] || null,
+        remark: cleanRemark,
+        isExtra,
+        insertAfter
+      };
+    });
+
+    const finalOrder = [];
+    let extraCount = 0;
+    
+    for (let i = 0; i < Math.min(MEETING_COUNT, rawMeetings.length); i++) {
+       const baseMeeting = rawMeetings[i];
+       baseMeeting.title = `Meeting ${i + 1}`;
+       finalOrder.push(baseMeeting);
+       
+       const extras = rawMeetings.filter(m => m.isExtra && m.insertAfter === i);
+       extras.sort((a, b) => {
+          const tA = parseLocalISODate(a.scheduledDateISO);
+          const tB = parseLocalISODate(b.scheduledDateISO);
+          return (tA ? tA.getTime() : 0) - (tB ? tB.getTime() : 0);
+       });
+       
+       extras.forEach(ext => {
+          extraCount++;
+          ext.title = `Extra Meeting ${extraCount}`;
+          finalOrder.push(ext);
+       });
+    }
+
+    const orphans = rawMeetings.filter(m => m.isExtra && (typeof m.insertAfter !== 'number' || m.insertAfter >= MEETING_COUNT || m.insertAfter < 0));
+    orphans.sort((a, b) => {
+       const tA = parseLocalISODate(a.scheduledDateISO);
+       const tB = parseLocalISODate(b.scheduledDateISO);
+       return (tA ? tA.getTime() : 0) - (tB ? tB.getTime() : 0);
+    });
+    orphans.forEach(ext => {
+      extraCount++;
+      ext.title = `Extra Meeting ${extraCount}`;
+      finalOrder.push(ext);
+    });
+
+    return finalOrder;
   }, [plan]);
+
+  const firstIncompleteDisplayIndex = useMemo(() => {
+    if (displayMeetings.length === 0) return -1;
+    return displayMeetings.findIndex(m => m.completed !== true);
+  }, [displayMeetings]);
 
   if (loading) {
     return <div style={{ padding: '24px 0' }}><div className="card loading"><h3>Loading...</h3></div></div>;
@@ -115,14 +178,14 @@ const [now] = useState(() => new Date());
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        {Array.from({ length: MEETING_COUNT }, (_, idx) => {
-          const isCompleted = plan.completed[idx] === true;
-          const completedDateISO = plan.completedDates?.[idx];
-          const scheduledISO = plan.scheduledDates[idx];
+        {displayMeetings.map((m, displayIdx) => {
+          const isCompleted = m.completed === true;
+          const completedDateISO = m.completedDateISO;
+          const scheduledISO = m.scheduledDateISO;
           const scheduledDate = parseLocalISODate(scheduledISO);
 
-          const isNextUp = idx === firstIncompleteIndex;
-          const isPrevIncomplete = idx > 0 && !plan.completed[idx - 1];
+          const isNextUp = displayIdx === firstIncompleteDisplayIndex;
+          const isPrevIncomplete = displayIdx > 0 && !displayMeetings[displayIdx - 1].completed;
           const notYetDue = scheduledDate && scheduledDate.getTime() > today.getTime();
 
           let subText = '';
@@ -134,10 +197,10 @@ const [now] = useState(() => new Date());
             const availableDate = scheduledDate ? formatDate(scheduledISO) : '';
             const msLeft = scheduledDate.getTime() - today.getTime();
             const daysLeft = Math.ceil(msLeft / (1000 * 60 * 60 * 24));
-            const prevCompletedISO = idx > 0 ? plan.completedDates?.[idx - 1] : null;
+            const prevCompletedISO = displayIdx > 0 ? displayMeetings[displayIdx - 1].completedDateISO : null;
             if (prevCompletedISO) {
               const nextDateISO = addDaysToLocalISODate(prevCompletedISO, INTERVAL_DAYS);
-              subText = `Meeting ${idx + 1} will be conducted after ${INTERVAL_DAYS} days from the previous meeting date (available from ${formatDate(nextDateISO || scheduledISO)})`;
+              subText = `${m.title} will be conducted after ${INTERVAL_DAYS} days from the previous meeting date (available from ${formatDate(nextDateISO || scheduledISO)})`;
             } else {
               subText = `Available in ${daysLeft} day${daysLeft !== 1 ? 's' : ''} (from ${availableDate})`;
             }
@@ -145,22 +208,23 @@ const [now] = useState(() => new Date());
             subText = 'Ready — guide will mark this meeting';
           }
 
-          const cardBg = isCompleted ? '#f0fdf4' : '#fff';
-          const borderColor = isCompleted ? '#bbf7d0' : '#e5e7eb';
-          const numberBg = isCompleted ? '#22c55e' : '#f3f4f6';
-          const numberColor = isCompleted ? '#fff' : '#6b7280';
+          const cardBg = isCompleted ? '#f0fdf4' : (m.isExtra ? '#f8fafc' : '#fff');
+          const borderColor = isCompleted ? '#bbf7d0' : (m.isExtra ? '#93c5fd' : '#e5e7eb');
+          const borderStyle = m.isExtra ? 'dashed' : 'solid';
+          const numberBg = isCompleted ? '#22c55e' : (m.isExtra ? '#e0f2fe' : '#f3f4f6');
+          const numberColor = isCompleted ? '#fff' : (m.isExtra ? '#0369a1' : '#6b7280');
           const titleColor = isCompleted ? '#166534' : '#111827';
 
           return (
             <div
-              key={idx}
+              key={m.originalIndex}
               style={{
                 display: 'flex',
                 alignItems: 'flex-start',
                 gap: '14px',
                 padding: '16px 18px',
                 borderRadius: '12px',
-                border: `1px solid ${borderColor}`,
+                border: `2px ${borderStyle} ${borderColor}`,
                 background: cardBg,
                 opacity: !isCompleted && !isNextUp ? 0.7 : 1,
                 boxShadow: isCompleted ? 'none' : '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
@@ -171,23 +235,23 @@ const [now] = useState(() => new Date());
                 width: '36px', height: '36px', borderRadius: '50%', flexShrink: 0,
                 background: numberBg, color: numberColor,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontWeight: '800', fontSize: '15px'
+                fontWeight: '800', fontSize: m.isExtra ? '12px' : '15px', textAlign: 'center'
               }}>
-                {idx + 1}
+                {m.isExtra ? 'EX' : (m.originalIndex + 1)}
               </div>
 
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: '700', fontSize: '16px', color: titleColor }}>
-                  Meeting {idx + 1}
+                  {m.title}
                 </div>
                 {subText && (
                   <div style={{ color: '#4b5563', fontSize: '13px', marginTop: '4px', lineHeight: '1.4' }}>
                     {subText}
                   </div>
                 )}
-                {isCompleted && plan.remarks?.[idx] && (
+                {m.remark && (
                   <div style={{ marginTop: '8px', padding: '8px 12px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '13px', color: '#374151' }}>
-                    <span style={{ fontWeight: 600 }}>Remark: </span>{plan.remarks[idx]}
+                    <span style={{ fontWeight: 600 }}>Remark: </span>{m.remark}
                   </div>
                 )}
               </div>

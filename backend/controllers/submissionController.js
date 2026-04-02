@@ -3,8 +3,9 @@ const TimelineEvent = require('../models/TimelineEvent');
 const Batch = require('../models/Batch');
 const pdf = require('pdf-parse');
 const fs = require('fs');
-const { sendGuideSubmissionEmail } = require('../utils/mailer');
+const { sendGuideSubmissionEmail, sendGuideFeedbackNotificationEmail } = require('../utils/mailer');
 const Student = require('../models/Student');
+const Guide = require('../models/Guide');
 
 async function validateSubmission(filePath, isMandatoryFormat, context = {}) {
   if (!isMandatoryFormat) return { isValid: true, errors: [] };
@@ -243,7 +244,9 @@ exports.getGuideSubmissions = async (req, res) => {
 exports.addComment = async (req, res) => {
   try {
     const { comment } = req.body;
-    const submission = await Submission.findById(req.params.id);
+    const submission = await Submission.findById(req.params.id)
+      .populate('batchId', 'teamName')
+      .populate('timelineEventId', 'title');
 
     if (!submission) {
       return res.status(404).json({ success: false, message: 'Submission not found' });
@@ -263,6 +266,46 @@ exports.addComment = async (req, res) => {
     await submission.save();
 
     const updated = await Submission.findById(req.params.id).populate('comments.guideId', 'name');
+    
+    // Send email notification to students asynchronously
+    try {
+      console.log('[Notification] Sending feedback notification to students...');
+      
+      // Get guide details
+      const guide = await Guide.findById(req.user._id).select('name email').lean();
+      const guideName = guide ? guide.name : 'Your Guide';
+      
+      // Get all students from the batch
+      const students = await Student.find({ batchId: submission.batchId._id }).select('name email').lean();
+      
+      if (students.length > 0) {
+        const submissionDetails = {
+          teamName: submission.batchId.teamName,
+          timelineTitle: submission.timelineEventId.title,
+          submissionType: submission.timelineEventId.title,
+          feedback: comment,
+          marks: submission.marks,
+          status: submission.status,
+          driveLink: submission.versions[submission.currentVersion - 1]?.driveLink || ''
+        };
+        
+        // Send emails asynchronously without blocking the response
+        sendGuideFeedbackNotificationEmail(students, guideName, submissionDetails)
+          .then(result => {
+            if (result) {
+              console.log('[Notification] Feedback email results:', result);
+            }
+          })
+          .catch(error => {
+            console.error('[Notification] Error sending feedback emails:', error);
+          });
+      } else {
+        console.log('[Notification] No students found in this batch');
+      }
+    } catch (emailError) {
+      console.error('[Notification] Error in feedback email trigger logic:', emailError);
+    }
+
     res.status(200).json({ success: true, data: updated });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -275,7 +318,8 @@ exports.assignMarks = async (req, res) => {
   try {
     const { marks, status, comment } = req.body;
     const submission = await Submission.findById(req.params.id)
-      .populate('timelineEventId', 'maxMarks');
+      .populate('timelineEventId', 'maxMarks title')
+      .populate('batchId', 'teamName');
 
     if (!submission) {
       return res.status(404).json({ success: false, message: 'Submission not found' });
@@ -306,6 +350,45 @@ exports.assignMarks = async (req, res) => {
       .populate('marksAssignedBy', 'name')
       .populate('batchId', 'teamName')
       .populate('timelineEventId', 'title maxMarks isMarksEnabled');
+
+    // Send email notification to students asynchronously
+    try {
+      console.log('[Notification] Sending marks assignment notification to students...');
+      
+      // Get guide details
+      const guide = await Guide.findById(req.user._id).select('name email').lean();
+      const guideName = guide ? guide.name : 'Your Guide';
+      
+      // Get all students from the batch
+      const students = await Student.find({ batchId: submission.batchId._id }).select('name email').lean();
+      
+      if (students.length > 0) {
+        const submissionDetails = {
+          teamName: submission.batchId.teamName,
+          timelineTitle: submission.timelineEventId.title,
+          submissionType: submission.timelineEventId.title,
+          feedback: comment ? comment.trim() : null,
+          marks: marks,
+          status: status || 'accepted',
+          driveLink: submission.versions[submission.currentVersion - 1]?.driveLink || ''
+        };
+        
+        // Send emails asynchronously without blocking the response
+        sendGuideFeedbackNotificationEmail(students, guideName, submissionDetails)
+          .then(result => {
+            if (result) {
+              console.log('[Notification] Marks assignment email results:', result);
+            }
+          })
+          .catch(error => {
+            console.error('[Notification] Error sending marks assignment emails:', error);
+          });
+      } else {
+        console.log('[Notification] No students found in this batch');
+      }
+    } catch (emailError) {
+      console.error('[Notification] Error in marks assignment email trigger logic:', emailError);
+    }
 
     res.status(200).json({ success: true, data: updated });
   } catch (error) {

@@ -1,6 +1,9 @@
 const TimelineEvent = require('../models/TimelineEvent');
 const Submission = require('../models/Submission');
 const Batch = require('../models/Batch');
+const Guide = require('../models/Guide');
+const Student = require('../models/Student');
+const { sendTimelineNotificationEmail } = require('../utils/mailer');
 
 // @desc    Create timeline event (Admin only)
 // @route   POST /api/timeline
@@ -49,6 +52,46 @@ exports.createEvent = async (req, res) => {
     });
 
     console.log('Event created:', event);
+
+    // Send email notifications to all guides and students
+    try {
+      console.log('Sending email notifications...');
+      
+      // Fetch all guides
+      const guides = await Guide.find({}).select('name email').lean();
+      console.log(`Found ${guides.length} guides`);
+      
+      // Fetch all students (excluding 2nd year as they typically don't participate)
+      const students = await Student.find({ year: { $in: ['3rd', '4th'] } }).select('name email').lean();
+      console.log(`Found ${students.length} eligible students (3rd & 4th year)`);
+      
+      // Combine recipients
+      const recipients = [
+        ...guides.map(g => ({ name: g.name, email: g.email })),
+        ...students.map(s => ({ name: s.name, email: s.email }))
+      ];
+      
+      console.log(`Total recipients: ${recipients.length}`);
+      
+      if (recipients.length > 0) {
+        // Send emails asynchronously without blocking the response
+        sendTimelineNotificationEmail(recipients, event)
+          .then(result => {
+            if (result) {
+              console.log('Email notification results:', result);
+            }
+          })
+          .catch(error => {
+            console.error('Error in timeline email notification:', error);
+          });
+      } else {
+        console.log('No recipients found for email notification');
+      }
+    } catch (emailError) {
+      // Log the error but don't fail the request
+      console.error('Failed to send email notifications:', emailError.message);
+    }
+
     res.status(201).json({ success: true, data: event });
   } catch (error) {
     console.error('Error creating event:', error);

@@ -70,14 +70,26 @@ const [filterCompletionStatus, setFilterCompletionStatus] = useState('All');
 
   const stats = useMemo(() => {
     const total = filteredBatches.length;
-    if (total === 0) return Array(MEETING_COUNT).fill({ completed: 0, total: 0 });
-
+    
+    // Find absolute maximum number of meetings across available plans to display columns dynamically
+    let maxMeetings = MEETING_COUNT;
     const batchIds = new Set(filteredBatches.map(b => b._id.toString()));
     const filteredPlans = plans.filter(p => batchIds.has(p.batchId.toString()));
+    
+    filteredPlans.forEach(p => {
+      if (p.scheduledDates && p.scheduledDates.length > maxMeetings) {
+        maxMeetings = p.scheduledDates.length;
+      }
+    });
 
-    return Array.from({ length: MEETING_COUNT }, (_, i) => {
+    if (total === 0) return Array(maxMeetings).fill({ completed: 0, total: 0 });
+
+    return Array.from({ length: maxMeetings }, (_, i) => {
       const completed = filteredPlans.filter(p => p.completed[i] === true).length;
-      return { completed, total };
+      // Some batches might not have the extra meetings appended yet.
+      // E.g. meeting 7 might only exist for 1 batch. To avoid 0/100, we compute total_for_this_meeting dynamically above index 5
+      const totalForThisMeeting = i < MEETING_COUNT ? total : filteredPlans.filter(p => p.scheduledDates.length > i).length;
+      return { completed, total: totalForThisMeeting };
     });
   }, [filteredBatches, plans]);
 
@@ -118,7 +130,7 @@ const [filterCompletionStatus, setFilterCompletionStatus] = useState('All');
 
     doc.setFontSize(18);
     doc.setTextColor(33, 33, 33);
-    doc.text(`Meeting ${selectedMeetingIndex + 1} - Completion Report`, 14, 22);
+    doc.text(`Meeting Progress Report`, 14, 22);
     doc.setFontSize(12);
     doc.setTextColor(100, 100, 100);
     doc.text(`Generated on: ${new Date().toLocaleDateString('en-IN')}`, 14, 32);
@@ -147,7 +159,7 @@ const [filterCompletionStatus, setFilterCompletionStatus] = useState('All');
       columnStyles: { 0: { cellWidth: 15, halign: 'center' } }
     });
 
-    doc.save(`Meeting_${selectedMeetingIndex + 1}_Report.pdf`);
+    doc.save(`Meeting_Report.pdf`);
   };
 
   const downloadAsCSV = () => {
@@ -176,7 +188,7 @@ const [filterCompletionStatus, setFilterCompletionStatus] = useState('All');
 
     const link = document.createElement('a');
     link.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
-    link.download = `Meeting_${selectedMeetingIndex + 1}_Report_${new Date().toISOString().split('T')[0]}.csv`;
+    link.download = `Meeting_Report_${new Date().toISOString().split('T')[0]}.csv`;
     link.click();
   };
 
@@ -254,7 +266,9 @@ const [filterCompletionStatus, setFilterCompletionStatus] = useState('All');
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', alignItems: 'baseline' }}>
-                    <h4 style={{ margin: 0, color: '#1e293b' }}>Meeting {i + 1}</h4>
+                    <h4 style={{ margin: 0, color: '#1e293b' }}>
+                      {i < MEETING_COUNT ? `Meeting ${i + 1}` : `Extra Meeting ${i - MEETING_COUNT + 1}`}
+                    </h4>
                     <span style={{ fontWeight: 'bold', color: '#3b82f6', fontSize: '18px' }}>
                       {stat.completed} / {stat.total}
                     </span>
@@ -280,7 +294,7 @@ const [filterCompletionStatus, setFilterCompletionStatus] = useState('All');
             ← Back to Overview
           </button>
 
-          <h2>Meeting {selectedMeetingIndex + 1} - Teams Status</h2>
+          <h2>{selectedMeetingIndex < MEETING_COUNT ? `Meeting ${selectedMeetingIndex + 1}` : `Extra Meeting ${selectedMeetingIndex - MEETING_COUNT + 1}`} - Teams Status</h2>
 
           {/* Filters for Meeting Details */}
           <div className="card" style={{ marginBottom: '20px', maxWidth: '100%' }}>

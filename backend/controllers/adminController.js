@@ -268,6 +268,7 @@ exports.importBatchData = async (req, res) => {
         // Get batch details from first row
         const firstRow = batchRows[0];
         const guideName = firstRow['Internal Guide'] || firstRow['Guide'] || '';
+        const guideEmail = firstRow['Guide Email'] || firstRow['guide email'] || firstRow['Email'] || firstRow['email'] || firstRow['Internal Guide Email'] || '';
         const projectTitle = firstRow['Project Title'] || firstRow['Project'] || '';
         const researchArea = firstRow['Research Area'] || firstRow['research area'] || firstRow['researchArea'] || '';
 
@@ -349,31 +350,60 @@ exports.importBatchData = async (req, res) => {
           continue;
         }
 
-        // Find or create guide - use case-insensitive name search
-        let guide = await Guide.findOne({
-          name: { $regex: `^${guideName}$`, $options: 'i' }
-        });
+        // Find or create guide
+        let guide = null;
+
+        // 1. Try to find by email first if provided
+        if (guideEmail && guideEmail.trim() !== '') {
+          guide = await Guide.findOne({
+            email: { $regex: `^${guideEmail.trim()}$`, $options: 'i' }
+          });
+        }
+
+        // 2. Fallback to finding by name if no email provided or not found by email
+        if (!guide) {
+          guide = await Guide.findOne({
+            name: { $regex: `^${guideName}$`, $options: 'i' }
+          });
+        }
 
         if (!guide) {
           try {
-            // Generate unique email using timestamp to avoid duplicates
-            const emailBase = guideName.toLowerCase().replace(/[^a-z0-9]/g, '');
-            const uniqueEmail = `${emailBase}${Date.now()}@guide.gnits.ac.in`;
-
-            guide = await Guide.create({
-              name: guideName,
-              email: uniqueEmail,
-              password: 'defaultPassword123',
-              role: 'guide'
-            });
-          } catch (err) {
-            // If creation fails, try finding again (in case it was created by another request)
-            guide = await Guide.findOne({
-              name: { $regex: `^${guideName}$`, $options: 'i' }
-            });
+            // Check if we can use the provided email, or generate a unique one
+            let newGuideEmail = '';
+            if (guideEmail && guideEmail.trim() !== '') {
+              // Make sure no guide already exists with this email
+              const existingByEmail = await Guide.findOne({ email: guideEmail.trim().toLowerCase() });
+              if (existingByEmail) {
+                guide = existingByEmail;
+              } else {
+                newGuideEmail = guideEmail.trim().toLowerCase();
+              }
+            }
 
             if (!guide) {
-              // Still not found after creation attempt, skip this batch
+              if (!newGuideEmail) {
+                const emailBase = guideName.toLowerCase().replace(/[^a-z0-9]/g, '');
+                newGuideEmail = `${emailBase}${Date.now()}@guide.gnits.ac.in`;
+              }
+
+              guide = await Guide.create({
+                name: guideName,
+                email: newGuideEmail,
+                password: 'defaultPassword123',
+                role: 'guide'
+              });
+            }
+          } catch (err) {
+            // If creation fails, try finding again
+            if (guideEmail && guideEmail.trim() !== '') {
+              guide = await Guide.findOne({ email: { $regex: `^${guideEmail.trim()}$`, $options: 'i' } });
+            }
+            if (!guide) {
+              guide = await Guide.findOne({ name: { $regex: `^${guideName}$`, $options: 'i' } });
+            }
+
+            if (!guide) {
               results.errors.push({
                 batch: projId,
                 error: `Could not find or create guide "${guideName}"`

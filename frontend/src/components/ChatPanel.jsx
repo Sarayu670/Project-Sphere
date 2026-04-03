@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
+import * as api from '../services/api';
 import './ChatPanel.css';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
@@ -25,6 +26,16 @@ const ChatPanel = ({ batchId, teamMemberId, isOpen, onClose, onChatLoaded }) => 
   const [selectedFile, setSelectedFile] = useState(null);
   const [chatData, setChatData] = useState(null);
   const [lastMessageCount, setLastMessageCount] = useState(0);
+
+  const markAsRead = async () => {
+    try {
+      if (batchId && teamMemberId) {
+        await api.markChatAsRead({ batchId, teamMemberId });
+      }
+    } catch (err) {
+      console.error('Failed to mark chat as read:', err);
+    }
+  };
 
   useEffect(() => {
     if (isOpen && batchId && teamMemberId) {
@@ -57,6 +68,7 @@ const ChatPanel = ({ batchId, teamMemberId, isOpen, onClose, onChatLoaded }) => 
           setLastMessageCount(newMessages.length);
           setMessages(newMessages);
           setChatData(response.data.data);
+          markAsRead();
           if (onChatLoaded) {
             onChatLoaded(response.data.data);
           }
@@ -81,6 +93,7 @@ const ChatPanel = ({ batchId, teamMemberId, isOpen, onClose, onChatLoaded }) => 
         setLastMessageCount(msgs.length);
         setMessages(msgs);
         setChatData(response.data.data);
+        markAsRead();
         if (onChatLoaded) {
           onChatLoaded(response.data.data);
         }
@@ -142,6 +155,7 @@ const ChatPanel = ({ batchId, teamMemberId, isOpen, onClose, onChatLoaded }) => 
         setLastMessageCount(msgs.length);
         setMessages(msgs);
         setChatData(response.data.data);
+        markAsRead();
         if (onChatLoaded) {
           onChatLoaded(response.data.data);
         }
@@ -179,8 +193,11 @@ const ChatPanel = ({ batchId, teamMemberId, isOpen, onClose, onChatLoaded }) => 
         {messages.length === 0 && !loading && (
           <div className="no-messages">No messages yet. Start a conversation!</div>
         )}
-        {messages.map((msg, idx) => (
-          <div key={idx} className={`message ${msg.senderType}`}>
+        {messages.map((msg, idx) => {
+          const isSentByMe = Boolean(msg.senderId === user._id || msg.senderId === user.id);
+          const alignmentClass = isSentByMe ? 'sent-by-me' : 'received';
+          return (
+          <div key={idx} className={`message ${alignmentClass}`}>
             <div className="message-header">
               <strong>{msg.senderName}</strong>
               <span className="timestamp">
@@ -213,7 +230,7 @@ const ChatPanel = ({ batchId, teamMemberId, isOpen, onClose, onChatLoaded }) => 
               </div>
             )}
           </div>
-        ))}
+        )})}
       </div>
 
       <form className="message-form" onSubmit={handleSendMessage}>

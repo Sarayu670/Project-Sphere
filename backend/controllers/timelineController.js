@@ -3,24 +3,29 @@ const Submission = require('../models/Submission');
 const Batch = require('../models/Batch');
 const Guide = require('../models/Guide');
 const Student = require('../models/Student');
-const { sendTimelineNotificationEmail } = require('../utils/mailer');
+const ProjectEntry = require('../models/ProjectEntry');
+const { sendTimelineNotificationEmail, sendNewEventEmail } = require('../utils/mailer');
 
-// @desc    Create timeline event (Admin only)
-// @route   POST /api/timeline
+// ================= CREATE EVENT =================
 exports.createEvent = async (req, res) => {
   try {
-    console.log('Creating timeline event...');
-    console.log('Request body:', req.body);
-    console.log('User:', req.user);
+    const {
+      title,
+      description,
+      deadline,
+      maxMarks,
+      submissionRequirements,
+      targetYear,
+      order,
+      isMandatoryFormat,
+      isMarksEnabled
+    } = req.body;
 
-    if (!req.body) {
-      return res.status(400).json({
-        success: false,
-        message: 'Request body is missing. Ensure you are sending valid form data.'
-      });
-    }
-
-    const { title, description, deadline, maxMarks, submissionRequirements, targetYear, order, isMandatoryFormat, isMarksEnabled } = req.body;
+    const parseBool = (val) => {
+      if (val === undefined || val === null) return true;
+      if (typeof val === 'boolean') return val;
+      return val === 'true' || val === '1' || val === 'on';
+    };
 
     let referenceFileData = null;
     if (req.file) {
@@ -29,13 +34,6 @@ exports.createEvent = async (req, res) => {
         name: req.file.originalname
       };
     }
-
-    // Helper to parse boolean from possible form-data string
-    const parseBool = (val) => {
-      if (val === undefined || val === null) return true;
-      if (typeof val === 'boolean') return val;
-      return val === 'true' || val === '1' || val === 'on';
-    };
 
     const event = await TimelineEvent.create({
       title,
@@ -53,9 +51,9 @@ exports.createEvent = async (req, res) => {
 
     console.log('Event created:', event);
 
-    // Send email notifications to all guides and students
+    // ================= EMAIL NOTIFICATION - METHOD 1: Direct from Guide & Student models =================
     try {
-      console.log('Sending email notifications...');
+      console.log('Sending email notifications (Method 1: Direct DB query)...');
       
       // Fetch all guides
       const guides = await Guide.find({}).select('name email').lean();
@@ -89,26 +87,83 @@ exports.createEvent = async (req, res) => {
       }
     } catch (emailError) {
       // Log the error but don't fail the request
-      console.error('Failed to send email notifications:', emailError.message);
+      console.error('Failed to send email notifications (Method 1):', emailError.message);
+    }
+
+    // ================= EMAIL NOTIFICATION - METHOD 2: From ProjectEntry =================
+    try {
+      console.log('Sending email notifications (Method 2: ProjectEntry)...');
+      const projectEntries = await ProjectEntry.find({});
+      let allEmails = [];
+
+      projectEntries.forEach(entry => {
+        // STUDENTS
+        if (entry.students && entry.students.length > 0) {
+          // CASE 1: [{ rollNumber }]
+          if (typeof entry.students[0] === 'object') {
+            entry.students.forEach(student => {
+              if (student.rollNumber) {
+                const rollno = student.rollNumber.trim().toLowerCase();
+                allEmails.push(`${rollno}@gnits.ac.in`);
+              }
+            });
+          }
+          // CASE 2: ["rollno"]
+          else {
+            entry.students.forEach(roll => {
+              const rollno = roll.trim().toLowerCase();
+              allEmails.push(`${rollno}@gnits.ac.in`);
+            });
+          }
+        }
+
+        // GUIDE EMAIL
+        if (entry.internalGuide && entry.internalGuide.email) {
+          allEmails.push(entry.internalGuide.email.trim().toLowerCase());
+        }
+      });
+
+      // REMOVE DUPLICATES
+      allEmails = [...new Set(allEmails)].filter(email => email);
+
+      console.log("📧 Emails from ProjectEntry:", allEmails);
+
+      if (allEmails.length > 0) {
+        // Send emails asynchronously
+        sendNewEventEmail(allEmails, event)
+          .then(result => {
+            if (result) {
+              console.log("✅ ProjectEntry emails sent successfully");
+            }
+          })
+          .catch(error => {
+            console.error("❌ Error sending ProjectEntry emails:", error);
+          });
+      } else {
+        console.log("⚠️ No emails found in ProjectEntry");
+      }
+    } catch (emailError) {
+      console.error("❌ Email sending error (Method 2):", emailError);
     }
 
     res.status(201).json({ success: true, data: event });
   } catch (error) {
-    console.error('Error creating event:', error);
-    res.status(500).json({ success: false, message: error.message });
+    console.error("❌ Error creating event:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
   }
 };
 
-// @desc    Get all timeline events
-// @route   GET /api/timeline
+// ================= GET ALL EVENTS =================
 exports.getAllEvents = async (req, res) => {
   try {
-    console.log('Getting all timeline events...');
-    console.log('Query params:', req.query);
-    console.log('User:', req.user);
-
     const { year } = req.query;
-    let query = { $or: [{ isActive: true }, { isActive: { $exists: false } }] };
+
+    let query = {
+      $or: [{ isActive: true }, { isActive: { $exists: false } }]
+    };
 
     if (year && year !== 'all') {
       query.$and = [
@@ -121,33 +176,38 @@ exports.getAllEvents = async (req, res) => {
       .sort({ order: 1, deadline: 1 })
       .populate('createdBy', 'name');
 
-    console.log('Found events:', events.length);
-    console.log('Returning events:', JSON.stringify(events, null, 2));
-
     res.status(200).json({
       success: true,
       data: events
     });
+
   } catch (error) {
-    console.error('Error getting events:', error);
-    res.status(500).json({ success: false, message: error.message });
+    console.error("❌ Error fetching events:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
   }
 };
 
-// @desc    Update timeline event
-// @route   PUT /api/timeline/:id
+// ================= UPDATE EVENT =================
 exports.updateEvent = async (req, res) => {
   try {
-    if (!req.body) {
-      return res.status(400).json({
-        success: false,
-        message: 'Request body is missing.'
-      });
-    }
-
-    const { title, description, deadline, maxMarks, submissionRequirements, targetYear, order, isActive, isMandatoryFormat, isMarksEnabled } = req.body;
+    const {
+      title,
+      description,
+      deadline,
+      maxMarks,
+      submissionRequirements,
+      targetYear,
+      order,
+      isActive,
+      isMandatoryFormat,
+      isMarksEnabled
+    } = req.body;
 
     const updateData = {};
+
     if (title !== undefined) updateData.title = title;
     if (description !== undefined) updateData.description = description;
     if (deadline !== undefined) updateData.deadline = deadline;
@@ -187,66 +247,88 @@ exports.updateEvent = async (req, res) => {
     );
 
     if (!event) {
-      return res.status(404).json({ success: false, message: 'Event not found' });
+      return res.status(404).json({
+        success: false,
+        message: 'Event not found'
+      });
     }
 
-    res.status(200).json({ success: true, data: event });
+    res.status(200).json({
+      success: true,
+      data: event
+    });
+
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error("❌ Update error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
   }
 };
 
-// @desc    Delete timeline event
-// @route   DELETE /api/timeline/:id
+// ================= DELETE EVENT =================
 exports.deleteEvent = async (req, res) => {
   try {
     const event = await TimelineEvent.findByIdAndDelete(req.params.id);
 
     if (!event) {
-      return res.status(404).json({ success: false, message: 'Event not found' });
+      return res.status(404).json({
+        success: false,
+        message: 'Event not found'
+      });
     }
 
-    // Also delete related submissions
     await Submission.deleteMany({ timelineEventId: req.params.id });
 
-    res.status(200).json({ success: true, message: 'Event deleted' });
+    res.status(200).json({
+      success: true,
+      message: 'Event deleted'
+    });
+
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error("❌ Delete error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
   }
 };
 
-// @desc    Get timeline with submission status for a batch
-// @route   GET /api/timeline/batch/:batchId
+// ================= GET TIMELINE FOR BATCH =================
 exports.getTimelineForBatch = async (req, res) => {
   try {
-    console.log('🔍 Getting timeline for batch:', req.params.batchId);
-    console.log('👤 Requested by user:', req.user?.email, 'Role:', req.user?.role);
-
     const batch = await Batch.findById(req.params.batchId);
-    if (!batch) {
-      return res.status(404).json({ success: false, message: 'Batch not found' });
-    }
 
-    console.log('📦 Batch found:', batch.teamName, 'Year:', batch.year);
+    if (!batch) {
+      return res.status(404).json({
+        success: false,
+        message: 'Batch not found'
+      });
+    }
 
     const query = { isActive: true };
+
     if (batch.year) {
-      query.$or = [{ targetYear: batch.year }, { targetYear: 'all' }];
+      query.$or = [
+        { targetYear: batch.year },
+        { targetYear: 'all' }
+      ];
     }
 
-    const events = await TimelineEvent.find(query).sort({ order: 1, deadline: 1 });
+    const events = await TimelineEvent.find(query)
+      .sort({ order: 1, deadline: 1 });
+
     const submissions = await Submission.find({ batchId: req.params.batchId })
       .populate('comments.guideId', 'name')
       .populate('marksAssignedBy', 'name')
       .populate('adminRemarks.adminId', 'name');
 
-    console.log('📄 Found', submissions.length, 'submissions for batch', req.params.batchId);
-    submissions.forEach(sub => {
-      console.log('  - Submission for event:', sub.timelineEventId, 'Versions:', sub.versions.length, 'Status:', sub.status);
-    });
-
     const timelineWithStatus = events.map(event => {
-      const submission = submissions.find(s => s.timelineEventId.toString() === event._id.toString());
+      const submission = submissions.find(
+        s => s.timelineEventId.toString() === event._id.toString()
+      );
+
       return {
         ...event.toObject(),
         submission: submission || null,
@@ -256,10 +338,16 @@ exports.getTimelineForBatch = async (req, res) => {
       };
     });
 
-    console.log('✅ Returning', timelineWithStatus.length, 'timeline events with submission status');
-    res.status(200).json({ success: true, data: timelineWithStatus });
+    res.status(200).json({
+      success: true,
+      data: timelineWithStatus
+    });
+
   } catch (error) {
-    console.error('❌ Error in getTimelineForBatch:', error);
-    res.status(500).json({ success: false, message: error.message });
+    console.error("❌ Timeline error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
   }
 };

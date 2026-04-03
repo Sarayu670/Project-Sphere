@@ -122,6 +122,7 @@ export const addAdminRemark = (id, remark) => axios.post(`${API_URL}/submissions
 
 // Chat
 export const getGuideChats = () => axios.get(`${API_URL}/chat/guide/chats`);
+export const markChatAsRead = (data) => axios.post(`${API_URL}/chat/mark-read`, data);
 export const summarizeProject = (projectId) => axios.post(`${API_URL}/chat/summarize/${projectId}`);
 export const getProjectSummaries = (projectId) => axios.get(`${API_URL}/chat/summaries/${projectId}`);
 export const summarizeBatch = (batchId) => axios.post(`${API_URL}/chat/summarize-batch/${batchId}`);

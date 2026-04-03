@@ -10,13 +10,14 @@ const XLSX = require('xlsx');
  * Uses regex patterns to match various column name formats
  */
 const COLUMN_PATTERNS = {
-    batchId: /batch.*id|batchid|proj.*id|proj.*batch/i,
-    teamName: /team|batch(?!.*id)|group|squad/i,
-    students: /student.*name/i,
+    batchId: /batch.*id|batchid|proj.*id|proj.*batch|batch.*no/i,
+    teamName: /team|batch(?!.*(id|no))|group|squad/i,
+    students: /student.*name|name.*of.*the.*student/i,
     rollNumbers: /roll.*no.*\(s\)|roll.*number|roll.*no|roll\s*no|htno/i,
-    guideName: /name.*of.*the.*guide|guide.*name|name.*of.*guide|mentor|supervisor|faculty|advisor|\bguide\b/i,
+    guideName: /name.*of.*the.*guide|internal.*guide|guide.*name|name.*of.*guide|mentor|supervisor|faculty|advisor|\bguide\b/i,
+    guideEmail: /guide.*email|email.*guide|mail.*id|email/i,
     projectTitle: /project.*title|title/i,
-    researchArea: /research.*thrust|thrust.*area|research.*area|domain|\barea\b/i,
+    researchArea: /domain|research.*thrust|thrust.*area|research.*area|\barea\b/i,
     coe: /\bcoe\b|\brc\b|center.*excellence|center.*of.*excellence/i,
     year: /year|class.*year/i,
     branch: /branch|department|dept/i,
@@ -29,6 +30,19 @@ const COLUMN_PATTERNS = {
 function normalizeText(text) {
     if (text === undefined || text === null) return '';
     return String(text).trim();
+}
+
+/**
+ * Normalize year to match schema enum
+ */
+function normalizeYear(yearStr) {
+    if (!yearStr) return '4th';
+    const str = String(yearStr).trim().toUpperCase();
+    if (str === 'I' || str === '1' || str === '1ST') return '1st';
+    if (str === 'II' || str === '2' || str === '2ND') return '2nd';
+    if (str === 'III' || str === '3' || str === '3RD') return '3rd';
+    if (str === 'IV' || str === '4' || str === '4TH') return '4th';
+    return '4th'; // default fallback
 }
 
 /**
@@ -101,6 +115,7 @@ function parseExcelFile(fileBuffer) {
         const batchIdIndex = findColumnIndex(headers, COLUMN_PATTERNS.batchId);
         const teamNameIndex = findColumnIndex(headers, COLUMN_PATTERNS.teamName);
         const guideNameIndex = findColumnIndex(headers, COLUMN_PATTERNS.guideName);
+        const guideEmailIndex = findColumnIndex(headers, COLUMN_PATTERNS.guideEmail);
         const projectTitleIndex = findColumnIndex(headers, COLUMN_PATTERNS.projectTitle);
         const researchAreaIndex = findColumnIndex(headers, COLUMN_PATTERNS.researchArea);
         const coeIndex = findColumnIndex(headers, COLUMN_PATTERNS.coe);
@@ -117,6 +132,7 @@ function parseExcelFile(fileBuffer) {
             batchId: batchIdIndex >= 0 ? `Matched '${headers[batchIdIndex]}'` : 'NOT FOUND',
             teamName: teamNameIndex >= 0 ? `Matched '${headers[teamNameIndex]}'` : 'NOT FOUND',
             guideName: guideNameIndex >= 0 ? `Matched '${headers[guideNameIndex]}'` : 'NOT FOUND',
+            guideEmail: guideEmailIndex >= 0 ? `Matched '${headers[guideEmailIndex]}'` : 'NOT FOUND',
             projectTitle: projectTitleIndex >= 0 ? `Matched '${headers[projectTitleIndex]}'` : 'NOT FOUND',
             researchArea: researchAreaIndex >= 0 ? `Matched '${headers[researchAreaIndex]}'` : 'NOT FOUND',
             coe: coeIndex >= 0 ? `Matched '${headers[coeIndex]}'` : 'NOT FOUND',
@@ -129,6 +145,7 @@ function parseExcelFile(fileBuffer) {
         let lastBatchId = '';
         let lastTeamName = '';
         let lastGuideName = '';
+        let lastGuideEmail = '';
         let lastProjectTitle = '';
         let lastResearchArea = 'N/A';
         let lastCoe = 'N/A';
@@ -181,14 +198,18 @@ function parseExcelFile(fileBuffer) {
 
             // Extract other fields
             let guideName = guideNameIndex >= 0 ? normalizeText(row[guideNameIndex]) : '';
+            let guideEmail = guideEmailIndex >= 0 ? normalizeText(row[guideEmailIndex]) : '';
             let projectTitle = projectTitleIndex >= 0 ? normalizeText(row[projectTitleIndex]) : '';
             let researchArea = researchAreaIndex >= 0 ? normalizeText(row[researchAreaIndex]) : '';
             // Extract COE from cell value and parse it
             let coeRaw = coeIndex >= 0 ? normalizeText(row[coeIndex]) : '';
             let coe = coeRaw ? extractCOENameFromText(coeRaw) : 'N/A';
-            let year = yearIndex >= 0 ? normalizeText(row[yearIndex]) : '';
-            let branch = branchIndex >= 0 ? normalizeText(row[branchIndex]) : '';
-            let section = sectionIndex >= 0 ? normalizeText(row[sectionIndex]) : '';
+            let yearRaw = yearIndex >= 0 ? normalizeText(row[yearIndex]) : '';
+            let year = yearRaw ? normalizeYear(yearRaw) : '';
+            let branchRaw = branchIndex >= 0 ? normalizeText(row[branchIndex]) : '';
+            let branch = branchRaw ? branchRaw.toUpperCase() : '';
+            let sectionRaw = sectionIndex >= 0 ? normalizeText(row[sectionIndex]) : '';
+            let section = sectionRaw ? sectionRaw.toUpperCase() : '';
 
             // Check if this is a new batch or continuation of the same batch
             const isNewBatch = !batchGroups[groupKey];
@@ -196,6 +217,7 @@ function parseExcelFile(fileBuffer) {
             // Fill down other fields ONLY if they are merged within the SAME batch
             // For a new batch, we should NOT fill down from the previous batch
             if (!guideName && !isNewBatch && lastGuideName) guideName = lastGuideName;
+            if (!guideEmail && !isNewBatch && lastGuideEmail) guideEmail = lastGuideEmail;
             if (!projectTitle && !isNewBatch && lastProjectTitle) projectTitle = lastProjectTitle;
             if (!researchArea && !isNewBatch && lastResearchArea !== 'N/A') researchArea = lastResearchArea;
             if (!coeRaw && !isNewBatch && lastCoe !== 'N/A') coe = lastCoe;
@@ -205,6 +227,7 @@ function parseExcelFile(fileBuffer) {
 
             // Update last values for fill-down (but only after we've used them)
             if (guideName) lastGuideName = guideName;
+            if (guideEmail) lastGuideEmail = guideEmail;
             if (projectTitle) lastProjectTitle = projectTitle;
             if (researchArea) lastResearchArea = researchArea;
             if (coe && coe !== 'N/A') lastCoe = coe;
@@ -218,6 +241,7 @@ function parseExcelFile(fileBuffer) {
                     batchId: batchId || 'N/A',
                     teamName: teamName || batchId || 'N/A',
                     guideName: guideName || 'N/A',
+                    guideEmail: guideEmail || 'N/A',
                     projectTitle: projectTitle || 'N/A',
                     researchArea: researchArea || 'N/A',
                     coe: coe || 'N/A',
@@ -242,6 +266,7 @@ function parseExcelFile(fileBuffer) {
 
             // Update fields if they were N/A before but now have values
             if (batchGroups[groupKey].guideName === 'N/A' && guideName) batchGroups[groupKey].guideName = guideName;
+            if (batchGroups[groupKey].guideEmail === 'N/A' && guideEmail) batchGroups[groupKey].guideEmail = guideEmail;
             if (batchGroups[groupKey].projectTitle === 'N/A' && projectTitle) batchGroups[groupKey].projectTitle = projectTitle;
             if (batchGroups[groupKey].researchArea === 'N/A' && researchArea && researchArea !== 'N/A') batchGroups[groupKey].researchArea = researchArea;
             if (batchGroups[groupKey].coe === 'N/A' && coe && coe !== 'N/A') batchGroups[groupKey].coe = coe;
@@ -256,6 +281,7 @@ function parseExcelFile(fileBuffer) {
                 students: group.students.length > 0 ? group.students : ['N/A'],
                 rollNumbers: group.rollNumbers.length > 0 ? group.rollNumbers : [],
                 guideName: group.guideName || 'N/A',
+                guideEmail: group.guideEmail || 'N/A',
                 projectTitle: group.projectTitle || 'N/A',
                 researchArea: group.researchArea || 'N/A',
                 coe: group.coe || 'N/A',

@@ -4,7 +4,7 @@ import './ChatsListPanel.css';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
-const ChatsListPanel = ({ batches, isOpen, onClose, onSelectTeam }) => {
+const ChatsListPanel = ({ batches, isOpen, onClose, onSelectTeam, unreadCounts = {} }) => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -44,9 +44,14 @@ const ChatsListPanel = ({ batches, isOpen, onClose, onSelectTeam }) => {
                       onClose();
                     }}
                   >
-                    <div className="team-info">
-                      <h4>{batch.teamName}</h4>
-                      <p>{batch.leaderStudentId?.name || 'Team Leader'}</p>
+                    <div className="team-info" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                      <div>
+                        <h4>{batch.teamName}</h4>
+                        <p>{batch.leaderStudentId?.name || 'Team Leader'}</p>
+                      </div>
+                      {unreadCounts[batch._id] > 0 && (
+                        <span className="unread-badge-small">{unreadCounts[batch._id]}</span>
+                      )}
                     </div>
                   </div>
                 </div>

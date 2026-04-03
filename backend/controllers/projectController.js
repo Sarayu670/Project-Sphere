@@ -73,57 +73,56 @@ exports.importExcelFiles = async (req, res) => {
                 // Sync with Batch and Students
                 // 1. Find or create Guide (with error handling for duplicates)
                 let guide = null;
+                console.log(`[Import] Record guide data: guideName="${record.guideName}", guideEmail="${record.guideEmail}"`);
                 if (record.guideName && record.guideName !== 'N/A') {
-                    // Try to find by email if we have it
-                    if (record.guideEmail && record.guideEmail !== 'N/A') {
-                        guide = await Guide.findOne({ email: record.guideEmail.toLowerCase() });
-                    }
+                    const guideEmail = (record.guideEmail && record.guideEmail !== 'N/A')
+                        ? record.guideEmail.toLowerCase().trim()
+                        : `${record.guideName.toLowerCase().replace(/[^a-z0-9]/g, '')}${Date.now()}@guide.gnits.ac.in`;
 
-                    // If not found by email, try by name
-                    if (!guide) {
-                        guide = await Guide.findOne({ name: { $regex: `^${record.guideName}$`, $options: 'i' } });
-                    }
-
-                    // If still no guide, create one
-                    if (!guide) {
-                        const email = (record.guideEmail && record.guideEmail !== 'N/A')
-                            ? record.guideEmail.toLowerCase()
-                            : `${record.guideName.toLowerCase().replace(/[^a-z0-9]/g, '')}${Date.now()}@guide.gnits.ac.in`;
-
-                        try {
-                            const hashedGuidePassword = await bcrypt.hash('gnits@123', 10);
-                            guide = await Guide.create({
-                                name: record.guideName,
-                                email: email,
-                                password: hashedGuidePassword,
-                                role: 'guide'
-                            });
-                        } catch (error) {
-                            if (error.code === 11000) {
-                                console.log(`[Import] Guide already exists: ${email}, fetching...`);
-                                guide = await Guide.findOne({ email: email });
-                            } else {
-                                throw error;
-                            }
-                        }
+                    try {
+                        // Hash password ONCE manually - we use updateOne/findOneAndUpdate to bypass pre-save hook
+                        const hashedGuidePassword = await bcrypt.hash('gnits@123', 10);
+                        const escapedName = record.guideName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                        
+                        guide = await Guide.findOneAndUpdate(
+                            { 
+                                $or: [
+                                    { email: guideEmail },
+                                    { name: { $regex: `^${escapedName}$`, $options: 'i' } }
+                                ]
+                            },
+                            {
+                                $set: {
+                                    name: record.guideName,
+                                    email: guideEmail,
+                                    password: hashedGuidePassword,
+                                    role: 'guide'
+                                }
+                            },
+                            { upsert: true, new: true, setDefaultsOnInsert: true }
+                        );
+                        console.log(`[Import] Guide synced: ${guide.name} (${guide.email})`);
+                    } catch (error) {
+                        console.error(`[Import] Error syncing guide ${record.guideName}: ${error.message}`);
                     }
                 }
 
 
-                // 2. Find or create Students (optimized with parallel processing and error handling)
+                // 2. Find or create Students
                 const studentPromises = record.students.map(async (sName, j) => {
                     const sRoll = record.rollNumbers[j] || `TEMP_${record.teamName}_${j}`;
-                    const email = `${sRoll.toLowerCase()}@gnits.ac.in`;
+                    const studentEmail = `${sRoll.toLowerCase()}@gnits.ac.in`;
                     const sPassword = record.batchId && record.batchId !== 'N/A' ? `${record.batchId}@123` : `${record.teamName}@123`;
 
                     try {
+                        // Hash password ONCE manually - bypass pre-save hook
                         const hashedStudentPassword = await bcrypt.hash(sPassword, 10);
                         const student = await Student.findOneAndUpdate(
                             { rollNumber: sRoll },
                             {
                                 $set: {
                                     name: sName,
-                                    email: email,
+                                    email: studentEmail,
                                     password: hashedStudentPassword,
                                     year: record.year || '4th',
                                     branch: record.branch || 'CSE',

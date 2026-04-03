@@ -120,7 +120,8 @@ exports.login = async (req, res) => {
       }).select('+password');
       userRole = 'student';
     } else if (role === 'guide') {
-      user = await Guide.findOne({ email }).select('+password');
+      const loginTerm = email.trim().toLowerCase();
+      user = await Guide.findOne({ email: loginTerm }).select('+password');
       userRole = 'guide';
     } else if (role === 'admin') {
       user = await Admin.findOne({ email }).select('+password');
@@ -128,10 +129,20 @@ exports.login = async (req, res) => {
     }
 
     if (!user) {
+      console.log(`[AUTH] No ${role} account found for email: "${email}"`);
       return res.status(401).json({ success: false, message: `No ${role} account found with these credentials` });
     }
 
+    console.log(`[AUTH] Found user: name="${user.name}", email="${user.email}", role="${role}"`);
+    console.log(`[AUTH] Password from request: "${password}"`);
+    console.log(`[AUTH] Stored hash: "${user.password}"`);
+    
+    const bcryptDirect = require('bcryptjs');
+    const directMatch = await bcryptDirect.compare(password, user.password);
+    console.log(`[AUTH] Direct bcrypt.compare result: ${directMatch}`);
+    
     const isMatch = await user.matchPassword(password);
+    console.log(`[AUTH] matchPassword result: ${isMatch}`);
     if (!isMatch) {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }

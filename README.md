@@ -63,6 +63,7 @@ Project-Sphere/
    npm install
    ```
 
+
 ## Environment Configuration
 
 Both the frontend and backend require environment variables to function correctly.
@@ -75,6 +76,15 @@ Create a `.env` file in the `backend/` directory based on `backend/.env.example`
 - `JWT_EXPIRE`: Token expiration time (e.g., 7d)
 - `BACKEND_URL`: URL of the backend server
 - `FRONTEND_URL`: URL of the frontend application
+
+#### SMTP/Email Configuration (Nodemailer)
+To enable automated email notifications (password resets, alerts, etc.), configure SMTP settings in your backend `.env`:
+- `SMTP_HOST`: SMTP server address (e.g., smtp.gmail.com)
+- `SMTP_PORT`: SMTP server port (e.g., 587)
+- `SMTP_USER`: SMTP username (email address)
+- `SMTP_PASS`: SMTP password or app password
+
+These variables are used by Nodemailer for sending emails from the backend (e.g., for notifications, password resets, and critical updates).
 
 ### Frontend Setup
 Create a `.env` file in the `frontend/` directory based on `frontend/.env.example`:

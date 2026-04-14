@@ -121,6 +121,3 @@ The application will be available at `http://localhost:5173` by default.
 - `jspdf` & `jspdf-autotable`: PDF generation
 - `xlsx`: Excel processing
 
-## License
-
-This project is licensed under the ISC License.

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { downloadProjectExcelTemplate } from '../../utils/downloadProjectExcelTemplate';
 import * as api from '../../services/api';
 import ConfirmationDialog from '../../components/ConfirmationDialog';
 
@@ -53,24 +54,40 @@ function ImportProjectData() {
                 </p>
             </div>
 
-            <div className="card" style={{ padding: '24px', maxWidth: '800px' }}>
-                <h3 style={{ marginBottom: '16px', color: '#2d3748' }}>📋 Excel File Requirements</h3>
 
+            <div className="card" style={{ padding: '24px', maxWidth: '1200px', width: '100%' }}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
+                    <a
+                        href="#"
+                        className="btn btn-secondary"
+                        style={{ backgroundColor: '#28a745', textDecoration: 'none', color: 'white', padding: '8px 16px', borderRadius: '4px' }}
+                        onClick={e => { e.preventDefault(); downloadProjectExcelTemplate(); }}
+                    >
+                        📥 Download Template
+                    </a>
+                </div>
+
+                <h3 style={{ marginBottom: '16px', color: '#2d3748' }}>📋 Excel File Requirements</h3>
                 <div style={{ marginBottom: '20px', padding: '16px', background: '#f0f4ff', borderRadius: '8px' }}>
                     <p style={{ color: '#2d3748', marginBottom: '12px', fontSize: '14px', fontWeight: '500' }}>
-                        The system will automatically extract the following fields:
+                        Please ensure your Excel file contains the following columns (recommended names):
                     </p>
                     <ul style={{ color: '#2d3748', fontSize: '14px', marginLeft: '20px', lineHeight: '1.8' }}>
-                        <li><strong>Team Name</strong> - Batch/Team/Group identifier</li>
-                        <li><strong>Student Names</strong> - Multiple student columns will be merged</li>
-                        <li><strong>Guide Name</strong> - Internal Guide/Mentor/Supervisor</li>
-                        <li><strong>Project Title</strong> - Project/Problem/Topic name</li>
-                        <li><strong>COE/RC</strong> - Domain/Research Area/Center of Excellence</li>
+                        <li><strong>Batch No</strong> (or <strong>Proj ID/Batch</strong>)</li>
+                        <li><strong>Roll No</strong></li>
+                        <li><strong>Name of the Student</strong></li>
+                        <li><strong>Year</strong></li>
+                        <li><strong>Branch</strong></li>
+                        <li><strong>Section</strong></li>
+                        <li><strong>Internal Guide</strong></li>
+                        <li><strong>Project Title</strong></li>
+                        <li><strong>Domain</strong></li>
+                        <li><strong>CoE/RC</strong></li>
+                        <li><strong>Guide Email</strong></li>
                     </ul>
-
                     <div style={{ marginTop: '16px', padding: '12px', background: '#fff3cd', borderRadius: '6px', border: '1px solid #ffc107' }}>
                         <p style={{ fontSize: '13px', color: '#856404', margin: 0 }}>
-                            <strong>Note:</strong> Column names can vary - the system uses intelligent pattern matching to detect fields.
+                            <strong>Note:</strong> Column names can vary - the system uses intelligent pattern matching to detect fields, but using the above names is recommended for best results.
                         </p>
                     </div>
                 </div>

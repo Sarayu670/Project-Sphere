@@ -164,3 +164,16 @@ export const searchRCs = (query) => axios.get(`${API_URL}/rc/search`, { params: 
 export const createRC = (data) => axios.post(`${API_URL}/rc`, data);
 export const updateRC = (id, data) => axios.put(`${API_URL}/rc/${id}`, data);
 export const deleteRC = (id) => axios.delete(`${API_URL}/rc/${id}`);
+
+// AI Problem Agent endpoints
+export const getAIProblems = (params = {}) => axios.get(`${API_URL}/ai-problems`, { params });
+export const getAIProblem = (id) => axios.get(`${API_URL}/ai-problems/${id}`);
+export const requestAIProblem = (id) => axios.post(`${API_URL}/ai-problems/${id}/request`);
+export const adoptAIProblem = (id, data) => axios.post(`${API_URL}/ai-problems/${id}/adopt`, data);
+export const triggerAICrawl = () => axios.post(`${API_URL}/ai-problems/crawl`);
+
+export const getAICrawlerStats = () => axios.get(`${API_URL}/ai-problems/stats`);
+export const createAIProblem = (data) => axios.post(`${API_URL}/ai-problems`, data);
+export const updateAIProblem = (id, data) => axios.put(`${API_URL}/ai-problems/${id}`, data);
+export const deleteAIProblem = (id) => axios.delete(`${API_URL}/ai-problems/${id}`);
+

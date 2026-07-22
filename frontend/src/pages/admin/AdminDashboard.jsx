@@ -7,7 +7,9 @@ import usePolling from '../../utils/usePolling';
 import ImportProjectData from './ImportProjectData';
 import GuideSearch from './GuideSearch';
 import AdminMeetings from './AdminMeetings';
+import AdminAIManagement from '../../components/AdminAIManagement';
 import './AdminDashboard.css';
+
 
 const YEARS = ['2nd', '3rd', '4th'];
 const BRANCHES = ['CSE', 'IT', 'ECE', 'CSM', 'EEE', 'CSD', 'ETM'];
@@ -172,9 +174,17 @@ function AdminDashboard() {
         <button className={`tab ${activeTab === 'import' ? 'active' : ''}`} onClick={() => handleTabChange('import')}>📤 Batch Import</button>
         <button className={`tab ${activeTab === 'project-import' ? 'active' : ''}`} onClick={() => handleTabChange('project-import')}>📊 Import Projects</button>
         <button className={`tab ${activeTab === 'manage-coe-rc' ? 'active' : ''}`} onClick={() => handleTabChange('manage-coe-rc')}>🏛️ Manage COE/RC</button>
+        <button className={`tab ${activeTab === 'ai-agent' ? 'active' : ''}`} onClick={() => handleTabChange('ai-agent')}>🤖 AI Agent</button>
       </div>
 
       {activeTab === 'timeline' && <TimelineManagement />}
+
+      {activeTab === 'ai-agent' && (
+        <div className="tab-content">
+          <AdminAIManagement />
+        </div>
+      )}
+
 
       {activeTab === 'import' && (
         <div className="tab-content">

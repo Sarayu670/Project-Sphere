@@ -11,7 +11,9 @@ import ExcelImportProblem from './ExcelImportProblem';
 import GuideSearch from '../admin/GuideSearch';
 import ConfirmationDialog from '../../components/ConfirmationDialog';
 import GuideMeetings from './GuideMeetings';
+import AIProblemExplorer from '../../components/AIProblemExplorer';
 import './GuideDashboard.css';
+
 
 function GuideDashboard() {
   const [activeTab, setActiveTab] = useState(
@@ -383,8 +385,10 @@ function GuideDashboard() {
         <button className={`tab ${activeTab === 'teams' ? 'active' : ''}`} onClick={() => handleTabChange('teams')}>👥 My Teams</button>
         <button className={`tab ${activeTab === 'submissions' ? 'active' : ''}`} onClick={() => handleTabChange('submissions')}>📅 Timeline</button>
         <button className={`tab ${activeTab === 'meetings' ? 'active' : ''}`} onClick={() => handleTabChange('meetings')}>🤝 Meetings</button>
+        <button className={`tab ${activeTab === 'ai-hub' ? 'active' : ''}`} onClick={() => handleTabChange('ai-hub')}>🤖 AI Problem Hub</button>
         <button className={`tab ${activeTab === 'guide-search' ? 'active' : ''}`} onClick={() => handleTabChange('guide-search')}>🔍 Search Batches</button>
       </div>
+
 
       {activeTab === 'problems' && (
         <div className="tab-content">
@@ -548,9 +552,16 @@ function GuideDashboard() {
 
       {activeTab === 'meetings' && <GuideMeetings />}
 
+      {activeTab === 'ai-hub' && (
+        <div className="tab-content">
+          <AIProblemExplorer userRole="guide" />
+        </div>
+      )}
+
       {activeTab === 'guide-search' && (
         <div className="tab-content"><GuideSearch /></div>
       )}
+
 
       <ConfirmationDialog
         isOpen={dialog.isOpen} title={dialog.title} message={dialog.message} type={dialog.type}

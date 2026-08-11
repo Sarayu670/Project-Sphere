@@ -17,7 +17,9 @@ const COLUMN_PATTERNS = {
     guideName: /name.*of.*the.*guide|internal.*guide|guide.*name|name.*of.*guide|mentor|supervisor|faculty|advisor|(?!.*email)\bguide\b/i,
     guideEmail: /guide.*email|guide.*mail|email.*guide|mail.*id.*guide|mail.*id/i,
     projectTitle: /project.*title|title/i,
-    researchArea: /domain|research.*thrust|thrust.*area|research.*area|\barea\b/i,
+    researchArea: /domain|research.*area|\barea\b/i,
+    thrustArea: /thrust.*area|thrust/i,
+    outcome: /outcome|status.*outcome|patent|publication|patented|published/i,
     coe: /\bcoe\b|\brc\b|center.*excellence|center.*of.*excellence/i,
     year: /year|class.*year/i,
     branch: /branch|department|dept/i,
@@ -118,6 +120,8 @@ function parseExcelFile(fileBuffer) {
         const guideEmailIndex = findColumnIndex(headers, COLUMN_PATTERNS.guideEmail);
         const projectTitleIndex = findColumnIndex(headers, COLUMN_PATTERNS.projectTitle);
         const researchAreaIndex = findColumnIndex(headers, COLUMN_PATTERNS.researchArea);
+        const thrustAreaIndex = findColumnIndex(headers, COLUMN_PATTERNS.thrustArea);
+        const outcomeIndex = findColumnIndex(headers, COLUMN_PATTERNS.outcome);
         const coeIndex = findColumnIndex(headers, COLUMN_PATTERNS.coe);
         const yearIndex = findColumnIndex(headers, COLUMN_PATTERNS.year);
         const branchIndex = findColumnIndex(headers, COLUMN_PATTERNS.branch);
@@ -135,6 +139,8 @@ function parseExcelFile(fileBuffer) {
             guideEmail: guideEmailIndex >= 0 ? `Matched '${headers[guideEmailIndex]}'` : 'NOT FOUND',
             projectTitle: projectTitleIndex >= 0 ? `Matched '${headers[projectTitleIndex]}'` : 'NOT FOUND',
             researchArea: researchAreaIndex >= 0 ? `Matched '${headers[researchAreaIndex]}'` : 'NOT FOUND',
+            thrustArea: thrustAreaIndex >= 0 ? `Matched '${headers[thrustAreaIndex]}'` : 'NOT FOUND',
+            outcome: outcomeIndex >= 0 ? `Matched '${headers[outcomeIndex]}'` : 'NOT FOUND',
             coe: coeIndex >= 0 ? `Matched '${headers[coeIndex]}'` : 'NOT FOUND',
             students: studentNameIndices.map(idx => headers[idx]),
             rollNumbers: rollNumberIndices.map(idx => headers[idx])
@@ -201,6 +207,8 @@ function parseExcelFile(fileBuffer) {
             let guideEmail = guideEmailIndex >= 0 ? normalizeText(row[guideEmailIndex]) : '';
             let projectTitle = projectTitleIndex >= 0 ? normalizeText(row[projectTitleIndex]) : '';
             let researchArea = researchAreaIndex >= 0 ? normalizeText(row[researchAreaIndex]) : '';
+            let thrustArea = thrustAreaIndex >= 0 ? normalizeText(row[thrustAreaIndex]) : '';
+            let outcome = outcomeIndex >= 0 ? normalizeText(row[outcomeIndex]) : '';
             // Extract COE from cell value and parse it
             let coeRaw = coeIndex >= 0 ? normalizeText(row[coeIndex]) : '';
             let coe = coeRaw ? extractCOENameFromText(coeRaw) : 'N/A';
@@ -244,6 +252,8 @@ function parseExcelFile(fileBuffer) {
                     guideEmail: guideEmail || 'N/A',
                     projectTitle: projectTitle || 'N/A',
                     researchArea: researchArea || 'N/A',
+                    thrustArea: thrustArea || researchArea || 'N/A',
+                    outcome: outcome || 'None',
                     coe: coe || 'N/A',
                     year: year || '4th',
                     branch: branch || 'CSE',

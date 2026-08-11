@@ -222,6 +222,8 @@ exports.importExcelFiles = async (req, res) => {
                         batch.researchArea = record.researchArea;
                         batch.domain = record.researchArea;
                     }
+                    if (record.thrustArea && record.thrustArea !== 'N/A') batch.thrustArea = record.thrustArea;
+                    if (record.outcome && record.outcome !== 'N/A') batch.outcome = record.outcome;
                     await batch.save();
                 } else {
                     batch = await Batch.create({
@@ -237,6 +239,8 @@ exports.importExcelFiles = async (req, res) => {
                         branch: record.branch || 'CSE',
                         section: record.section || 'A',
                         researchArea: record.researchArea && record.researchArea !== 'N/A' ? record.researchArea : undefined,
+                        thrustArea: record.thrustArea && record.thrustArea !== 'N/A' ? record.thrustArea : (record.researchArea || undefined),
+                        outcome: record.outcome && record.outcome !== 'N/A' ? record.outcome : 'None',
                         domain: record.researchArea && record.researchArea !== 'N/A' ? record.researchArea : undefined
                     });
                 }
@@ -280,6 +284,8 @@ exports.importExcelFiles = async (req, res) => {
                     project.guideName = record.guideName;
                     project.projectTitle = record.projectTitle !== 'N/A' ? record.projectTitle : project.projectTitle;
                     project.researchArea = record.researchArea || 'N/A';
+                    project.thrustArea = record.thrustArea || record.researchArea || 'N/A';
+                    project.outcome = record.outcome || 'None';
                     project.coe = record.coe;
                     await project.save();
                 } else {
@@ -292,6 +298,8 @@ exports.importExcelFiles = async (req, res) => {
                         guideName: record.guideName,
                         projectTitle: record.projectTitle,
                         researchArea: record.researchArea || 'N/A',
+                        thrustArea: record.thrustArea || record.researchArea || 'N/A',
+                        outcome: record.outcome || 'None',
                         coe: record.coe,
                         source: 'excel_import'
                     });

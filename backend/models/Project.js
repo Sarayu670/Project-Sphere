@@ -39,6 +39,16 @@ const ProjectSchema = new mongoose.Schema({
     trim: true,
     default: 'N/A'
   },
+  thrustArea: {
+    type: String,
+    trim: true,
+    default: 'N/A'
+  },
+  outcome: {
+    type: String,
+    trim: true,
+    default: 'None'
+  },
   coe: {
     type: String,
     trim: true,

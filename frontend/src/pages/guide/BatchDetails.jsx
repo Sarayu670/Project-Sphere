@@ -7,6 +7,18 @@ const YEAR_LABELS = {
   '4th': '4th - Major Project'
 };
 
+const OUTCOME_OPTIONS = [
+  'None',
+  'Patented',
+  'Published',
+  'Copyrighted',
+  'Paper Published',
+  'Journal Published',
+  'Conference Published',
+  'Prototype',
+  'Other'
+];
+
 function BatchDetails({ batchId, onBack }) {
   const [batch, setBatch] = useState(null);
   const [updates, setUpdates] = useState([]);
@@ -14,6 +26,8 @@ function BatchDetails({ batchId, onBack }) {
   const [newComment, setNewComment] = useState({});
   const [submitting, setSubmitting] = useState(null);
   const [statusUpdating, setStatusUpdating] = useState(false);
+  const [outcomeUpdating, setOutcomeUpdating] = useState(false);
+  const [outcomeSuccess, setOutcomeSuccess] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -60,6 +74,21 @@ function BatchDetails({ batchId, onBack }) {
     }
   };
 
+  const handleOutcomeChange = async (newOutcome) => {
+    setOutcomeUpdating(true);
+    setOutcomeSuccess(false);
+    try {
+      await api.updateBatchOutcome(batchId, newOutcome);
+      setBatch(prev => ({ ...prev, outcome: newOutcome }));
+      setOutcomeSuccess(true);
+      setTimeout(() => setOutcomeSuccess(false), 2000);
+    } catch (error) {
+      alert('Failed to update outcome');
+    } finally {
+      setOutcomeUpdating(false);
+    }
+  };
+
   if (loading) return <div className="loading">Loading...</div>;
   if (!batch) return <div>Batch not found</div>;
 
@@ -76,18 +105,52 @@ function BatchDetails({ batchId, onBack }) {
             <p style={{ color: '#718096', marginBottom: '8px', lineHeight: '1.6', fontSize: '15px' }}>Leader: {batch.leaderStudentId?.name}</p>
             <p style={{ color: '#667eea', fontWeight: '500', fontSize: '14px', lineHeight: '1.6' }}>{batch.year ? YEAR_LABELS[batch.year] : 'Year Not Set'}</p>
           </div>
-          <div>
-            <label style={{ fontSize: '14px', color: '#718096', display: 'block', marginBottom: '8px' }}>Update Status:</label>
-            <select
-              value={batch.status}
-              onChange={(e) => handleStatusChange(e.target.value)}
-              disabled={statusUpdating}
-              style={{ padding: '8px 16px', borderRadius: '8px', border: '2px solid #e2e8f0' }}
-            >
-              <option value="Not Started">Not Started</option>
-              <option value="In Progress">In Progress</option>
-              <option value="Completed">Completed</option>
-            </select>
+          <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start' }}>
+            <div>
+              <label style={{ fontSize: '13px', color: '#718096', display: 'block', marginBottom: '6px', fontWeight: '600' }}>Project Status:</label>
+              <select
+                value={batch.status}
+                onChange={(e) => handleStatusChange(e.target.value)}
+                disabled={statusUpdating}
+                style={{ padding: '8px 14px', borderRadius: '8px', border: '2px solid #e2e8f0', fontSize: '14px', cursor: 'pointer' }}
+              >
+                <option value="Not Started">Not Started</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Completed">Completed</option>
+              </select>
+            </div>
+            <div>
+              <label style={{ fontSize: '13px', color: '#718096', display: 'block', marginBottom: '6px', fontWeight: '600' }}>
+                🏆 Project Outcome:
+              </label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <select
+                  value={batch.outcome || 'None'}
+                  onChange={(e) => handleOutcomeChange(e.target.value)}
+                  disabled={outcomeUpdating}
+                  style={{
+                    padding: '8px 14px',
+                    borderRadius: '8px',
+                    border: `2px solid ${batch.outcome && batch.outcome !== 'None' ? '#38a169' : '#e2e8f0'}`,
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    backgroundColor: batch.outcome && batch.outcome !== 'None' ? '#f0fff4' : '#fff',
+                    color: batch.outcome && batch.outcome !== 'None' ? '#276749' : '#2d3748',
+                    fontWeight: batch.outcome && batch.outcome !== 'None' ? '600' : '400'
+                  }}
+                >
+                  {OUTCOME_OPTIONS.map(opt => (
+                    <option key={opt} value={opt}>{opt}</option>
+                  ))}
+                </select>
+                {outcomeSuccess && (
+                  <span style={{ color: '#38a169', fontSize: '13px', fontWeight: '600' }}>✓ Saved!</span>
+                )}
+                {outcomeUpdating && (
+                  <span style={{ color: '#718096', fontSize: '13px' }}>Saving...</span>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import * as XLSX from 'xlsx';
 import * as api from '../../services/api';
 import COEandRCManagement from '../../components/COEandRCManagement';
 import TimelineManagement from './TimelineManagement';
@@ -95,6 +96,8 @@ function AdminDashboard() {
     rcId: '',
     guideId: '',
     researchArea: '',
+    thrustArea: '',
+    outcome: 'None',
     problemTitle: ''
   });
 
@@ -104,6 +107,8 @@ function AdminDashboard() {
       rcId: selectedBatch.rcId?._id || selectedBatch.rc?.rcId || '',
       guideId: selectedBatch.guideId?._id || selectedBatch.guideId || '',
       researchArea: selectedBatch.problemId?.researchArea || selectedBatch.researchArea || '',
+      thrustArea: selectedBatch.thrustArea || selectedBatch.domain || '',
+      outcome: selectedBatch.outcome || 'None',
       problemTitle: selectedBatch.problemId?.title || ''
     });
     setIsEditingAssignments(true);
@@ -121,6 +126,62 @@ function AdminDashboard() {
       console.error('Failed to update assignments:', error);
       alert('Failed to update assignments');
     }
+  };
+
+  const handleDownloadReport = () => {
+    const reportData = filteredBatches.map((batch, index) => {
+      const membersList = batch.teamMembers && batch.teamMembers.length > 0
+        ? batch.teamMembers.map(m => `${m.name || ''} (${m.rollNo || ''})`).join(', ')
+        : (batch.leaderStudentId ? `${batch.leaderStudentId.name} (${batch.leaderStudentId.rollNumber})` : 'N/A');
+
+      return {
+        'S.No': index + 1,
+        'Team Name': batch.teamName || '',
+        'Leader Roll No': batch.leaderStudentId?.rollNumber || (batch.teamMembers?.[0]?.rollNo || ''),
+        'Leader Name': batch.leaderStudentId?.name || (batch.teamMembers?.[0]?.name || ''),
+        'Team Members': membersList,
+        'Year': batch.year || '',
+        'Branch': batch.branch || '',
+        'Section': batch.section || '',
+        'COE / RC': batch.problemId?.coeId?.name || batch.coeId?.name || batch.coe?.name || 'Not Assigned',
+        'Research Area': batch.problemId?.researchArea || batch.researchArea || 'Not Assigned',
+        'Thrust Area': batch.thrustArea || batch.domain || 'Not Assigned',
+        'Guide': batch.guideId?.name || 'Not Assigned',
+        'Problem Title': batch.problemId?.title || 'Not Assigned',
+        'Outcome': batch.outcome || 'None',
+        'Allotment Status': batch.allotmentStatus || 'none',
+        'Progress Status': batch.status || 'Not Started'
+      };
+    });
+
+    const ws = XLSX.utils.json_to_sheet(reportData);
+    ws['!cols'] = [
+      { wch: 6 },  // S.No
+      { wch: 12 }, // Team Name
+      { wch: 16 }, // Leader Roll No
+      { wch: 22 }, // Leader Name
+      { wch: 35 }, // Team Members
+      { wch: 8 },  // Year
+      { wch: 10 }, // Branch
+      { wch: 10 }, // Section
+      { wch: 22 }, // COE/RC
+      { wch: 22 }, // Research Area
+      { wch: 25 }, // Thrust Area
+      { wch: 20 }, // Guide
+      { wch: 35 }, // Problem Title
+      { wch: 15 }, // Outcome
+      { wch: 18 }, // Allotment Status
+      { wch: 18 }  // Progress Status
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Teams Report');
+    
+    const yearStr = filterYear ? `${filterYear}_Year` : 'All_Years';
+    const branchStr = filterBranch ? filterBranch : 'All_Branches';
+    const secStr = filterSection ? `Sec_${filterSection}` : 'All_Sections';
+    
+    XLSX.writeFile(wb, `Project_Sphere_Report_${yearStr}_${branchStr}_${secStr}.xlsx`);
   };
 
   // Reset to page 1 when filters change
@@ -243,9 +304,14 @@ function AdminDashboard() {
                   {SECTIONS.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
-              <button className="btn btn-secondary" onClick={() => { setFilterYear(''); setFilterBranch(''); setFilterSection(''); }}>
-                Clear Filters
-              </button>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button className="btn btn-secondary" onClick={() => { setFilterYear(''); setFilterBranch(''); setFilterSection(''); }}>
+                  Clear Filters
+                </button>
+                <button className="btn btn-primary" style={{ backgroundColor: '#28a745', borderColor: '#28a745' }} onClick={handleDownloadReport}>
+                  📥 Download Report
+                </button>
+              </div>
             </div>
           </div>
 
@@ -270,15 +336,38 @@ function AdminDashboard() {
                     <th>Team Members</th>
                     <th>COE/RC</th>
                     <th>Research Area</th>
+                    <th>Thrust Area</th>
                     <th>Guide</th>
                     <th>Problem</th>
-                    <th style={{ width: "120px" }}>Actions</th>
+                    <th>Outcome</th>
                   </tr>
                 </thead>
                 <tbody>
                   {paginatedBatches.map((batch) => (
                     <tr key={batch._id}>
-                      <td><strong>{batch.teamName}</strong></td>
+                      <td>
+                        <button
+                          onClick={() => handleSelectBatch(batch)}
+                          title="Click to view & edit team details"
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            padding: 0,
+                            margin: 0,
+                            color: '#2b6cb0',
+                            fontWeight: 'bold',
+                            fontSize: '14px',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            textAlign: 'left'
+                          }}
+                        >
+                          <span>{batch.teamName}</span>
+                          <span style={{ fontSize: '12px', opacity: 0.7 }} title="Edit Team">✏️</span>
+                        </button>
+                      </td>
                       <td>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                           {batch.teamMembers && batch.teamMembers.map((member, idx) => (
@@ -290,10 +379,21 @@ function AdminDashboard() {
                       </td>
                       <td>{batch.problemId?.coeId?.name || batch.coeId?.name || batch.coe?.name || 'Not Assigned'}</td>
                       <td>{batch.problemId?.researchArea || batch.researchArea || 'Not Assigned'}</td>
+                      <td>{batch.thrustArea || batch.domain || 'Not Assigned'}</td>
                       <td>{batch.guideId?.name || 'Not Assigned'}</td>
                       <td>{batch.problemId?.title || 'Not Assigned'}</td>
                       <td>
-                        <button className="btn btn-primary btn-sm" onClick={() => handleSelectBatch(batch)}>View Details</button>
+                        <span style={{
+                          padding: '4px 8px',
+                          borderRadius: '12px',
+                          fontSize: '11px',
+                          fontWeight: '600',
+                          backgroundColor: batch.outcome && batch.outcome !== 'None' ? '#e6fffa' : '#edf2f7',
+                          color: batch.outcome && batch.outcome !== 'None' ? '#234e52' : '#718096',
+                          border: batch.outcome && batch.outcome !== 'None' ? '1px solid #b2f5ea' : '1px solid #e2e8f0'
+                        }}>
+                          {batch.outcome || 'None'}
+                        </span>
                       </td>
                     </tr>
                   ))}
@@ -378,6 +478,8 @@ function AdminDashboard() {
                     </button>
                     <p><strong>COE/RC:</strong> {selectedBatch.problemId?.coeId?.name || selectedBatch.coeId?.name || selectedBatch.coe?.name || 'Not Assigned'}</p>
                     <p><strong>Research Area:</strong> {selectedBatch.problemId?.researchArea || selectedBatch.researchArea || 'Not Assigned'}</p>
+                    <p><strong>Thrust Area:</strong> {selectedBatch.thrustArea || selectedBatch.domain || 'Not Assigned'}</p>
+                    <p><strong>Outcome:</strong> {selectedBatch.outcome || 'None'}</p>
                     <p><strong>Guide:</strong> {selectedBatch.guideId?.name || 'Not Assigned'}</p>
                     <p><strong>Problem:</strong> {selectedBatch.problemId?.title || 'Not Assigned'}</p>
                   </>
@@ -414,6 +516,34 @@ function AdminDashboard() {
                         placeholder="Research Area"
                         style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e0' }}
                       />
+                    </div>
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label style={{ fontSize: '12px', fontWeight: 'bold' }}>Thrust Area</label>
+                      <input 
+                        type="text" 
+                        value={editForm.thrustArea} 
+                        onChange={(e) => setEditForm({...editForm, thrustArea: e.target.value})}
+                        placeholder="Thrust Area (e.g. AI/ML, Cloud)"
+                        style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e0' }}
+                      />
+                    </div>
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label style={{ fontSize: '12px', fontWeight: 'bold' }}>Outcome</label>
+                      <select 
+                        value={editForm.outcome} 
+                        onChange={(e) => setEditForm({...editForm, outcome: e.target.value})}
+                        style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e0' }}
+                      >
+                        <option value="None">None</option>
+                        <option value="Patented">Patented</option>
+                        <option value="Published">Published</option>
+                        <option value="Copyrighted">Copyrighted</option>
+                        <option value="Paper Published">Paper Published</option>
+                        <option value="Journal Published">Journal Published</option>
+                        <option value="Conference Published">Conference Published</option>
+                        <option value="Prototype">Prototype</option>
+                        <option value="Other">Other</option>
+                      </select>
                     </div>
                     <div className="form-group" style={{ marginBottom: 0 }}>
                       <label style={{ fontSize: '12px', fontWeight: 'bold' }}>Problem Statement Title</label>

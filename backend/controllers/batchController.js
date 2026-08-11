@@ -922,6 +922,36 @@ exports.updateBatchStatus = async (req, res) => {
   }
 };
 
+// @desc    Update batch outcome (Guide only)
+// @route   PUT /api/batches/:id/outcome
+exports.updateBatchOutcome = async (req, res) => {
+  try {
+    const { outcome } = req.body;
+    const batch = await Batch.findById(req.params.id);
+
+    if (!batch) {
+      return res.status(404).json({ success: false, message: 'Batch not found' });
+    }
+
+    // Check if guide is assigned to this batch
+    if (batch.guideId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+    }
+
+    batch.outcome = outcome;
+    await batch.save();
+
+    const updatedBatch = await Batch.findById(batch._id)
+      .populate('leaderStudentId', 'name email rollNumber branch')
+      .populate('problemId', 'title description')
+      .populate('guideId', 'name email');
+
+    res.status(200).json({ success: true, data: updatedBatch });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // @desc    Get batch details with team members
 // @route   GET /api/batches/:id
 exports.getBatch = async (req, res) => {
@@ -1225,7 +1255,7 @@ exports.importStudentBatches = async (req, res) => {
 // @access  Admin
 exports.updateBatchByAdmin = async (req, res) => {
   try {
-    const { coeId, rcId, guideId, researchArea, problemTitle } = req.body;
+    const { coeId, rcId, guideId, researchArea, thrustArea, outcome, problemTitle } = req.body;
     const batch = await require('../models/Batch').findById(req.params.id);
 
     if (!batch) {
@@ -1257,6 +1287,16 @@ exports.updateBatchByAdmin = async (req, res) => {
     // Update Research Area
     if (researchArea !== undefined) {
       batch.researchArea = researchArea;
+    }
+
+    // Update Thrust Area
+    if (thrustArea !== undefined) {
+      batch.thrustArea = thrustArea;
+    }
+
+    // Update Outcome
+    if (outcome !== undefined) {
+      batch.outcome = outcome;
     }
 
     // Update or Create Problem Statement if title is provided

@@ -9,7 +9,6 @@ const YEAR_LABELS = {
   '4th': '4th - Major Project'
 };
 
-<<<<<<< HEAD
 const OUTCOME_OPTIONS = [
   'None',
   'Patented',
@@ -21,8 +20,7 @@ const OUTCOME_OPTIONS = [
   'Prototype',
   'Other'
 ];
-=======
->>>>>>> 6fa62618e1badf05f40b5fd231e2fe577ce426b5
+
 
 function BatchDetails({ batchId, onBack }) {
   const [batch, setBatch] = useState(null);

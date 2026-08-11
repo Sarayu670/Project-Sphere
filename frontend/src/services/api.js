@@ -178,3 +178,12 @@ export const createAIProblem = (data) => axios.post(`${API_URL}/ai-problems`, da
 export const updateAIProblem = (id, data) => axios.put(`${API_URL}/ai-problems/${id}`, data);
 export const deleteAIProblem = (id) => axios.delete(`${API_URL}/ai-problems/${id}`);
 
+// AI Mentor & Progress Suite endpoints
+export const getBatchRoadmap = (batchId) => axios.get(`${API_URL}/ai-mentor/roadmap/${batchId}`);
+export const regenerateBatchRoadmap = (batchId) => axios.post(`${API_URL}/ai-mentor/roadmap/${batchId}/regenerate`);
+export const updateMilestoneTask = (batchId, data) => axios.put(`${API_URL}/ai-mentor/roadmap/${batchId}/tasks`, data);
+export const getBatchProgressAnalysis = (batchId) => axios.get(`${API_URL}/ai-mentor/progress-analysis/${batchId}`);
+export const refreshBatchProgressAnalysis = (batchId) => axios.post(`${API_URL}/ai-mentor/progress-analysis/${batchId}/refresh`);
+export const getRecommendedProblems = (params = {}) => axios.get(`${API_URL}/ai-mentor/recommend-problems`, { params });
+
+

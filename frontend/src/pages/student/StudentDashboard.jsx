@@ -13,7 +13,10 @@ import ProjectDetails from './ProjectDetails';
 import TimelineProgress from './TimelineProgress';
 import StudentMeetings from './StudentMeetings';
 import AIProblemExplorer from '../../components/AIProblemExplorer';
+import AIMentorRoadmap from '../../components/AIMentorRoadmap';
+import AIProgressMonitorCard from '../../components/AIProgressMonitorCard';
 import './StudentDashboard.css';
+
 
 
 function StudentDashboard() {
@@ -226,6 +229,9 @@ function StudentDashboard() {
         )}
         {isAllotted && (
           <>
+            <button className={`tab ${activeTab === 'roadmap' ? 'active' : ''}`} onClick={() => handleTabChange('roadmap')}>
+              🗺️ AI Project Mentor &amp; Roadmap
+            </button>
             <button className={`tab ${activeTab === 'timeline' ? 'active' : ''}`} onClick={() => handleTabChange('timeline')}>
               📅 Timeline &amp; Submissions
             </button>
@@ -238,7 +244,10 @@ function StudentDashboard() {
 
       <div className="tab-content">
         {activeTab === 'overview' && (
-          <ProjectDetails batch={batch} isPending={isPending} isAllotted={isAllotted} />
+          <>
+            {isAllotted && <AIProgressMonitorCard batchId={batch._id} userRole="student" />}
+            <ProjectDetails batch={batch} isPending={isPending} isAllotted={isAllotted} />
+          </>
         )}
 
         {activeTab === 'team' && (
@@ -263,6 +272,9 @@ function StudentDashboard() {
           <AIProblemExplorer userRole="student" batch={batch} onRequestSubmitted={fetchBatch} />
         )}
 
+        {activeTab === 'roadmap' && isAllotted && (
+          <AIMentorRoadmap batchId={batch._id} userRole="student" />
+        )}
 
         {activeTab === 'timeline' && isAllotted && (
           <TimelineProgress batchId={batch._id} />
@@ -272,6 +284,7 @@ function StudentDashboard() {
           <StudentMeetings batchId={batch._id} />
         )}
       </div>
+
 
 
       <ChatPanel

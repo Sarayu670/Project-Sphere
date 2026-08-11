@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import * as api from '../../services/api';
+import AIMentorRoadmap from '../../components/AIMentorRoadmap';
+import AIProgressMonitorCard from '../../components/AIProgressMonitorCard';
 
 const YEAR_LABELS = {
   '2nd': '2nd - Real Time Project',
@@ -7,6 +9,7 @@ const YEAR_LABELS = {
   '4th': '4th - Major Project'
 };
 
+<<<<<<< HEAD
 const OUTCOME_OPTIONS = [
   'None',
   'Patented',
@@ -18,6 +21,8 @@ const OUTCOME_OPTIONS = [
   'Prototype',
   'Other'
 ];
+=======
+>>>>>>> 6fa62618e1badf05f40b5fd231e2fe577ce426b5
 
 function BatchDetails({ batchId, onBack }) {
   const [batch, setBatch] = useState(null);
@@ -155,6 +160,8 @@ function BatchDetails({ batchId, onBack }) {
         </div>
       </div>
 
+      <AIProgressMonitorCard batchId={batchId} userRole="guide" />
+
       <div className="grid grid-2" style={{ marginBottom: '20px' }}>
         <div className="card">
           <h3 style={{ marginBottom: '16px', color: '#2d3748' }}>📋 Problem Details</h3>
@@ -196,9 +203,12 @@ function BatchDetails({ batchId, onBack }) {
           )}
         </div>
       </div>
+
+      <AIMentorRoadmap batchId={batchId} userRole="guide" />
     </div>
   );
 }
 
 export default BatchDetails;
+
 

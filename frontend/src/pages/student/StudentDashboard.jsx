@@ -14,7 +14,6 @@ import TimelineProgress from './TimelineProgress';
 import StudentMeetings from './StudentMeetings';
 import AIProblemExplorer from '../../components/AIProblemExplorer';
 import AIMentorRoadmap from '../../components/AIMentorRoadmap';
-import AIProgressMonitorCard from '../../components/AIProgressMonitorCard';
 import './StudentDashboard.css';
 
 
@@ -245,7 +244,6 @@ function StudentDashboard() {
       <div className="tab-content">
         {activeTab === 'overview' && (
           <>
-            {isAllotted && <AIProgressMonitorCard batchId={batch._id} userRole="student" />}
             <ProjectDetails batch={batch} isPending={isPending} isAllotted={isAllotted} />
           </>
         )}

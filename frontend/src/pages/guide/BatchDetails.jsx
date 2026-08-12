@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import * as api from '../../services/api';
 import AIMentorRoadmap from '../../components/AIMentorRoadmap';
-import AIProgressMonitorCard from '../../components/AIProgressMonitorCard';
 
 const YEAR_LABELS = {
   '2nd': '2nd - Real Time Project',
@@ -157,8 +156,6 @@ function BatchDetails({ batchId, onBack }) {
           </div>
         </div>
       </div>
-
-      <AIProgressMonitorCard batchId={batchId} userRole="guide" />
 
       <div className="grid grid-2" style={{ marginBottom: '20px' }}>
         <div className="card">

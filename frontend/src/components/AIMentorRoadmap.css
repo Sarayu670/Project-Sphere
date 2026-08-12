@@ -6,12 +6,14 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #312e81 100%);
-  padding: 24px;
-  border-radius: 16px;
-  color: white;
+  background: #ffffff;
+  padding: 20px;
+  border-radius: 8px;
+  color: #0f172a;
+  border: 1px solid #e2e8f0;
+  border-left: 4px solid #0ea5e9;
   margin-bottom: 20px;
-  box-shadow: 0 10px 25px -5px rgba(49, 46, 129, 0.4);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
 }
 
 .roadmap-header-left h2 {
@@ -22,7 +24,7 @@
 
 .problem-title {
   margin: 0 0 12px 0;
-  color: #c7d2fe;
+  color: #64748b;
   font-size: 15px;
 }
 
@@ -39,22 +41,22 @@
 }
 
 .meta-tag.domain {
-  background: rgba(255, 255, 255, 0.15);
-  color: #e0e7ff;
+  background: #e0f2fe;
+  color: #0369a1;
 }
 
 .meta-tag.tasks {
-  background: rgba(16, 185, 129, 0.25);
-  color: #a7f3d0;
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
 }
 
 .btn-regenerate-roadmap {
   padding: 12px 20px;
-  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  background: #2563eb;
   color: white;
   border: none;
-  border-radius: 10px;
+  border-radius: 6px;
   font-weight: 700;
   font-size: 13.5px;
   cursor: pointer;
@@ -68,38 +70,63 @@
 
 .roadmap-progress-card {
   background: white;
-  border-radius: 12px;
-  padding: 18px 24px;
+  border-radius: 8px;
+  padding: 18px 20px;
   margin-bottom: 20px;
   border: 1px solid #e2e8f0;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-}
-
-.progress-label-row {
   display: flex;
   justify-content: space-between;
-  font-weight: 700;
-  font-size: 14px;
-  color: #334155;
-  margin-bottom: 10px;
+  align-items: center;
+  gap: 20px;
 }
 
-.percent-text {
-  color: #4f46e5;
+.roadmap-progress-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.roadmap-progress-track {
-  height: 12px;
-  background: #e2e8f0;
-  border-radius: 6px;
-  overflow: hidden;
+.progress-kicker {
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 
-.roadmap-progress-bar {
-  height: 100%;
-  background: linear-gradient(90deg, #6366f1 0%, #10b981 100%);
-  border-radius: 6px;
-  transition: width 0.4s ease;
+.roadmap-progress-copy strong {
+  color: #0f172a;
+  font-size: 18px;
+}
+
+.roadmap-progress-pie {
+  --progress: 0%;
+  width: 92px;
+  height: 92px;
+  flex: 0 0 92px;
+  border-radius: 50%;
+  background: conic-gradient(#0f766e var(--progress), #e2e8f0 0);
+  display: grid;
+  place-items: center;
+  position: relative;
+}
+
+.roadmap-progress-pie::after {
+  content: '';
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  background: #ffffff;
+  position: absolute;
+}
+
+.roadmap-progress-pie span {
+  position: relative;
+  z-index: 1;
+  color: #0f172a;
+  font-size: 18px;
+  font-weight: 900;
 }
 
 .tech-stack-container {
@@ -109,7 +136,7 @@
   margin-bottom: 20px;
   background: white;
   padding: 14px 20px;
-  border-radius: 12px;
+  border-radius: 8px;
   border: 1px solid #e2e8f0;
 }
 
@@ -154,7 +181,7 @@
 
 .milestone-phase-card {
   background: white;
-  border-radius: 12px;
+  border-radius: 8px;
   border: 1px solid #e2e8f0;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
   overflow: hidden;
@@ -162,7 +189,7 @@
 }
 
 .milestone-phase-card.phase-active {
-  border-left: 5px solid #6366f1;
+  border-left: 5px solid #0ea5e9;
 }
 
 .milestone-phase-card.phase-completed {

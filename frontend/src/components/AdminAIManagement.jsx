@@ -1,54 +1,58 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import * as api from '../services/api';
 import './AdminAIManagement.css';
 
 function AdminAIManagement() {
-  const [stats, setStats] = useState(null);
   const [problems, setProblems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [crawling, setCrawling] = useState(false);
-  const [activeSubTab, setActiveSubTab] = useState('overview'); // 'overview' | 'statements' | 'logs'
   const [searchTerm, setSearchTerm] = useState('');
   const [domainFilter, setDomainFilter] = useState('All');
+  const [currentPage, setCurrentPage] = useState(1);
   const [editingProblem, setEditingProblem] = useState(null);
-  const [editForm, setEditForm] = useState({ title: '', description: '', domain: '', difficulty: '', technologies: '', sourceName: '', sourceUrl: '' });
+  const [editForm, setEditForm] = useState({
+    title: '',
+    description: '',
+    domain: '',
+    difficulty: '',
+    technologies: '',
+    sourceName: '',
+    sourceUrl: ''
+  });
   const [notification, setNotification] = useState(null);
+  const itemsPerPage = 8;
 
-  const fetchStatsAndData = useCallback(async () => {
+  const fetchProblems = useCallback(async () => {
     setLoading(true);
     try {
-      const [statsRes, problemsRes] = await Promise.all([
-        api.getAICrawlerStats(),
-        api.getAIProblems({ status: 'approved' })
-      ]);
-      setStats(statsRes.data.data);
+      const problemsRes = await api.getAIProblems({ status: 'approved' });
       setProblems(problemsRes.data.data || []);
     } catch (err) {
-      console.error('Failed to fetch AI agent stats:', err);
+      console.error('Failed to fetch AI problem statements:', err);
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchStatsAndData();
-  }, [fetchStatsAndData]);
+    fetchProblems();
+  }, [fetchProblems]);
 
   const handleTriggerCrawl = async () => {
     setCrawling(true);
     setNotification(null);
     try {
       const res = await api.triggerAICrawl();
-      const info = res.data.data;
+      const info = res.data.data || {};
       setNotification({
         type: 'success',
-        text: `🚀 AI Agent Crawl Completed! Harvested ${info.totalCollected} total statements, added ${info.insertedCount} new items, and automatically filtered out ${info.duplicatesRemoved} duplicates.`
+        text: `Collection complete. Added ${info.insertedCount || 0} new problem statement${info.insertedCount === 1 ? '' : 's'}.`
       });
-      fetchStatsAndData();
+      fetchProblems();
     } catch (err) {
       setNotification({
         type: 'danger',
-        text: err.response?.data?.message || 'Failed to trigger AI Crawler.'
+        text: err.response?.data?.message || 'Failed to collect new problem statements.'
       });
     } finally {
       setCrawling(false);
@@ -58,10 +62,10 @@ function AdminAIManagement() {
   const handleEditClick = (problem) => {
     setEditingProblem(problem);
     setEditForm({
-      title: problem.title,
-      description: problem.description,
-      domain: problem.domain,
-      difficulty: problem.difficulty,
+      title: problem.title || '',
+      description: problem.description || '',
+      domain: problem.domain || '',
+      difficulty: problem.difficulty || 'Medium',
       technologies: problem.technologies ? problem.technologies.join(', ') : '',
       sourceName: problem.sourceName || '',
       sourceUrl: problem.sourceUrl || ''
@@ -77,47 +81,62 @@ function AdminAIManagement() {
       };
       await api.updateAIProblem(editingProblem._id, payload);
       setEditingProblem(null);
-      fetchStatsAndData();
-      setNotification({ type: 'success', text: 'Problem statement updated successfully!' });
+      fetchProblems();
+      setNotification({ type: 'success', text: 'Problem statement updated successfully.' });
     } catch (err) {
       alert('Failed to update problem statement: ' + (err.response?.data?.message || err.message));
     }
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this AI Problem Statement?')) return;
+    if (!window.confirm('Are you sure you want to delete this AI problem statement?')) return;
     try {
       await api.deleteAIProblem(id);
-      fetchStatsAndData();
-      setNotification({ type: 'success', text: 'Problem statement deleted successfully!' });
+      fetchProblems();
+      setNotification({ type: 'success', text: 'Problem statement deleted successfully.' });
     } catch (err) {
       alert('Failed to delete: ' + (err.response?.data?.message || err.message));
     }
   };
 
-  const filteredProblems = problems.filter(p => {
+  const filteredProblems = useMemo(() => problems.filter(p => {
     if (domainFilter !== 'All' && p.domain !== domainFilter) return false;
     if (searchTerm.trim()) {
       const q = searchTerm.toLowerCase();
-      return p.title.toLowerCase().includes(q) || p.description.toLowerCase().includes(q);
+      return (
+        (p.title || '').toLowerCase().includes(q) ||
+        (p.description || '').toLowerCase().includes(q)
+      );
     }
     return true;
-  });
+  }), [domainFilter, problems, searchTerm]);
+
+  const domainOptions = useMemo(
+    () => Array.from(new Set(problems.map(p => p.domain).filter(Boolean))).sort(),
+    [problems]
+  );
+
+  const totalPages = Math.max(1, Math.ceil(filteredProblems.length / itemsPerPage));
+  const safePage = Math.min(currentPage, totalPages);
+  const startIndex = (safePage - 1) * itemsPerPage;
+  const paginatedProblems = filteredProblems.slice(startIndex, startIndex + itemsPerPage);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, domainFilter]);
 
   return (
     <div className="admin-ai-container">
-      {/* Banner */}
       <div className="admin-ai-banner">
         <div className="banner-left">
-          <h2>🤖 AI Problem Agent Management Control</h2>
-          <p>Monitor periodic crawl tasks, manage semantic duplicate filters, and review domain-wise collection distributions.</p>
+          <h2>AI Problem Statements</h2>
         </div>
         <button
           className="btn-trigger-crawl"
           disabled={crawling}
           onClick={handleTriggerCrawl}
         >
-          {crawling ? '⌛ Crawling Trusted Sources...' : '⚡ Trigger AI Collection Manually'}
+          {crawling ? 'Collecting...' : 'Collect New Statements'}
         </button>
       </div>
 
@@ -127,120 +146,37 @@ function AdminAIManagement() {
         </div>
       )}
 
-      {/* Stats Cards */}
-      {stats && (
-        <div className="admin-stats-row">
-          <div className="ai-stat-card">
-            <div className="stat-icon">📥</div>
-            <div className="stat-info">
-              <span className="stat-number">{stats.totalAIProblems || 0}</span>
-              <span className="stat-label">Total Collected Statements</span>
-            </div>
-          </div>
-
-          <div className="ai-stat-card">
-            <div className="stat-icon">🛡️</div>
-            <div className="stat-info">
-              <span className="stat-number">{stats.totalDuplicatesRemoved || 0}</span>
-              <span className="stat-label">Duplicates Filtered</span>
-            </div>
-          </div>
-
-          <div className="ai-stat-card">
-            <div className="stat-icon">✅</div>
-            <div className="stat-info">
-              <span className="stat-number">{stats.approvedCount || 0}</span>
-              <span className="stat-label">Active Approved</span>
-            </div>
-          </div>
-
-          <div className="ai-stat-card">
-            <div className="stat-icon">🏷️</div>
-            <div className="stat-info">
-              <span className="stat-number">{Object.keys(stats.domainDistribution || {}).length}</span>
-              <span className="stat-label">Active Domains</span>
-            </div>
+      <div className="admin-tab-section">
+        <div className="admin-ai-section-title">
+          <div>
+            <h3>Manage Statements</h3>
+            <span>{filteredProblems.length} approved statement{filteredProblems.length === 1 ? '' : 's'}</span>
           </div>
         </div>
-      )}
 
-      {/* Sub Tabs */}
-      <div className="admin-ai-tabs">
-        <button
-          className={`ai-tab-btn ${activeSubTab === 'overview' ? 'active' : ''}`}
-          onClick={() => setActiveSubTab('overview')}
-        >
-          📊 Collection Distribution
-        </button>
-        <button
-          className={`ai-tab-btn ${activeSubTab === 'statements' ? 'active' : ''}`}
-          onClick={() => setActiveSubTab('statements')}
-        >
-          📋 Manage Statements ({filteredProblems.length})
-        </button>
-        <button
-          className={`ai-tab-btn ${activeSubTab === 'logs' ? 'active' : ''}`}
-          onClick={() => setActiveSubTab('logs')}
-        >
-          📜 Crawler Logs
-        </button>
-      </div>
-
-      {/* Tab Content: Distribution Overview */}
-      {activeSubTab === 'overview' && stats && (
-        <div className="admin-tab-section">
-          <h3>Domain-Wise Distribution Analysis</h3>
-          <div className="domain-grid">
-            {Object.entries(stats.domainDistribution || {}).map(([domain, count]) => (
-              <div className="domain-card" key={domain}>
-                <div className="domain-card-header">
-                  <span className="domain-name">🧠 {domain}</span>
-                  <span className="domain-count">{count}</span>
-                </div>
-                <div className="progress-bar-bg">
-                  <div
-                    className="progress-bar-fill"
-                    style={{ width: `${Math.min(100, (count / (stats.totalAIProblems || 1)) * 100 * 3)}%` }}
-                  ></div>
-                </div>
-              </div>
+        <div className="statements-filter-bar">
+          <input
+            type="text"
+            placeholder="Search problem title or description..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="search-input"
+          />
+          <select
+            value={domainFilter}
+            onChange={(e) => setDomainFilter(e.target.value)}
+            className="domain-select"
+          >
+            <option value="All">All Domains</option>
+            {domainOptions.map(d => (
+              <option key={d} value={d}>{d}</option>
             ))}
-          </div>
-
-          <h3 style={{ marginTop: '28px' }}>Trusted Sources Breakdown</h3>
-          <div className="source-row">
-            {Object.entries(stats.sourceDistribution || {}).map(([source, count]) => (
-              <div className="source-chip" key={source}>
-                🌐 <strong>{source}</strong>: {count} ideas harvested
-              </div>
-            ))}
-          </div>
+          </select>
         </div>
-      )}
 
-      {/* Tab Content: Manage Statements */}
-      {activeSubTab === 'statements' && (
-        <div className="admin-tab-section">
-          <div className="statements-filter-bar">
-            <input
-              type="text"
-              placeholder="Search problem title or description..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="search-input"
-            />
-            <select
-              value={domainFilter}
-              onChange={(e) => setDomainFilter(e.target.value)}
-              className="domain-select"
-            >
-              <option value="All">All Domains</option>
-              {stats && Object.keys(stats.domainDistribution || {}).map(d => (
-                <option key={d} value={d}>{d}</option>
-              ))}
-            </select>
-          </div>
-
+        {loading ? (
+          <div className="ai-table-empty">Loading problem statements...</div>
+        ) : (
           <div className="statements-table-wrapper">
             <table className="ai-admin-table">
               <thead>
@@ -256,25 +192,29 @@ function AdminAIManagement() {
               <tbody>
                 {filteredProblems.length === 0 ? (
                   <tr>
-                    <td colSpan="6" style={{ textAlign: 'center', padding: '30px' }}>
+                    <td colSpan="6" className="ai-table-empty">
                       No statements found matching your filters.
                     </td>
                   </tr>
                 ) : (
-                  filteredProblems.map(p => (
+                  paginatedProblems.map(p => (
                     <tr key={p._id}>
                       <td className="cell-title">
                         <strong>{p.title}</strong>
-                        <div className="cell-desc">{p.description.substring(0, 90)}...</div>
+                        <div className="cell-desc">
+                          {(p.description || '').length > 90
+                            ? `${p.description.substring(0, 90)}...`
+                            : p.description}
+                        </div>
                       </td>
                       <td><span className="badge-domain">{p.domain}</span></td>
-                      <td><span className={`badge-diff diff-${p.difficulty.toLowerCase()}`}>{p.difficulty}</span></td>
-                      <td>{p.sourceName}</td>
+                      <td><span className={`badge-diff diff-${(p.difficulty || 'Medium').toLowerCase()}`}>{p.difficulty || 'Medium'}</span></td>
+                      <td>{p.sourceName || 'Manual'}</td>
                       <td><strong>{p.requestsCount || 0}</strong></td>
                       <td>
                         <div className="action-btn-group">
-                          <button className="btn-edit" onClick={() => handleEditClick(p)}>✏️ Edit</button>
-                          <button className="btn-delete" onClick={() => handleDelete(p._id)}>🗑️ Delete</button>
+                          <button className="btn-edit" onClick={() => handleEditClick(p)}>Edit</button>
+                          <button className="btn-delete" onClick={() => handleDelete(p._id)}>Delete</button>
                         </div>
                       </td>
                     </tr>
@@ -283,47 +223,25 @@ function AdminAIManagement() {
               </tbody>
             </table>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Tab Content: Logs */}
-      {activeSubTab === 'logs' && stats && (
-        <div className="admin-tab-section">
-          <h3>Execution & Deduplication Logs</h3>
-          <table className="ai-admin-table">
-            <thead>
-              <tr>
-                <th>Date & Time</th>
-                <th>Triggered By</th>
-                <th>Sources</th>
-                <th>Total Collected</th>
-                <th>Duplicates Filtered</th>
-                <th>Status</th>
-                <th>Details</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(stats.recentLogs || []).map(log => (
-                <tr key={log._id}>
-                  <td>{new Date(log.timestamp).toLocaleString()}</td>
-                  <td><span className="tag-trigger">{log.triggeredBy}</span></td>
-                  <td>{log.source}</td>
-                  <td><strong>{log.totalCollected}</strong></td>
-                  <td><strong style={{ color: '#dc2626' }}>{log.duplicatesRemoved}</strong></td>
-                  <td><span className={`status-pill ${log.status}`}>{log.status}</span></td>
-                  <td className="cell-details">{log.details}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+        {filteredProblems.length > itemsPerPage && (
+          <div className="ai-pagination">
+            <button onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))} disabled={safePage === 1}>
+              Previous
+            </button>
+            <span>Page {safePage} of {totalPages}</span>
+            <button onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))} disabled={safePage === totalPages}>
+              Next
+            </button>
+          </div>
+        )}
+      </div>
 
-      {/* Edit Modal */}
       {editingProblem && (
         <div className="ai-modal-overlay" onClick={() => setEditingProblem(null)}>
           <div className="ai-modal-content" onClick={(e) => e.stopPropagation()}>
-            <h3>✏️ Edit AI Problem Statement</h3>
+            <h3>Edit AI Problem Statement</h3>
             <form onSubmit={handleSaveEdit}>
               <div className="form-group">
                 <label>Title</label>

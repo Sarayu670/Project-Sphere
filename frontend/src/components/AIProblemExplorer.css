@@ -8,11 +8,13 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 24px;
-  background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%);
-  padding: 24px;
-  border-radius: 16px;
-  color: white;
-  box-shadow: 0 10px 25px -5px rgba(67, 56, 202, 0.3);
+  background: #ffffff;
+  padding: 20px;
+  border-radius: 8px;
+  color: #0f172a;
+  border: 1px solid #e2e8f0;
+  border-left: 4px solid #0ea5e9;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
 }
 
 .ai-title-section h2 {
@@ -26,27 +28,26 @@
 
 .ai-title-section p {
   margin: 0;
-  color: #c7d2fe;
+  color: #64748b;
   font-size: 14px;
   max-width: 700px;
 }
 
 .ai-badge-chip {
-  background: rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(8px);
+  background: #ecfdf5;
   padding: 8px 16px;
-  border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  border: 1px solid #a7f3d0;
   font-weight: 600;
   font-size: 13px;
-  letter-spacing: 0.5px;
-  color: #e0e7ff;
+  letter-spacing: 0;
+  color: #047857;
 }
 
 /* Filters */
 .ai-filter-card {
   background: white;
-  border-radius: 12px;
+  border-radius: 8px;
   padding: 20px;
   margin-bottom: 20px;
   border: 1px solid #e2e8f0;
@@ -154,7 +155,7 @@
 
 .ai-card {
   background: white;
-  border-radius: 12px;
+  border-radius: 8px;
   padding: 20px;
   border: 1px solid #e2e8f0;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
@@ -297,7 +298,7 @@
 .btn-view-details {
   width: 100%;
   padding: 10px;
-  background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%);
+  background: #2563eb;
   color: white;
   border: none;
   border-radius: 6px;
@@ -308,7 +309,7 @@
 }
 
 .btn-view-details.btn-requested {
-  background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+  background: #d97706;
 }
 
 .btn-guide-adopt {
@@ -528,7 +529,7 @@
 
 .btn-request-problem {
   padding: 12px 24px;
-  background: linear-gradient(135deg, #10b981 0%, #047857 100%);
+  background: #0f766e;
   color: white;
   border: none;
   border-radius: 8px;
@@ -555,4 +556,34 @@
   font-weight: 600;
   font-size: 14px;
   cursor: pointer;
+}
+
+.ai-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.ai-pagination button {
+  padding: 8px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ai-pagination button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.ai-pagination span {
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 700;
 }

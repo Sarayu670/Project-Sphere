@@ -29,6 +29,8 @@ function AIProblemExplorer({ userRole, onRequestSubmitted, batch: initialBatch }
   const [message, setMessage] = useState(null);
   const [myBatch, setMyBatch] = useState(initialBatch || null);
   const [coes, setCoes] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 6;
 
   // Guide Adoption Form State
   const [adoptingProblem, setAdoptingProblem] = useState(null);
@@ -84,6 +86,10 @@ function AIProblemExplorer({ userRole, onRequestSubmitted, batch: initialBatch }
     fetchMyBatch();
     fetchCOEs();
   }, [fetchProblems, fetchMyBatch, fetchCOEs]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, selectedDomain, selectedDifficulty, selectedTech]);
 
   // Helper: check if a problem statement is requested by the current student batch
   const checkProblemStatus = (problem) => {
@@ -168,6 +174,11 @@ function AIProblemExplorer({ userRole, onRequestSubmitted, batch: initialBatch }
       default: return 'difficulty-medium';
     }
   };
+
+  const totalPages = Math.max(1, Math.ceil(problems.length / itemsPerPage));
+  const safePage = Math.min(currentPage, totalPages);
+  const startIndex = (safePage - 1) * itemsPerPage;
+  const paginatedProblems = problems.slice(startIndex, startIndex + itemsPerPage);
 
   return (
     <div className="ai-explorer-container">
@@ -264,7 +275,7 @@ function AIProblemExplorer({ userRole, onRequestSubmitted, batch: initialBatch }
         </div>
       ) : (
         <div className="ai-cards-grid">
-          {problems.map(problem => {
+          {paginatedProblems.map(problem => {
             const status = checkProblemStatus(problem);
             const isRequested = !!status;
             const isOfferedByGuide = problem.isSelectedByGuide || (problem.offeredByGuides && problem.offeredByGuides.length > 0);
@@ -333,6 +344,18 @@ function AIProblemExplorer({ userRole, onRequestSubmitted, batch: initialBatch }
               </div>
             );
           })}
+        </div>
+      )}
+
+      {!loading && problems.length > itemsPerPage && (
+        <div className="ai-pagination">
+          <button onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))} disabled={safePage === 1}>
+            Previous
+          </button>
+          <span>Page {safePage} of {totalPages}</span>
+          <button onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))} disabled={safePage === totalPages}>
+            Next
+          </button>
         </div>
       )}
 

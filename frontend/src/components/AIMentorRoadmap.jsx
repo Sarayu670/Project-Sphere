@@ -111,17 +111,17 @@ function AIMentorRoadmap({ batchId, userRole = 'student' }) {
         </div>
       </div>
 
-      {/* Progress Bar */}
       <div className="roadmap-progress-card">
-        <div className="progress-label-row">
-          <span>Overall Project Execution Progress</span>
-          <span className="percent-text">{progressPercent}%</span>
+        <div className="roadmap-progress-copy">
+          <span className="progress-kicker">Overall Project Execution</span>
+          <strong>{completedTasks} of {totalTasks} tasks finalized</strong>
         </div>
-        <div className="roadmap-progress-track">
-          <div
-            className="roadmap-progress-bar"
-            style={{ width: `${progressPercent}%` }}
-          ></div>
+        <div
+          className="roadmap-progress-pie"
+          style={{ '--progress': `${progressPercent}%` }}
+          aria-label={`Overall project execution progress ${progressPercent}%`}
+        >
+          <span>{progressPercent}%</span>
         </div>
       </div>
 

@@ -407,16 +407,41 @@ exports.getAllSubmissions = async (req, res) => {
     const limit = parseInt(req.query.limit) || 50;
     const eventId = req.query.eventId;
     const batchId = req.query.batchId;
-    const status = req.query.status || 'accepted'; // Default to showing only accepted submissions
+    const status = req.query.status;
+    const isCoordinatorRequest = req.user.role === 'guide' && req.user.isCoordinator && req.user.coordinatorSection;
     
     const skip = (page - 1) * limit;
 
     // Build filter object
     const filter = {};
     if (eventId) filter.timelineEventId = eventId;
-    if (batchId) filter.batchId = batchId;
-    // Only show accepted submissions by default in admin timeline view
-    filter.status = status;
+
+    if (isCoordinatorRequest) {
+      const { year, branch, section } = req.user.coordinatorSection;
+      const coordinatorBatches = await Batch.find({ year, branch, section }).select('_id');
+      const coordinatorBatchIds = coordinatorBatches.map(b => b._id);
+
+      if (coordinatorBatchIds.length === 0) {
+        return res.status(200).json({
+          success: true,
+          data: [],
+          pagination: { current: page, total: 0, limit, pages: 0 }
+        });
+      }
+
+      filter.batchId = { $in: coordinatorBatchIds };
+    }
+
+    if (batchId) {
+      const batchFilter = Array.isArray(filter.batchId) ? { $in: filter.batchId } : batchId;
+      filter.batchId = isCoordinatorRequest
+        ? { $in: Array.isArray(batchFilter.$in) ? batchFilter.$in.filter(id => id.toString() === batchId.toString()) : [batchId] }
+        : batchId;
+    }
+
+    if (status && status !== 'all') {
+      filter.status = status;
+    }
 
     const submissions = await Submission.find(filter)
       .populate('batchId', 'teamName year branch section leaderStudentId guideId problemId coeId researchArea')
@@ -462,18 +487,22 @@ exports.addAdminRemark = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Submission not found' });
     }
 
-    // Check for duplicate remark (same admin, same content, within last 60 seconds)
+    const isCoordinatorRemark = req.user.role === 'guide' && req.user.isCoordinator;
+    const remarkOwnerType = isCoordinatorRemark ? 'Guide' : 'Admin';
+
     const duplicate = submission.adminRemarks.find(r =>
       r.adminId.toString() === req.user._id.toString() &&
+      r.adminRemarkType === remarkOwnerType &&
       r.remark === remark &&
       (new Date() - new Date(r.createdAt)) < 60000
     );
 
     if (duplicate) {
-      console.log('⚠️ Duplicate admin remark detected, skipping...');
+      console.log('⚠️ Duplicate remark detected, skipping...');
     } else {
       submission.adminRemarks.push({
         adminId: req.user._id,
+        adminRemarkType: remarkOwnerType,
         remark,
         createdAt: new Date()
       });

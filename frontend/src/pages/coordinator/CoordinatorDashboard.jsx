@@ -47,6 +47,10 @@ function CoordinatorDashboard() {
   useEffect(() => { fetchData(); }, [fetchData]);
   usePolling(fetchData, 30000);
 
+  const formatMembersForDisplay = useCallback((members = []) => (
+    (members || []).map(member => member.rollNo || member.name).filter(Boolean).join(' ')
+  ), []);
+
   const stats = useMemo(() => ({
     total: batches.length,
     completed: batches.filter(batch => batch.status === 'Completed').length,
@@ -188,7 +192,7 @@ function CoordinatorDashboard() {
           <div className="section-header coordinator-teams-header"><div><h2>My Teams</h2><p>Only {scope?.year} {scope?.branch}-{scope?.section} teams are shown.</p></div><button className="btn btn-primary" onClick={downloadReport}>📥 Download Report</button></div>
           {selectedBatch ? (
             <section className="card coordinator-edit-panel">
-              <div className="flex-between"><div><h2>{selectedBatch.teamName}</h2><p>{(selectedBatch.teamMembers || []).map(member => member.name).join(', ') || 'No team members'}</p></div><button className="btn btn-secondary" onClick={() => setSelectedBatch(null)}>Back to Teams</button></div>
+              <div className="flex-between"><div><h2>{selectedBatch.teamName}</h2><p>{formatMembersForDisplay(selectedBatch.teamMembers) || 'No team members'}</p></div><button className="btn btn-secondary" onClick={() => setSelectedBatch(null)}>Back to Teams</button></div>
               <div className="coordinator-form-grid">
                 <label>COE<select value={editForm.coeId} onChange={event => setEditForm(current => ({ ...current, coeId: event.target.value }))}><option value="">Not Assigned</option>{coes.map(coe => <option key={coe._id} value={coe._id}>{coe.name}</option>)}</select></label>
                 <label>RC<select value={editForm.rcId} onChange={event => setEditForm(current => ({ ...current, rcId: event.target.value }))}><option value="">Not Assigned</option>{rcs.map(rc => <option key={rc._id} value={rc._id}>{rc.name}</option>)}</select></label>
@@ -202,14 +206,14 @@ function CoordinatorDashboard() {
             </section>
           ) : (
             <div className="table-container"><table className="data-table coordinator-table"><thead><tr><th>Team Name</th><th>Members</th><th>Guide</th><th>Research Area</th><th>Thrust Area</th><th>Problem</th><th>Outcome</th><th>Status</th></tr></thead><tbody>
-              {batches.length === 0 ? <tr><td colSpan="8">No teams have been added to this section.</td></tr> : batches.map(batch => <tr key={batch._id}><td><button className="coordinator-link" onClick={() => selectBatch(batch)}>{batch.teamName}</button></td><td>{(batch.teamMembers || []).map(member => member.name).join(', ') || '—'}</td><td>{batch.guideId?.name || 'Not Assigned'}</td><td>{batch.problemId?.researchArea || batch.researchArea || '—'}</td><td>{batch.thrustArea || '—'}</td><td>{batch.problemId?.title || 'Not Assigned'}</td><td>{batch.outcome || 'None'}</td><td>{batch.status}</td></tr>)}
+              {batches.length === 0 ? <tr><td colSpan="8">No teams have been added to this section.</td></tr> : batches.map(batch => <tr key={batch._id}><td><button className="coordinator-link" onClick={() => selectBatch(batch)}>{batch.teamName}</button></td><td>{formatMembersForDisplay(batch.teamMembers) || '—'}</td><td>{batch.guideId?.name || 'Not Assigned'}</td><td>{batch.problemId?.researchArea || batch.researchArea || '—'}</td><td>{batch.thrustArea || '—'}</td><td>{batch.problemId?.title || 'Not Assigned'}</td><td>{batch.outcome || 'None'}</td><td>{batch.status}</td></tr>)}
             </tbody></table></div>
           )}
         </div>
       )}
 
       {activeTab === 'guides' && <div className="tab-content"><div className="section-header"><div><h2>Guides in My Section</h2><p>Only guides assigned to the teams in this section.</p></div></div><div className="guide-card-grid">{sectionGuides.length === 0 ? <div className="card">No guides are assigned yet.</div> : sectionGuides.map(guide => { const complete = guide.teams.filter(team => team.status === 'Completed').length; const inProgress = guide.teams.filter(team => team.status === 'In Progress').length; return <article key={guide._id} className="card coordinator-guide-card"><h3>{guide.name}</h3><p>{guide.email || 'No email available'}</p><p>{guide.department || 'Department not specified'}</p><div><strong>{guide.teams.length}</strong> teams in this section</div><small>{inProgress} in progress · {complete} completed</small></article>; })}</div></div>}
-      {activeTab === 'timeline' && <TimelineManagement readOnly scope={scope} />}
+      {activeTab === 'timeline' && <TimelineManagement scope={scope} allowRemarkEditing />}
       {activeTab === 'meetings' && <AdminMeetings scope={scope} />}
     </div>
   );

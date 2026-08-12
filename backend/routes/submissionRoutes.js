@@ -40,11 +40,19 @@ router.get('/guide', protect, authorize('guide'), getGuideSubmissions);
 router.post('/:id/comment', protect, authorize('guide'), addComment);
 router.post('/:id/marks', protect, authorize('guide'), assignMarks);
 
-// Admin routes
-router.post('/:id/admin-remark', protect, authorize('admin'), addAdminRemark);
+// Admin / Coordinator routes
+router.post('/:id/admin-remark', protect, (req, res, next) => {
+  if (req.user.role === 'admin') return next();
+  if (req.user.role === 'guide' && req.user.isCoordinator) return next();
+  return res.status(403).json({ success: false, message: 'Only admins and section coordinators can add remarks.' });
+}, addAdminRemark);
 
 // General
-router.get('/', protect, authorize('admin'), getAllSubmissions);
+router.get('/', protect, (req, res, next) => {
+  if (req.user.role === 'admin') return next();
+  if (req.user.role === 'guide' && req.user.isCoordinator) return next();
+  return res.status(403).json({ success: false, message: 'Only admins and coordinators can access all submissions.' });
+}, getAllSubmissions);
 router.get('/:id', protect, getSubmission);
 
 module.exports = router;

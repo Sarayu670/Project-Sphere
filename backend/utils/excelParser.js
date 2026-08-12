@@ -119,8 +119,14 @@ function parseExcelFile(fileBuffer) {
         const guideNameIndex = findColumnIndex(headers, COLUMN_PATTERNS.guideName);
         const guideEmailIndex = findColumnIndex(headers, COLUMN_PATTERNS.guideEmail);
         const projectTitleIndex = findColumnIndex(headers, COLUMN_PATTERNS.projectTitle);
-        const researchAreaIndex = findColumnIndex(headers, COLUMN_PATTERNS.researchArea);
-        const thrustAreaIndex = findColumnIndex(headers, COLUMN_PATTERNS.thrustArea);
+        const researchAreaIndex = headers.findIndex(header => {
+            const value = normalizeText(header);
+            return value && !/thrust/i.test(value) && /domain|research.*area|\barea\b/i.test(value);
+        });
+        const thrustAreaIndex = headers.findIndex(header => {
+            const value = normalizeText(header);
+            return value && /thrust.*area|thrust/i.test(value);
+        });
         const outcomeIndex = findColumnIndex(headers, COLUMN_PATTERNS.outcome);
         const coeIndex = findColumnIndex(headers, COLUMN_PATTERNS.coe);
         const yearIndex = findColumnIndex(headers, COLUMN_PATTERNS.year);
@@ -279,6 +285,7 @@ function parseExcelFile(fileBuffer) {
             if (batchGroups[groupKey].guideEmail === 'N/A' && guideEmail) batchGroups[groupKey].guideEmail = guideEmail;
             if (batchGroups[groupKey].projectTitle === 'N/A' && projectTitle) batchGroups[groupKey].projectTitle = projectTitle;
             if (batchGroups[groupKey].researchArea === 'N/A' && researchArea && researchArea !== 'N/A') batchGroups[groupKey].researchArea = researchArea;
+            if (batchGroups[groupKey].thrustArea === 'N/A' && thrustArea && thrustArea !== 'N/A') batchGroups[groupKey].thrustArea = thrustArea;
             if (batchGroups[groupKey].coe === 'N/A' && coe && coe !== 'N/A') batchGroups[groupKey].coe = coe;
         }
 
@@ -294,6 +301,7 @@ function parseExcelFile(fileBuffer) {
                 guideEmail: group.guideEmail || 'N/A',
                 projectTitle: group.projectTitle || 'N/A',
                 researchArea: group.researchArea || 'N/A',
+                thrustArea: group.thrustArea || group.researchArea || 'N/A',
                 coe: group.coe || 'N/A',
                 year: group.year,
                 branch: group.branch,

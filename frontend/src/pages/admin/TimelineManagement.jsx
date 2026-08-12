@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import * as api from "../../services/api";
 import usePolling from "../../utils/usePolling";
 
@@ -63,11 +63,29 @@ function TimelineReadOnly({ scope }) {
   );
 }
 
-function TimelineEditor() {
+function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
   const [events, setEvents] = useState([]);
   const [batches, setBatches] = useState([]);
   const [submissions, setSubmissions] = useState([]);
+  const canAddRemarks = allowRemarkEditing;
   const [loading, setLoading] = useState(true);
+  const visibleBatches = useMemo(() => {
+    if (!scope) return batches;
+    return batches.filter(batch =>
+      batch.year === scope.year &&
+      batch.branch === scope.branch &&
+      batch.section === scope.section
+    );
+  }, [batches, scope]);
+  const visibleEvents = useMemo(() => {
+    if (!scope) return events;
+    return events.filter(event =>
+      event.targetYear === 'all' ||
+      event.targetYear === scope.year ||
+      event.targetYear === undefined ||
+      event.targetYear === null
+    );
+  }, [events, scope]);
   const [showForm, setShowForm] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
@@ -140,8 +158,11 @@ function TimelineEditor() {
     try {
       const batchesRes = await api.getAllBatches();
       const batchesData = batchesRes.data?.data || batchesRes.data || [];
-      setBatches(batchesData);
-      return batchesData;
+      const scoped = scope
+        ? batchesData.filter(batch => batch.year === scope.year && batch.branch === scope.branch && batch.section === scope.section)
+        : batchesData;
+      setBatches(scoped);
+      return scoped;
     } catch (error) {
       console.error("Batches fetch error:", error.message);
       return [];
@@ -162,7 +183,8 @@ function TimelineEditor() {
       const submissionsRes = await api.getAllSubmissions({
         eventId,
         page,
-        limit: 50
+        limit: 50,
+        status: canAddRemarks ? 'all' : 'accepted'
       });
 
       const newSubmissions = submissionsRes.data?.data || submissionsRes.data || [];
@@ -194,19 +216,22 @@ function TimelineEditor() {
   }, [fetchEvents]);
 
   useEffect(() => {
+    if (scope && selectedEvent && !visibleEvents.some(event => event._id === selectedEvent._id)) {
+      setSelectedEvent(null);
+    }
+  }, [scope, selectedEvent, visibleEvents]);
+
+  useEffect(() => {
     if (selectedEvent?._id) {
       const load = async () => {
-        // If batches haven't been fetched yet, fetch them once for the dashboard session
-        // or if explicitly empty
         if (batches.length === 0) {
           await fetchBatchesForEvent();
         }
-        // Then fetch submissions
         await fetchSubmissionsForEvent(selectedEvent._id, 1);
       };
       load();
     }
-  }, [selectedEvent?._id, fetchSubmissionsForEvent, fetchBatchesForEvent]); // Removed 'batches' from deps
+  }, [selectedEvent?._id, fetchSubmissionsForEvent, fetchBatchesForEvent, batches.length]);
 
   // Poll every 60s for new events/batches only (not submissions) - reduced from 25s
   usePolling(fetchEvents, 60000);
@@ -704,7 +729,7 @@ function TimelineEditor() {
                       typeof sub.batchId === "string"
                         ? sub.batchId
                         : sub.batchId?._id;
-                    const batch = batches.find((b) => b._id === batchId);
+                    const batch = visibleBatches.find((b) => b._id === batchId);
                     if (!batch) return false;
                     if (filterYear && batch.year !== filterYear) return false;
                     if (filterBranch && batch.branch !== filterBranch)
@@ -881,20 +906,26 @@ function TimelineEditor() {
                                 </small>
                               </div>
                             ) : (
-                              <button
-                                className="btn btn-secondary"
-                                style={{
-                                  fontSize: "11px",
-                                  padding: "5px 10px",
-                                  width: "100%"
-                                }}
-                                onClick={() => {
-                                  setSelectedSubmissionForRemark(sub);
-                                  setShowRemarkModal(true);
-                                }}
-                              >
-                                + Add Remark
-                              </button>
+                              canAddRemarks ? (
+                                <button
+                                  className="btn btn-secondary"
+                                  style={{
+                                    fontSize: "11px",
+                                    padding: "5px 10px",
+                                    width: "100%"
+                                  }}
+                                  onClick={() => {
+                                    setSelectedSubmissionForRemark(sub);
+                                    setShowRemarkModal(true);
+                                  }}
+                                >
+                                  + Add Remark
+                                </button>
+                              ) : (
+                                <span style={{ color: '#999', fontSize: '12px', display: 'block', textAlign: 'center' }}>
+                                  View only
+                                </span>
+                              )
                             )}
                           </div>
                         </td>
@@ -974,7 +1005,7 @@ function TimelineEditor() {
           </div>
         ) : !selectedEvent ? (
           <div className="timeline-container">
-            {events.map((event, idx) => (
+            {visibleEvents.map((event, idx) => (
               <div
                 key={event._id}
                 className="card timeline-event"
@@ -1309,20 +1340,22 @@ function TimelineEditor() {
                 );
               })()}
               <div style={{ display: "flex", gap: "10px" }}>
-                <button
-                  className="btn btn-primary"
-                  onClick={() => {
-                    const sub = submissions.find(s => s._id === expandedRemarkSubmission);
-                    if (sub) {
-                      setSelectedSubmissionForRemark(sub);
-                      setShowRemarkModal(true);
-                      setExpandedRemarkSubmission(null);
-                    }
-                  }}
-                  style={{ flex: 1 }}
-                >
-                  + Add Another Remark
-                </button>
+                {canAddRemarks && (
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => {
+                      const sub = submissions.find(s => s._id === expandedRemarkSubmission);
+                      if (sub) {
+                        setSelectedSubmissionForRemark(sub);
+                        setShowRemarkModal(true);
+                        setExpandedRemarkSubmission(null);
+                      }
+                    }}
+                    style={{ flex: 1 }}
+                  >
+                    + Add Another Remark
+                  </button>
+                )}
                 <button
                   className="btn btn-secondary"
                   onClick={() => setExpandedRemarkSubmission(null)}
@@ -1522,8 +1555,8 @@ function TimelineEditor() {
   }
 }
 
-function TimelineManagement({ readOnly = false, scope = null }) {
-  return readOnly ? <TimelineReadOnly scope={scope} /> : <TimelineEditor />;
+function TimelineManagement({ readOnly = false, scope = null, allowRemarkEditing = false }) {
+  return readOnly ? <TimelineReadOnly scope={scope} /> : <TimelineEditor scope={scope} allowRemarkEditing={allowRemarkEditing} />;
 }
 
 export default TimelineManagement;

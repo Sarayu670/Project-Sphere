@@ -20,8 +20,14 @@ const CommentSchema = new mongoose.Schema({
 const AdminRemarkSchema = new mongoose.Schema({
   adminId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Admin',
+    refPath: 'adminRemarkType',
     required: true
+  },
+  adminRemarkType: {
+    type: String,
+    enum: ['Admin', 'Guide'],
+    required: true,
+    default: 'Admin'
   },
   remark: {
     type: String,

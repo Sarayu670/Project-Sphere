@@ -186,7 +186,8 @@ exports.login = async (req, res) => {
       user = await Guide.findOne({ email: loginTerm }).select('+password');
       userRole = 'guide';
     } else if (role === 'admin') {
-      user = await Admin.findOne({ email }).select('+password');
+      const loginTerm = email.trim().toLowerCase();
+      user = await Admin.findOne({ email: loginTerm }).select('+password');
       userRole = 'admin';
     }
 

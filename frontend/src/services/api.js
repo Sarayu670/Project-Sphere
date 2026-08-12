@@ -116,6 +116,7 @@ export const getAllSubmissions = (params = {}) => {
   if (params.batchId) queryParams.append('batchId', params.batchId);
   if (params.page) queryParams.append('page', params.page);
   if (params.limit) queryParams.append('limit', params.limit);
+  if (params.status) queryParams.append('status', params.status);
   
   const queryString = queryParams.toString();
   return axios.get(`${API_URL}/submissions${queryString ? '?' + queryString : ''}`);

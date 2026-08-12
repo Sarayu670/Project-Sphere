@@ -53,3 +53,22 @@ exports.authorize = (...roles) => {
   };
 };
 
+// Coordinators are guides with an additional, fixed section assignment.
+// This check is intentionally server-side so the UI cannot broaden access.
+exports.authorizeCoordinator = (req, res, next) => {
+  const scope = req.user?.coordinatorSection;
+  if (
+    req.user?.role !== 'guide' ||
+    !req.user?.isCoordinator ||
+    !scope?.year ||
+    !scope?.branch ||
+    !scope?.section
+  ) {
+    return res.status(403).json({
+      success: false,
+      message: 'Coordinator access is required for this route'
+    });
+  }
+  next();
+};
+

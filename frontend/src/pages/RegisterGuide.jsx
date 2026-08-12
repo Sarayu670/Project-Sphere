@@ -148,6 +148,7 @@ function RegisterGuide() {
 
         <div className="auth-footer">
           <p>Already have an account? <Link to="/login">Login</Link></p>
+          <p>Register as <Link to="/register/coordinator">Class Coordinator</Link></p>
           <p>Register as <Link to="/register/admin">Admin</Link></p>
         </div>
       </div>

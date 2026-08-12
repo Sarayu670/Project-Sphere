@@ -233,41 +233,36 @@ function downloadBatchExcelTemplate() {
       'Batch No.': 'E1',
       'Roll Number': '24251A05V4',
       'Student Name': 'Sai Sri Aishwarya Venkatesh',
-      'Thrust Area': 'Artificial Intelligence & Machine Learning',
-      'Outcome': 'Patented'
+      'Thrust Area': 'Artificial Intelligence & Machine Learning'
     },
     {
       'Batch No.': 'E1',
       'Roll Number': '24251A05W7',
       'Student Name': 'Bavandla Prahasya Sri',
-      'Thrust Area': 'Artificial Intelligence & Machine Learning',
-      'Outcome': 'Patented'
+      'Thrust Area': 'Artificial Intelligence & Machine Learning'
     },
     {
       'Batch No.': 'E1',
       'Roll Number': '24251A05V9',
       'Student Name': 'Uma Iyer',
-      'Thrust Area': 'Artificial Intelligence & Machine Learning',
-      'Outcome': 'Patented'
+      'Thrust Area': 'Artificial Intelligence & Machine Learning'
     },
     {
       'Batch No.': 'E2',
       'Roll Number': '24251A05T6',
       'Student Name': 'Srihitha Durgam',
-      'Thrust Area': 'Cloud & Distributed Systems',
-      'Outcome': 'Published'
+      'Thrust Area': 'Cloud & Distributed Systems'
     },
     {
       'Batch No.': 'E2',
       'Roll Number': '25255A0527',
       'Student Name': 'Bodulla Bhavana',
-      'Thrust Area': 'Cloud & Distributed Systems',
-      'Outcome': 'Published'
+      'Thrust Area': 'Cloud & Distributed Systems'
     }
   ];
 
   const worksheet = XLSX.utils.json_to_sheet(templateData);
-  worksheet['!cols'] = [{ wch: 15 }, { wch: 20 }, { wch: 30 }, { wch: 30 }, { wch: 15 }];
+  worksheet['!cols'] = [{ wch: 15 }, { wch: 20 }, { wch: 30 }, { wch: 30 }];
   
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Batches');

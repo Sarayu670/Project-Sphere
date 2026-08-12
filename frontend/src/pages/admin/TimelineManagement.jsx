@@ -16,7 +16,54 @@ const ALL_COLUMNS = [
   { key: "adminRemarks", label: "Admin Remarks", width: "120px" },
 ];
 
-function TimelineManagement() {
+function TimelineReadOnly({ scope }) {
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadEvents = async () => {
+      try {
+        const response = await api.getAllTimelineEvents(scope?.year);
+        setEvents(response.data?.data || response.data || []);
+      } catch (error) {
+        console.error('Unable to fetch the section timeline:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadEvents();
+  }, [scope?.year]);
+
+  if (loading) return <div className="tab-content"><div className="card loading"><h3>Loading timeline...</h3></div></div>;
+
+  return (
+    <div className="tab-content">
+      <div className="section-header" style={{ marginBottom: '20px' }}>
+        <div>
+          <h2>📅 Section Timeline</h2>
+          <p style={{ color: '#64748b', margin: '4px 0 0' }}>Read-only milestones for {scope?.year} year.</p>
+        </div>
+      </div>
+      {events.length === 0 ? (
+        <div className="card empty-state"><h3>No timeline events</h3><p>There are no active milestones for this year.</p></div>
+      ) : (
+        <div style={{ display: 'grid', gap: '14px' }}>
+          {events.map(event => (
+            <article className="card" key={event._id} style={{ borderLeft: '4px solid #3b82f6' }}>
+              <div className="flex-between" style={{ gap: '16px' }}>
+                <div><h3 style={{ margin: 0 }}>{event.title}</h3><p style={{ margin: '8px 0', color: '#475569' }}>{event.description || 'No description provided.'}</p></div>
+                <strong style={{ color: '#1d4ed8', whiteSpace: 'nowrap' }}>{new Date(event.deadline).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</strong>
+              </div>
+              {event.submissionRequirements && <small style={{ color: '#64748b' }}>Requirements: {event.submissionRequirements}</small>}
+            </article>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TimelineEditor() {
   const [events, setEvents] = useState([]);
   const [batches, setBatches] = useState([]);
   const [submissions, setSubmissions] = useState([]);
@@ -1473,6 +1520,10 @@ function TimelineManagement() {
     link.click();
     document.body.removeChild(link);
   }
+}
+
+function TimelineManagement({ readOnly = false, scope = null }) {
+  return readOnly ? <TimelineReadOnly scope={scope} /> : <TimelineEditor />;
 }
 
 export default TimelineManagement;

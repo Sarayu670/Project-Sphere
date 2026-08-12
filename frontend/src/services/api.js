@@ -50,6 +50,8 @@ export const getOptedTeams = () => axios.get(`${API_URL}/batches/opted-teams`);
 export const allotProblem = (batchId, problemId) => axios.post(`${API_URL}/batches/${batchId}/allot`, { problemId });
 export const rejectProblem = (batchId, problemId) => axios.post(`${API_URL}/batches/${batchId}/reject`, { problemId });
 export const updateBatchByAdmin = (id, data) => axios.put(`${API_URL}/batches/${id}/admin-update`, data);
+export const getSectionBatches = () => axios.get(`${API_URL}/batches/section`);
+export const updateBatchByCoordinator = (id, data) => axios.put(`${API_URL}/batches/${id}/coordinator-update`, data);
 
 // Team Members
 export const getTeamMembers = (batchId) => axios.get(`${API_URL}/team-members/${batchId}`);
@@ -66,6 +68,7 @@ export const getGuideProgressUpdates = () => axios.get(`${API_URL}/progress/guid
 // Meetings
 export const getMeetingPlan = (batchId) => axios.get(`${API_URL}/meetings/${batchId}`);
 export const getAllMeetingPlans = () => axios.get(`${API_URL}/meetings`);
+export const getSectionMeetingPlans = () => axios.get(`${API_URL}/meetings/section`);
 export const updateMeetingPlan = (batchId, data) => axios.post(`${API_URL}/meetings/${batchId}`, data);
 
 // Admin

@@ -57,9 +57,9 @@ function RegisterAdmin() {
         <div className="auth-header">
           <span className="auth-icon">👑</span>
           <h1>G. Narayanamma Institute of Technology & Science</h1>
-          <p>Admin Registration Portal</p>
+          <p>Overall Coordinator Registration Portal</p>
           <div style={{ marginTop: '8px', fontSize: '14px', color: 'var(--text-muted)' }}>
-            Project Coordinator Access
+            Institution-wide coordinator access
           </div>
         </div>
 
@@ -143,7 +143,7 @@ function RegisterAdmin() {
           </div>
 
           <button type="submit" className="btn btn-primary btn-block" disabled={loading}>
-            {loading ? 'Creating Account...' : 'Register as Admin'}
+            {loading ? 'Creating Account...' : 'Register as Overall Coordinator'}
           </button>
         </form>
 

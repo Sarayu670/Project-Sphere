@@ -215,8 +215,8 @@ function AdminDashboard() {
   return (
     <div className="admin-dashboard">
       <div className="dashboard-header">
-        <h1>👑 Admin Dashboard</h1>
-        <p>Project Coordinator - Monitor all COEs, teams, and progress</p>
+        <h1>👑 Overall Coordinator Dashboard</h1>
+        <p>Monitor all years, branches, sections, COEs, teams, and progress</p>
       </div>
 
       <div className="stats-row">

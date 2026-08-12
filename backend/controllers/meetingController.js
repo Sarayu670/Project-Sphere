@@ -17,6 +17,21 @@ exports.getAllPlans = async (req, res) => {
   }
 };
 
+// @desc    Get meeting plans for the logged-in coordinator's own section
+// @route   GET /api/meetings/section
+exports.getSectionPlans = async (req, res) => {
+  try {
+    const Batch = require('../models/Batch');
+    const { year, branch, section } = req.user.coordinatorSection;
+    const batches = await Batch.find({ year, branch, section }).select('_id');
+    const batchIds = batches.map(batch => batch._id);
+    const plans = await Meeting.find({ batchId: { $in: batchIds } });
+    res.status(200).json({ success: true, data: plans });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // Get meeting plan for a batch (auto-initialize if missing)
 exports.getMeetingPlan = async (req, res) => {
   try {

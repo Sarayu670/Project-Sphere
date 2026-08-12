@@ -16,9 +16,11 @@ const {
   searchBatches,
   searchAllBatches,
   importStudentBatches,
-  updateBatchByAdmin
+  updateBatchByAdmin,
+  getSectionBatches,
+  updateBatchByCoordinator
 } = require('../controllers/batchController');
-const { protect, authorize } = require('../middleware/auth');
+const { protect, authorize, authorizeCoordinator } = require('../middleware/auth');
 
 // Configure multer for file upload (memory storage)
 const upload = multer({
@@ -40,9 +42,10 @@ const upload = multer({
   }
 });
 
-router.get('/', protect, getAllBatches);
+router.get('/', protect, authorize('admin'), getAllBatches);
 router.get('/search', searchBatches);
 router.get('/search-all', searchAllBatches); // NEW: Search with full team member details
+router.get('/section', protect, authorizeCoordinator, getSectionBatches);
 router.get('/guide/:guideId', getBatchesByGuide);
 router.get('/my-batch', protect, authorize('student'), getMyBatch);
 router.get('/opted-teams', protect, authorize('guide'), getOptedTeams);
@@ -55,5 +58,6 @@ router.post('/:id/reject', protect, authorize('guide'), rejectProblem);
 router.put('/:id/status', protect, authorize('guide'), updateBatchStatus);
 router.put('/:id/outcome', protect, authorize('guide'), updateBatchOutcome);
 router.put('/:id/admin-update', protect, authorize('admin'), updateBatchByAdmin);
+router.put('/:id/coordinator-update', protect, authorizeCoordinator, updateBatchByCoordinator);
 
 module.exports = router;

@@ -1353,3 +1353,178 @@ exports.updateBatchByAdmin = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// Add student/team-member details to coordinator responses without exposing
+// batches outside the database query used to fetch them.
+async function attachTeamMembers(batches) {
+  const ids = batches.map(batch => batch._id);
+  if (ids.length === 0) return batches;
+
+  const [students, teamMembers] = await Promise.all([
+    Student.find({ batchId: { $in: ids } }).select('batchId name rollNumber branch').lean(),
+    TeamMember.find({ batchId: { $in: ids } }).select('batchId name rollNo branch').lean()
+  ]);
+
+  const membersByBatch = new Map();
+  const addMember = (batchId, member, key) => {
+    const id = String(batchId);
+    if (!membersByBatch.has(id)) membersByBatch.set(id, new Map());
+    const memberMap = membersByBatch.get(id);
+    if (!memberMap.has(key)) memberMap.set(key, member);
+  };
+
+  students.forEach(student => {
+    const key = String(student.rollNumber || student._id).toLowerCase();
+    addMember(student.batchId, {
+      _id: student._id,
+      name: student.name,
+      rollNo: student.rollNumber,
+      branch: student.branch
+    }, key);
+  });
+  teamMembers.forEach(member => {
+    const key = String(member.rollNo || member._id).toLowerCase();
+    addMember(member.batchId, {
+      _id: member._id,
+      name: member.name,
+      rollNo: member.rollNo,
+      branch: member.branch
+    }, key);
+  });
+
+  return batches.map(batch => ({
+    ...batch,
+    teamMembers: Array.from(membersByBatch.get(String(batch._id))?.values() || [])
+  }));
+}
+
+async function getBatchWithCoordinatorFields(batchId) {
+  return Batch.findById(batchId)
+    .populate('leaderStudentId', 'name rollNumber email branch')
+    .populate({
+      path: 'problemId',
+      select: 'title description coeId guideId targetYear researchArea',
+      populate: { path: 'coeId', select: 'name' }
+    })
+    .populate('optedProblemId', 'title description researchArea')
+    .populate('coeId', 'name')
+    .populate('guideId', 'name email department')
+    .lean();
+}
+
+// @desc    Get all batches in the logged-in coordinator's fixed year-section
+// @route   GET /api/batches/section
+// @access  Coordinator guide only
+exports.getSectionBatches = async (req, res) => {
+  try {
+    const { year, branch, section } = req.user.coordinatorSection;
+    const batches = await Batch.find({ year, branch, section })
+      .populate('leaderStudentId', 'name rollNumber email branch')
+      .populate({
+        path: 'problemId',
+        select: 'title description coeId guideId targetYear researchArea',
+        populate: { path: 'coeId', select: 'name' }
+      })
+      .populate('optedProblemId', 'title description researchArea')
+      .populate('coeId', 'name')
+      .populate('guideId', 'name email department')
+      .lean();
+
+    const data = await attachTeamMembers(batches);
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    console.error('Get section batches error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Update a batch within the logged-in coordinator's fixed section
+// @route   PUT /api/batches/:id/coordinator-update
+// @access  Coordinator guide only
+exports.updateBatchByCoordinator = async (req, res) => {
+  try {
+    const { year, branch, section } = req.user.coordinatorSection;
+    const { coeId, rcId, guideId, researchArea, thrustArea, outcome, problemTitle } = req.body;
+    const batch = await Batch.findOne({ _id: req.params.id, year, branch, section });
+
+    if (!batch) {
+      return res.status(404).json({
+        success: false,
+        message: 'Batch not found in your assigned section'
+      });
+    }
+
+    if (coeId) {
+      const coe = await COE.findById(coeId);
+      if (!coe) return res.status(400).json({ success: false, message: 'Selected COE was not found' });
+      batch.coeId = coe._id;
+      batch.coe = { name: coe.name, coeId: coe._id };
+    }
+
+    if (rcId) {
+      const rc = await RC.findById(rcId);
+      if (!rc) return res.status(400).json({ success: false, message: 'Selected RC was not found' });
+      batch.rc = { name: rc.name, rcId: rc._id };
+    }
+
+    if (guideId) {
+      const guide = await Guide.findById(guideId);
+      if (!guide) return res.status(400).json({ success: false, message: 'Selected guide was not found' });
+      batch.guideId = guide._id;
+    }
+    if (researchArea !== undefined) batch.researchArea = researchArea;
+    if (thrustArea !== undefined) batch.thrustArea = thrustArea;
+    if (outcome !== undefined) batch.outcome = outcome;
+
+    if (typeof problemTitle === 'string' && problemTitle.trim()) {
+      let problem = batch.problemId ? await ProblemStatement.findById(batch.problemId) : null;
+      const isSharedProblem = problem && await Batch.exists({
+        _id: { $ne: batch._id },
+        problemId: problem._id
+      });
+
+      // Never mutate a problem statement used by another batch. A coordinator's
+      // permissions stop at their section, so a section-specific copy is used.
+      if (!problem || isSharedProblem) {
+        if (!batch.coeId || !batch.guideId) {
+          return res.status(400).json({
+            success: false,
+            message: 'Assign a COE and guide before setting a project problem'
+          });
+        }
+        problem = await ProblemStatement.create({
+          title: problemTitle.trim(),
+          description: 'Problem statement assigned by Class Coordinator',
+          researchArea: researchArea ?? batch.researchArea ?? 'Unassigned',
+          targetYear: batch.year,
+          guideId: batch.guideId,
+          coeId: batch.coeId,
+          maxBatches: 1,
+          selectedBatchCount: 1
+        });
+        batch.problemId = problem._id;
+        batch.optedProblemId = problem._id;
+        batch.allotmentStatus = 'allotted';
+        if (batch.status === 'Not Started') batch.status = 'In Progress';
+      } else {
+        problem.title = problemTitle.trim();
+        if (researchArea !== undefined) problem.researchArea = researchArea;
+        if (guideId) problem.guideId = batch.guideId;
+        if (coeId) problem.coeId = batch.coeId;
+        await problem.save();
+      }
+    }
+
+    await batch.save();
+    const populated = await getBatchWithCoordinatorFields(batch._id);
+    const [updatedBatch] = await attachTeamMembers([populated]);
+    res.status(200).json({
+      success: true,
+      data: updatedBatch,
+      message: 'Batch assignments updated successfully'
+    });
+  } catch (error) {
+    console.error('Update batch by coordinator error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

@@ -1353,3 +1353,39 @@ exports.updateBatchByAdmin = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// @desc    Get batches for coordinator's assigned section
+// @route   GET /api/batches/section
+// @access  Guide (with isCoordinator flag)
+exports.getSectionBatches = async (req, res) => {
+  try {
+    const guide = req.user;
+
+    if (!guide.isCoordinator || !guide.coordinatorSection) {
+      return res.status(403).json({ success: false, message: 'Not authorized as coordinator' });
+    }
+
+    const { branch, section, year } = guide.coordinatorSection;
+
+    const query = {};
+    if (branch) query.branch = branch;
+    if (section) query.section = section;
+    if (year) query.year = year;
+
+    const batches = await Batch.find(query)
+      .populate('leaderStudentId', 'name email rollNumber branch section')
+      .populate({
+        path: 'problemId',
+        select: 'title description researchArea coeId guideId',
+        populate: { path: 'coeId', select: 'name' }
+      })
+      .populate('coeId', 'name')
+      .populate('guideId', 'name email department')
+      .sort({ teamName: 1 });
+
+    res.status(200).json({ success: true, data: batches });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+

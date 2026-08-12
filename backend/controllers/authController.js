@@ -20,10 +20,8 @@ exports.registerStudent = async (req, res) => {
 // @route   POST /api/auth/register/guide
 exports.registerGuide = async (req, res) => {
   try {
-    const { name, email, password, department, specialization } = req.body;
+    const { name, email, password, department, specialization, isCoordinator, coordinatorBranch, coordinatorSection, coordinatorYear } = req.body;
 
-    // Email domain validation
-    // Password complexity validation - Relaxed
     if (password.length < 6) {
       return res.status(400).json({
         success: false,
@@ -36,13 +34,31 @@ exports.registerGuide = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Email already exists' });
     }
 
-    const guide = await Guide.create({ name, email, password, department, specialization });
+    const guideData = { name, email, password, department, specialization };
+
+    if (isCoordinator) {
+      guideData.isCoordinator = true;
+      guideData.coordinatorSection = {
+        branch: coordinatorBranch || '',
+        section: coordinatorSection || '',
+        year: coordinatorYear || ''
+      };
+    }
+
+    const guide = await Guide.create(guideData);
     const token = generateToken(guide._id, 'guide');
 
     res.status(201).json({
       success: true,
       token,
-      user: { id: guide._id, name: guide.name, email: guide.email, role: 'guide' }
+      user: {
+        id: guide._id,
+        name: guide.name,
+        email: guide.email,
+        role: 'guide',
+        isCoordinator: guide.isCoordinator || false,
+        coordinatorSection: guide.coordinatorSection || null
+      }
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -163,10 +179,13 @@ exports.login = async (req, res) => {
 // @route   GET /api/auth/me
 exports.getMe = async (req, res) => {
   try {
-    res.status(200).json({
-      success: true,
-      user: { id: req.user._id, name: req.user.name, email: req.user.email, role: req.user.role }
-    });
+    const baseUser = { id: req.user._id, name: req.user.name, email: req.user.email, role: req.user.role };
+    // Include coordinator fields for guides
+    if (req.user.role === 'guide') {
+      baseUser.isCoordinator = req.user.isCoordinator || false;
+      baseUser.coordinatorSection = req.user.coordinatorSection || null;
+    }
+    res.status(200).json({ success: true, user: baseUser });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

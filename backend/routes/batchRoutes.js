@@ -16,7 +16,8 @@ const {
   searchBatches,
   searchAllBatches,
   importStudentBatches,
-  updateBatchByAdmin
+  updateBatchByAdmin,
+  getSectionBatches
 } = require('../controllers/batchController');
 const { protect, authorize } = require('../middleware/auth');
 
@@ -44,6 +45,7 @@ router.get('/', protect, getAllBatches);
 router.get('/search', searchBatches);
 router.get('/search-all', searchAllBatches); // NEW: Search with full team member details
 router.get('/guide/:guideId', getBatchesByGuide);
+router.get('/section', protect, authorize('guide'), getSectionBatches);
 router.get('/my-batch', protect, authorize('student'), getMyBatch);
 router.get('/opted-teams', protect, authorize('guide'), getOptedTeams);
 router.get('/:id', protect, getBatch);
@@ -55,5 +57,7 @@ router.post('/:id/reject', protect, authorize('guide'), rejectProblem);
 router.put('/:id/status', protect, authorize('guide'), updateBatchStatus);
 router.put('/:id/outcome', protect, authorize('guide'), updateBatchOutcome);
 router.put('/:id/admin-update', protect, authorize('admin'), updateBatchByAdmin);
+// Coordinators (role: guide + isCoordinator) use the same endpoint
+router.put('/:id/coordinator-update', protect, authorize('guide'), updateBatchByAdmin);
 
 module.exports = router;

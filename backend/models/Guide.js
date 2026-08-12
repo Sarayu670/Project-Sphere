@@ -39,6 +39,15 @@ const GuideSchema = new mongoose.Schema({
   assignedBatches: {
     type: Number,
     default: 0
+  },
+  isCoordinator: {
+    type: Boolean,
+    default: false
+  },
+  coordinatorSection: {
+    branch: { type: String, trim: true },
+    section: { type: String, trim: true },
+    year: { type: String, trim: true }
   }
 }, { timestamps: true });
 

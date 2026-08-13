@@ -10,6 +10,7 @@ const ALL_COLUMNS = [
   { key: "branch", label: "Branch" },
   { key: "section", label: "Section" },
   { key: "coe", label: "COE", width: "100px" },
+  { key: "domain", label: "Domain", width: "100px" },
   { key: "guide", label: "Guide", width: "100px" },
   { key: "marks", label: "Marks" },
   { key: "guidesFeedback", label: "Guide's Feedback", width: "120px" },
@@ -95,7 +96,7 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
     deadline: "",
     maxMarks: "",
     submissionRequirements: "",
-    targetYear: "all",
+    targetYear: scope?.year || "all",
     order: 0,
     isMarksEnabled: true,
   });
@@ -111,9 +112,9 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
   const [isLoadingMoreSubmissions, setIsLoadingMoreSubmissions] = useState(false);
 
   // Filters
-  const [filterYear, setFilterYear] = useState("");
-  const [filterBranch, setFilterBranch] = useState("");
-  const [filterSection, setFilterSection] = useState("");
+  const [filterYear, setFilterYear] = useState(scope?.year || "");
+  const [filterBranch, setFilterBranch] = useState(scope?.branch || "");
+  const [filterSection, setFilterSection] = useState(scope?.section || "");
 
   // Admin remarks state
   const [showRemarkModal, setShowRemarkModal] = useState(false);
@@ -134,7 +135,7 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
       let eventsData = [];
 
       try {
-        const eventsRes = await api.getAllTimelineEvents();
+        const eventsRes = await api.getAllTimelineEvents(scope?.year);
         if (Array.isArray(eventsRes.data)) {
           eventsData = eventsRes.data;
         } else if (eventsRes.data?.data && Array.isArray(eventsRes.data.data)) {
@@ -151,12 +152,12 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
       console.error("Fetch error:", error.message);
       if (loading) setLoading(false);
     }
-  }, [loading]);
+  }, [loading, scope?.year]);
 
   // Fetch batches lazily - only when event is selected
   const fetchBatchesForEvent = useCallback(async () => {
     try {
-      const batchesRes = await api.getAllBatches();
+      const batchesRes = scope ? await api.getSectionBatches() : await api.getAllBatches();
       const batchesData = batchesRes.data?.data || batchesRes.data || [];
       const scoped = scope
         ? batchesData.filter(batch => batch.year === scope.year && batch.branch === scope.branch && batch.section === scope.section)
@@ -167,7 +168,7 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
       console.error("Batches fetch error:", error.message);
       return [];
     }
-  }, []);
+  }, [scope]);
 
   // Fetch submissions for selected event with pagination
   const fetchSubmissionsForEvent = useCallback(async (eventId, page = 1) => {
@@ -214,6 +215,13 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
   useEffect(() => {
     fetchEvents();
   }, [fetchEvents]);
+
+  useEffect(() => {
+    if (!scope) return;
+    setFilterYear(scope.year || "");
+    setFilterBranch(scope.branch || "");
+    setFilterSection(scope.section || "");
+  }, [scope]);
 
   useEffect(() => {
     if (scope && selectedEvent && !visibleEvents.some(event => event._id === selectedEvent._id)) {
@@ -272,7 +280,7 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
         deadline: "",
         maxMarks: "",
         submissionRequirements: "",
-        targetYear: "all",
+        targetYear: scope?.year || "all",
         order: 0,
         isMarksEnabled: true,
       });
@@ -292,7 +300,7 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
       deadline: event.deadline.split("T")[0],
       maxMarks: event.maxMarks,
       submissionRequirements: event.submissionRequirements || "",
-      targetYear: event.targetYear,
+      targetYear: scope?.year || event.targetYear,
       order: event.order || 0,
       isMarksEnabled: event.isMarksEnabled !== undefined ? event.isMarksEnabled : true,
     });
@@ -363,7 +371,7 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
               deadline: defaultDate,
               maxMarks: "",
               submissionRequirements: "",
-              targetYear: "all",
+              targetYear: scope?.year || "all",
               order: 0,
               isMarksEnabled: true,
             });
@@ -438,18 +446,32 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
               )}
               <div className="form-group">
                 <label>Target Year</label>
-                <select
-                  value={formData.targetYear}
-                  onChange={(e) =>
-                    setFormData({ ...formData, targetYear: e.target.value })
-                  }
-                >
-                  {TARGET_YEARS.map((y) => (
-                    <option key={y} value={y}>
-                      {y === "all" ? "All Years" : `${y} Year`}
-                    </option>
-                  ))}
-                </select>
+                {scope ? (
+                  <div
+                    style={{
+                      padding: "10px 12px",
+                      border: "1px solid #cbd5e1",
+                      borderRadius: "8px",
+                      background: "#f8fafc",
+                      fontWeight: 700
+                    }}
+                  >
+                    {scope.year} Year
+                  </div>
+                ) : (
+                  <select
+                    value={formData.targetYear}
+                    onChange={(e) =>
+                      setFormData({ ...formData, targetYear: e.target.value })
+                    }
+                  >
+                    {TARGET_YEARS.map((y) => (
+                      <option key={y} value={y}>
+                        {y === "all" ? "All Years" : `${y} Year`}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
               <div className="form-group">
                 <label>Order (for sorting)</label>
@@ -564,48 +586,69 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
                 flexWrap: "wrap",
               }}
             >
-              <div className="form-group" style={{ margin: 0 }}>
-                <label>Year</label>
-                <select
-                  value={filterYear}
-                  onChange={(e) => setFilterYear(e.target.value)}
-                >
-                  <option value="">All Years</option>
-                  <option value="2nd">2nd Year</option>
-                  <option value="3rd">3rd Year</option>
-                  <option value="4th">4th Year</option>
-                </select>
-              </div>
-              <div className="form-group" style={{ margin: 0 }}>
-                <label>Branch</label>
-                <select
-                  value={filterBranch}
-                  onChange={(e) => setFilterBranch(e.target.value)}
-                >
-                  <option value="">All Branches</option>
-                  <option value="CSE">CSE</option>
-                  <option value="IT">IT</option>
-                  <option value="ECE">ECE</option>
-                  <option value="CSM">CSM</option>
-                  <option value="EEE">EEE</option>
-                  <option value="CSD">CSD</option>
-                  <option value="ETM">ETM</option>
-                </select>
-              </div>
-              <div className="form-group" style={{ margin: 0 }}>
-                <label>Section</label>
-                <select
-                  value={filterSection}
-                  onChange={(e) => setFilterSection(e.target.value)}
-                >
-                  <option value="">All Sections</option>
-                  <option value="A">A</option>
-                  <option value="B">B</option>
-                  <option value="C">C</option>
-                  <option value="D">D</option>
-                  <option value="E">E</option>
-                </select>
-              </div>
+              {scope ? (
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label>Class</label>
+                  <div
+                    style={{
+                      padding: "10px 14px",
+                      border: "1px solid #cbd5e1",
+                      borderRadius: "8px",
+                      background: "#eff6ff",
+                      color: "#1d4ed8",
+                      fontWeight: 800,
+                      minWidth: "190px"
+                    }}
+                  >
+                    {scope.year} {scope.branch}-{scope.section}
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label>Year</label>
+                    <select
+                      value={filterYear}
+                      onChange={(e) => setFilterYear(e.target.value)}
+                    >
+                      <option value="">All Years</option>
+                      <option value="2nd">2nd Year</option>
+                      <option value="3rd">3rd Year</option>
+                      <option value="4th">4th Year</option>
+                    </select>
+                  </div>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label>Branch</label>
+                    <select
+                      value={filterBranch}
+                      onChange={(e) => setFilterBranch(e.target.value)}
+                    >
+                      <option value="">All Branches</option>
+                      <option value="CSE">CSE</option>
+                      <option value="IT">IT</option>
+                      <option value="ECE">ECE</option>
+                      <option value="CSM">CSM</option>
+                      <option value="EEE">EEE</option>
+                      <option value="CSD">CSD</option>
+                      <option value="ETM">ETM</option>
+                    </select>
+                  </div>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label>Section</label>
+                    <select
+                      value={filterSection}
+                      onChange={(e) => setFilterSection(e.target.value)}
+                    >
+                      <option value="">All Sections</option>
+                      <option value="A">A</option>
+                      <option value="B">B</option>
+                      <option value="C">C</option>
+                      <option value="D">D</option>
+                      <option value="E">E</option>
+                    </select>
+                  </div>
+                </>
+              )}
               <div className="form-group column-dropdown-container" style={{ margin: 0, position: "relative" }}>
                 <label>Select Columns</label>
                 <div
@@ -678,16 +721,18 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
                   </div>
                 )}
               </div>
-              <button
-                className="btn btn-secondary"
-                onClick={() => {
-                  setFilterYear("");
-                  setFilterBranch("");
-                  setFilterSection("");
-                }}
-              >
-                Clear Filters
-              </button>
+              {!scope && (
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    setFilterYear("");
+                    setFilterBranch("");
+                    setFilterSection("");
+                  }}
+                >
+                  Clear Filters
+                </button>
+              )}
             </div>
           </div>
 
@@ -706,7 +751,7 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
                   <th>Team Members</th>
                   <th>Class</th>
                   <th style={{ width: "100px", maxWidth: "100px" }}>COE/RC</th>
-                  <th style={{ width: "100px", maxWidth: "100px" }}>Research Area</th>
+                  <th style={{ width: "100px", maxWidth: "100px" }}>Domain</th>
                   <th style={{ width: "100px", maxWidth: "100px" }}>Guide</th>
                   <th>Marks</th>
                   <th style={{ width: "120px", maxWidth: "120px", overflow: "hidden", textOverflow: "ellipsis" }}>Guide's Feedback</th>
@@ -743,7 +788,7 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
                       typeof sub.batchId === "string"
                         ? sub.batchId
                         : sub.batchId?._id;
-                    const batch = batches.find((b) => b._id === batchId);
+                    const batch = visibleBatches.find((b) => b._id === batchId);
                     const latestVersion =
                       sub.versions?.[sub.versions.length - 1];
                     const latestAdminRemark =
@@ -796,7 +841,7 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
                           {batch?.year} {batch?.branch}-{batch?.section}
                         </td>
                         <td>{batch?.problemId?.coeId?.name || batch?.coeId?.name || batch?.coe?.name || "Not Assigned"}</td>
-                        <td>{batch?.problemId?.researchArea || batch?.researchArea || "Not Assigned"}</td>
+                        <td>{batch?.domain || "Not Assigned"}</td>
                         <td>
                           {batch?.guideId?.name ? (
                             <span
@@ -1528,6 +1573,7 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
         branch: batch?.branch || "N/A",
         section: batch?.section || "N/A",
         coe,
+        domain: batch?.domain || "N/A",
         guide,
         marks:
           sub.marks !== null ? `${sub.marks}/${selectedEvent.maxMarks}` : "N/A",

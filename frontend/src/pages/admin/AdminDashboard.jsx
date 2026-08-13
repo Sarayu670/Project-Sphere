@@ -144,7 +144,7 @@ function AdminDashboard() {
         'Branch': batch.branch || '',
         'Section': batch.section || '',
         'COE / RC': batch.problemId?.coeId?.name || batch.coeId?.name || batch.coe?.name || 'Not Assigned',
-        'Research Area': batch.problemId?.researchArea || batch.researchArea || 'Not Assigned',
+        'Domain': batch.domain || 'Not Assigned',
         'Thrust Area': batch.thrustArea || batch.domain || 'Not Assigned',
         'Guide': batch.guideId?.name || 'Not Assigned',
         'Problem Title': batch.problemId?.title || 'Not Assigned',
@@ -165,7 +165,7 @@ function AdminDashboard() {
       { wch: 10 }, // Branch
       { wch: 10 }, // Section
       { wch: 22 }, // COE/RC
-      { wch: 22 }, // Research Area
+      { wch: 20 }, // Domain
       { wch: 25 }, // Thrust Area
       { wch: 20 }, // Guide
       { wch: 35 }, // Problem Title
@@ -335,7 +335,7 @@ function AdminDashboard() {
                     <th>Team Name</th>
                     <th>Team Members</th>
                     <th>COE/RC</th>
-                    <th>Research Area</th>
+                    <th>Domain</th>
                     <th>Thrust Area</th>
                     <th>Guide</th>
                     <th>Problem</th>
@@ -378,7 +378,7 @@ function AdminDashboard() {
                         </div>
                       </td>
                       <td>{batch.problemId?.coeId?.name || batch.coeId?.name || batch.coe?.name || 'Not Assigned'}</td>
-                      <td>{batch.problemId?.researchArea || batch.researchArea || 'Not Assigned'}</td>
+                      <td>{batch.domain || 'Not Assigned'}</td>
                       <td>{batch.thrustArea || batch.domain || 'Not Assigned'}</td>
                       <td>{batch.guideId?.name || 'Not Assigned'}</td>
                       <td>{batch.problemId?.title || 'Not Assigned'}</td>
@@ -477,7 +477,7 @@ function AdminDashboard() {
                       ✎ Edit
                     </button>
                     <p><strong>COE/RC:</strong> {selectedBatch.problemId?.coeId?.name || selectedBatch.coeId?.name || selectedBatch.coe?.name || 'Not Assigned'}</p>
-                    <p><strong>Research Area:</strong> {selectedBatch.problemId?.researchArea || selectedBatch.researchArea || 'Not Assigned'}</p>
+                    <p><strong>Domain:</strong> {selectedBatch.domain || 'Not Assigned'}</p>
                     <p><strong>Thrust Area:</strong> {selectedBatch.thrustArea || selectedBatch.domain || 'Not Assigned'}</p>
                     <p><strong>Outcome:</strong> {selectedBatch.outcome || 'None'}</p>
                     <p><strong>Guide:</strong> {selectedBatch.guideId?.name || 'Not Assigned'}</p>

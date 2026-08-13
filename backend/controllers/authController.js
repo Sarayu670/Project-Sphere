@@ -58,28 +58,14 @@ exports.registerGuide = async (req, res) => {
     }
 
     const existingGuide = await Guide.findOne({ email: email.toLowerCase().trim() }).select('+password');
+    if (wantsCoordinatorAccess) {
+      return res.status(403).json({
+        success: false,
+        message: 'Coordinator access can only be granted by the admin through the import process.'
+      });
+    }
+
     if (existingGuide) {
-      // A guide who becomes a coordinator keeps the same account. Requiring the
-      // current password prevents another person from claiming that guide's email.
-      if (wantsCoordinatorAccess && await existingGuide.matchPassword(password)) {
-        existingGuide.isCoordinator = true;
-        existingGuide.coordinatorSection = coordinatorScope;
-        if (department) existingGuide.department = department;
-        await existingGuide.save();
-        const token = generateToken(existingGuide._id, 'guide');
-        return res.status(200).json({
-          success: true,
-          token,
-          user: {
-            id: existingGuide._id,
-            name: existingGuide.name,
-            email: existingGuide.email,
-            role: 'guide',
-            isCoordinator: true,
-            coordinatorSection: existingGuide.coordinatorSection
-          }
-        });
-      }
       return res.status(400).json({ success: false, message: 'Email already exists' });
     }
 
@@ -163,12 +149,14 @@ exports.login = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Please select a role' });
     }
 
-    if (!['student', 'guide', 'admin'].includes(role)) {
+    if (!['student', 'guide', 'admin', 'coordinator'].includes(role)) {
       return res.status(400).json({ success: false, message: 'Invalid role specified' });
     }
 
     let user;
     let userRole;
+
+    const isCoordinatorLogin = role === 'coordinator';
 
     // Search only in the specified role's collection
     if (role === 'student') {
@@ -181,7 +169,7 @@ exports.login = async (req, res) => {
         ]
       }).select('+password');
       userRole = 'student';
-    } else if (role === 'guide') {
+    } else if (role === 'guide' || role === 'coordinator') {
       const loginTerm = email.trim().toLowerCase();
       user = await Guide.findOne({ email: loginTerm }).select('+password');
       userRole = 'guide';
@@ -194,6 +182,15 @@ exports.login = async (req, res) => {
     if (!user) {
       console.log(`[AUTH] No ${role} account found for email: "${email}"`);
       return res.status(401).json({ success: false, message: `No ${role} account found with these credentials` });
+    }
+
+    if (isCoordinatorLogin) {
+      if (!user.isCoordinator || !user.coordinatorImportedByAdmin) {
+        return res.status(401).json({
+          success: false,
+          message: 'Only admin-imported coordinators can login with coordinator access.'
+        });
+      }
     }
 
     console.log(`[AUTH] Found user: name="${user.name}", email="${user.email}", role="${role}"`);

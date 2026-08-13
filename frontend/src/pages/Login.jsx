@@ -24,12 +24,9 @@ function Login() {
         setLoading(false);
         return;
       }
-      // Class coordinators use the existing Guide account/auth path.
-      const loginRole = role === 'coordinator' ? 'guide' : role;
-      const userData = await login(email, password, loginRole);
+      const userData = await login(email, password, role);
       
-      // Validate returned user role matches requested role
-      if (userData.role !== loginRole) {
+      if (userData.role !== (role === 'coordinator' ? 'guide' : role)) {
         setError(`Role mismatch: You cannot login as ${role} with ${userData.role} credentials`);
         logout();
         setLoading(false);

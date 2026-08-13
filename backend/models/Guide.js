@@ -46,6 +46,10 @@ const GuideSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  coordinatorImportedByAdmin: {
+    type: Boolean,
+    default: false
+  },
   coordinatorSection: {
     branch: {
       type: String,

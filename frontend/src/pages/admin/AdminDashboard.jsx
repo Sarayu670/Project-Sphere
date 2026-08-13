@@ -18,6 +18,7 @@ function AdminDashboard() {
   const [coes, setCoes] = useState([]);
   const [rcs, setRcs] = useState([]);
   const [guides, setGuides] = useState([]);
+  const [coordinators, setCoordinators] = useState([]);
   const [batches, setBatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedBatch, setSelectedBatch] = useState(null);
@@ -36,17 +37,19 @@ function AdminDashboard() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [statsRes, coesRes, rcsRes, guidesRes, batchesRes] = await Promise.all([
+      const [statsRes, coesRes, rcsRes, guidesRes, coordinatorsRes, batchesRes] = await Promise.all([
         api.getAdminDashboard(),
         api.getAllCOEs(),
         api.getAllRCs(),
         api.getAllGuides(),
+        api.getAllCoordinators(),
         api.getAllBatches()
       ]);
       setStats(statsRes.data.data);
       setCoes(coesRes.data.data);
       setRcs(rcsRes.data.data);
       setGuides(guidesRes.data.data);
+      setCoordinators(coordinatorsRes.data.data || []);
       setBatches(batchesRes.data.data);
     } catch (error) {
       console.error('AdminDashboard: Failed to fetch data:', error);
@@ -88,6 +91,10 @@ function AdminDashboard() {
   };
 
   const [isEditingAssignments, setIsEditingAssignments] = useState(false);
+  const [coordinatorFile, setCoordinatorFile] = useState(null);
+  const [coordinatorStatus, setCoordinatorStatus] = useState('');
+  const [coordinatorError, setCoordinatorError] = useState('');
+  const [coordinatorLoading, setCoordinatorLoading] = useState(false);
   const [editForm, setEditForm] = useState({
     coeId: '',
     rcId: '',
@@ -122,6 +129,43 @@ function AdminDashboard() {
     } catch (error) {
       console.error('Failed to update assignments:', error);
       alert('Failed to update assignments');
+    }
+  };
+
+  const handleDownloadCoordinatorTemplate = () => {
+    const rows = [
+      { name: 'John Doe', branch: 'CSE', section: 'A', year: '3rd', email: 'john.doe@gmail.com' },
+      { name: 'Jane Smith', branch: 'IT', section: 'B', year: '2nd', email: 'jane.smith@gmail.com' }
+    ];
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Coordinators');
+    XLSX.writeFile(wb, 'Coordinator_Import_Template.xlsx');
+  };
+
+  const handleCoordinatorImport = async () => {
+    if (!coordinatorFile) {
+      setCoordinatorError('Please select a coordinator file first.');
+      return;
+    }
+
+    setCoordinatorLoading(true);
+    setCoordinatorError('');
+    setCoordinatorStatus('Importing coordinators...');
+
+    try {
+      const response = await api.importCoordinators(coordinatorFile);
+      setCoordinatorStatus(response.data.message || 'Coordinator import completed.');
+      const updatedCoordinators = await api.getAllCoordinators();
+      setCoordinators(updatedCoordinators.data.data || []);
+      setCoordinatorFile(null);
+      document.getElementById('coordinator-file-input').value = '';
+    } catch (error) {
+      setCoordinatorError(error.response?.data?.message || 'Failed to import coordinators.');
+      setCoordinatorStatus('');
+    } finally {
+      setCoordinatorLoading(false);
     }
   };
 
@@ -229,10 +273,76 @@ function AdminDashboard() {
         <button className={`tab ${activeTab === 'filter' ? 'active' : ''}`} onClick={() => { handleTabChange('filter'); setSelectedBatch(null); }}>🔍 Filter by Class</button>
         <button className={`tab ${activeTab === 'guide-search' ? 'active' : ''}`} onClick={() => handleTabChange('guide-search')}>👨‍🏫 Search Batches</button>
         <button className={`tab ${activeTab === 'manage-coe-rc' ? 'active' : ''}`} onClick={() => handleTabChange('manage-coe-rc')}>🏛️ Manage COE/RC</button>
+        <button className={`tab ${activeTab === 'import-coordinators' ? 'active' : ''}`} onClick={() => handleTabChange('import-coordinators')}>👥 Import Coordinators</button>
         <button className={`tab ${activeTab === 'ai-agent' ? 'active' : ''}`} onClick={() => handleTabChange('ai-agent')}>🤖 AI Agent</button>
       </div>
 
       {activeTab === 'timeline' && <TimelineManagement />}
+
+      {activeTab === 'import-coordinators' && (
+        <div className="tab-content">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', gap: '12px', flexWrap: 'wrap' }}>
+            <div>
+              <h2 style={{ margin: 0 }}>Import Coordinators</h2>
+              <p style={{ margin: '6px 0 0', color: '#64748b' }}>Existing coordinator accounts are listed below.</p>
+            </div>
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              <button type="button" className="btn btn-secondary" onClick={handleDownloadCoordinatorTemplate}>📥 Download Template</button>
+              <label className="btn btn-primary" style={{ cursor: 'pointer' }}>
+                <input id="coordinator-file-input" type="file" accept=".xlsx,.xls,.csv" onChange={(e) => setCoordinatorFile(e.target.files[0] || null)} style={{ display: 'none' }} />
+                Choose File
+              </label>
+              <button type="button" className="btn btn-primary" onClick={handleCoordinatorImport} disabled={!coordinatorFile || coordinatorLoading}>
+                {coordinatorLoading ? 'Importing...' : 'Import Coordinators'}
+              </button>
+            </div>
+          </div>
+
+          {coordinatorError && (
+            <div style={{ padding: '12px 14px', background: '#fee2e2', color: '#991b1b', border: '1px solid #fecaca', borderRadius: '8px', marginBottom: '16px' }}>
+              {coordinatorError}
+            </div>
+          )}
+
+          {coordinatorStatus && (
+            <div style={{ padding: '12px 14px', background: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0', borderRadius: '8px', marginBottom: '16px' }}>
+              {coordinatorStatus}
+            </div>
+          )}
+
+          <div className="table-container">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Branch</th>
+                  <th>Section</th>
+                  <th>Year</th>
+                  <th>Email</th>
+                </tr>
+              </thead>
+              <tbody>
+                {coordinators.length === 0 ? (
+                  <tr>
+                    <td colSpan="5" style={{ textAlign: 'center', color: '#64748b', padding: '18px' }}>No coordinators imported yet.</td>
+                  </tr>
+                ) : (
+                  coordinators.map((coordinator) => (
+                    <tr key={coordinator._id}>
+                      <td>{coordinator.name}</td>
+                      <td>{coordinator.branch || '—'}</td>
+                      <td>{coordinator.section || '—'}</td>
+                      <td>{coordinator.year || '—'}</td>
+                      <td>{coordinator.email}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
 
       {activeTab === 'ai-agent' && (
         <div className="tab-content">

@@ -6,6 +6,10 @@ const Student = require('../models/Student');
 const Admin = require('../models/Admin');
 const TeamMember = require('../models/TeamMember');
 
+const VALID_BRANCHES = ['CSE', 'IT', 'ECE', 'CSM', 'EEE', 'CSD', 'ETM'];
+const VALID_SECTIONS = ['A', 'B', 'C', 'D', 'E'];
+const VALID_YEARS = ['2nd', '3rd', '4th'];
+
 // @desc    Get admin dashboard stats
 // @route   GET /api/admin/dashboard
 exports.getDashboard = async (req, res) => {
@@ -215,6 +219,114 @@ exports.importBatches = async (req, res) => {
       success: true,
       data: results,
       message: `Import completed: ${results.success} succeeded, ${results.failed} failed`
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Get all coordinators (guide accounts with coordinator scope)
+// @route   GET /api/admin/coordinators
+exports.getCoordinators = async (req, res) => {
+  try {
+    const coordinators = await Guide.find({ isCoordinator: true }).select('-password').sort({ name: 1 });
+
+    const formatted = coordinators.map((guide) => ({
+      _id: guide._id,
+      name: guide.name,
+      email: guide.email,
+      branch: guide.coordinatorSection?.branch || '',
+      section: guide.coordinatorSection?.section || '',
+      year: guide.coordinatorSection?.year || ''
+    }));
+
+    res.status(200).json({ success: true, data: formatted });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Import coordinators from Excel/CSV file
+// @route   POST /api/admin/import-coordinators
+exports.importCoordinators = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No file provided' });
+    }
+
+    const XLSX = require('xlsx');
+    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+
+    const results = { created: 0, updated: 0, skipped: 0, errors: [] };
+
+    for (const row of rows) {
+      try {
+        const rawName = String(row.name || row.Name || row['Full Name'] || '').trim();
+        const rawBranch = String(row.branch || row.Branch || '').trim().toUpperCase();
+        const rawSection = String(row.section || row.Section || '').trim().toUpperCase();
+        const rawEmail = String(row.email || row.Email || '').trim().toLowerCase();
+        const rawYear = String(row.year || row.Year || '').trim();
+
+        if (!rawName || !rawBranch || !rawSection || !rawEmail) {
+          throw new Error('Missing required fields in row');
+        }
+
+        if (!VALID_BRANCHES.includes(rawBranch)) {
+          throw new Error(`Invalid branch: ${rawBranch}`);
+        }
+
+        if (!VALID_SECTIONS.includes(rawSection)) {
+          throw new Error(`Invalid section: ${rawSection}`);
+        }
+
+        if (!VALID_YEARS.includes(rawYear)) {
+          throw new Error(`Invalid year: ${rawYear}`);
+        }
+
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail)) {
+          throw new Error(`Invalid email: ${rawEmail}`);
+        }
+
+        let guide = await Guide.findOne({ email: rawEmail });
+
+        const coordinatorScope = {
+          branch: rawBranch,
+          section: rawSection,
+          year: rawYear
+        };
+
+        if (!guide) {
+          guide = await Guide.create({
+            name: rawName,
+            email: rawEmail,
+            password: 'gnits@123',
+            department: 'Computer Science',
+            isCoordinator: true,
+            coordinatorImportedByAdmin: true,
+            coordinatorSection: coordinatorScope
+          });
+          results.created += 1;
+        } else {
+          guide.name = rawName;
+          guide.department = guide.department || 'Computer Science';
+          guide.isCoordinator = true;
+          guide.coordinatorImportedByAdmin = true;
+          guide.coordinatorSection = coordinatorScope;
+          await guide.save();
+          results.updated += 1;
+        }
+      } catch (error) {
+        results.skipped += 1;
+        results.errors.push({ error: error.message });
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      data: results,
+      message: `Coordinator import finished: ${results.created} created, ${results.updated} updated, ${results.skipped} skipped.`
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

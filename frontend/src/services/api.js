@@ -75,6 +75,7 @@ export const updateMeetingPlan = (batchId, data) => axios.post(`${API_URL}/meeti
 export const getAdminDashboard = () => axios.get(`${API_URL}/admin/dashboard`);
 export const getAdminOverview = () => axios.get(`${API_URL}/admin/overview`);
 export const getBatchGuideMapping = () => axios.get(`${API_URL}/admin/batch-guide-mapping`);
+export const getAllCoordinators = () => axios.get(`${API_URL}/admin/coordinators`);
 export const createAdmin = (data) => axios.post(`${API_URL}/admin/create`, data);
 export const importBatches = (data) => axios.post(`${API_URL}/admin/import-batches`, data);
 export const importBatchData = (file) => {
@@ -88,6 +89,13 @@ export const importStudentBatchesFromExcel = (file) => {
   const formData = new FormData();
   formData.append('file', file);
   return axios.post(`${API_URL}/batches/import`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+};
+export const importCoordinators = (file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  return axios.post(`${API_URL}/admin/import-coordinators`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   });
 };

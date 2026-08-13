@@ -77,19 +77,22 @@ function findAllColumnIndices(headers, pattern) {
 function extractCOENameFromText(text) {
     if (!text) return 'N/A';
 
-    const str = String(text).trim();
+    let str = String(text).trim();
 
     // Look for keywords followed by separators
     const keywordMatch = str.match(/(?:coe|rc|research\s+centre)[-\s:,]*(.+)$/i);
 
     if (keywordMatch && keywordMatch[1]) {
-        return keywordMatch[1].trim();
+        str = keywordMatch[1].trim();
     }
 
-    // fallback: strip "GNITS, " prefix if present
-    const cleaned = str.replace(/^gnits\s*,\s*/i, '');
+    // Strip common prefixes that can appear in imported Excel values
+    str = str
+        .replace(/^gnits\s*,\s*/i, '')
+        .replace(/^(?:for|of|in|on|the)\s+/i, '')
+        .replace(/^(?:center of excellence|centre of excellence|coe|research center|research centre|resource center|resource centre|rc)[-:\s]*/i, '');
 
-    return cleaned || 'N/A';
+    return str.trim() || 'N/A';
 }
 
 /**

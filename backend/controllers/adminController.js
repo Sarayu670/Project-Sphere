@@ -297,9 +297,11 @@ exports.importBatchData = async (req, res) => {
           if (!cell) return '';
           let str = String(cell).trim();
 
-          // Remove common prefixes
-          str = str.replace(/^gnits\s*,\s*/i, '');
-          str = str.replace(/^(?:center of excellence|centre of excellence|coe|research center|research centre|resource center|resource centre|rc)[-:\s]*/i, '');
+          // Remove common prefixes and filler words
+          str = str
+            .replace(/^gnits\s*,\s*/i, '')
+            .replace(/^(?:for|of|in|on|the)\s+/i, '')
+            .replace(/^(?:center of excellence|centre of excellence|coe|research center|research centre|resource center|resource centre|rc)[-:\s]*/i, '');
 
           return str.trim();
         };

@@ -3,9 +3,7 @@ import * as XLSX from 'xlsx';
 import * as api from '../../services/api';
 import COEandRCManagement from '../../components/COEandRCManagement';
 import TimelineManagement from './TimelineManagement';
-import BatchImport from './BatchImport';
 import usePolling from '../../utils/usePolling';
-import ImportProjectData from './ImportProjectData';
 import GuideSearch from './GuideSearch';
 import AdminAIManagement from '../../components/AdminAIManagement';
 import './AdminDashboard.css';
@@ -232,6 +230,7 @@ function AdminDashboard() {
         <button className={`tab ${activeTab === 'guide-search' ? 'active' : ''}`} onClick={() => handleTabChange('guide-search')}>👨‍🏫 Search Batches</button>
         <button className={`tab ${activeTab === 'import' ? 'active' : ''}`} onClick={() => handleTabChange('import')}>📤 Batch Import</button>
         <button className={`tab ${activeTab === 'project-import' ? 'active' : ''}`} onClick={() => handleTabChange('project-import')}>📊 Import Projects</button>
+        <button className={`tab ${activeTab === 'meetings' ? 'active' : ''}`} onClick={() => handleTabChange('meetings')}>🤝 Meetings</button>
         <button className={`tab ${activeTab === 'manage-coe-rc' ? 'active' : ''}`} onClick={() => handleTabChange('manage-coe-rc')}>🏛️ Manage COE/RC</button>
         <button className={`tab ${activeTab === 'ai-agent' ? 'active' : ''}`} onClick={() => handleTabChange('ai-agent')}>🤖 AI Agent</button>
       </div>
@@ -244,30 +243,13 @@ function AdminDashboard() {
         </div>
       )}
 
-
-      {activeTab === 'import' && (
-        <div className="tab-content">
-          <BatchImport
-            onImportComplete={() => {
-              setActiveTab('filter');
-              fetchData();
-            }}
-            onCancel={() => setActiveTab('filter')}
-          />
-        </div>
-      )}
-
       {activeTab === 'guide-search' && (
         <div className="tab-content">
           <GuideSearch />
         </div>
       )}
 
-      {activeTab === 'project-import' && (
-        <div className="tab-content">
-          <ImportProjectData />
-        </div>
-      )}
+      {/* Project import and meetings sections removed */}
 
       {activeTab === 'filter' && !selectedBatch && (
         <div className="tab-content">

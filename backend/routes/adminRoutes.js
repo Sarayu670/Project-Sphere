@@ -12,6 +12,7 @@ router.get('/dashboard', protect, authorize('admin'), getDashboard);
 router.get('/overview', protect, authorize('admin'), getOverview);
 router.get('/batch-guide-mapping', protect, authorize('admin'), getBatchGuideMapping);
 router.get('/coordinators', protect, authorize('admin'), getCoordinators);
+router.delete('/coordinators/:id', protect, authorize('admin'), require('../controllers/adminController').deleteCoordinator);
 router.get('/search-batches-by-guide', searchBatchesByGuide);
 router.post('/import-batches', protect, authorize('admin'), importBatches);
 router.post('/import-batch-data', protect, authorize('admin'), upload.single('file'), importBatchData);

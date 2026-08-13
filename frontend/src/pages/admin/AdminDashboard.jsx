@@ -144,6 +144,22 @@ function AdminDashboard() {
     XLSX.writeFile(wb, 'Coordinator_Import_Template.xlsx');
   };
 
+  const handleDeleteCoordinator = async (coordinatorId) => {
+    if (!window.confirm('Delete this coordinator from the database and remove their coordinator access?')) {
+      return;
+    }
+
+    try {
+      setCoordinatorError('');
+      const response = await api.deleteCoordinator(coordinatorId);
+      setCoordinatorStatus(response.data.message || 'Coordinator deleted successfully.');
+      setCoordinators(prev => prev.filter(coord => coord._id !== coordinatorId));
+    } catch (error) {
+      setCoordinatorError(error.response?.data?.message || 'Failed to delete coordinator.');
+      setCoordinatorStatus('');
+    }
+  };
+
   const handleCoordinatorImport = async () => {
     if (!coordinatorFile) {
       setCoordinatorError('Please select a coordinator file first.');
@@ -324,16 +340,21 @@ function AdminDashboard() {
               <tbody>
                 {coordinators.length === 0 ? (
                   <tr>
-                    <td colSpan="5" style={{ textAlign: 'center', color: '#64748b', padding: '18px' }}>No coordinators imported yet.</td>
+                    <td colSpan="6" style={{ textAlign: 'center', color: '#64748b', padding: '18px' }}>No coordinators imported yet.</td>
                   </tr>
                 ) : (
                   coordinators.map((coordinator) => (
-                    <tr key={coordinator._id}>
+                    <tr key={coordinator._id} className="coordinator-row">
                       <td>{coordinator.name}</td>
                       <td>{coordinator.branch || '—'}</td>
                       <td>{coordinator.section || '—'}</td>
                       <td>{coordinator.year || '—'}</td>
                       <td>{coordinator.email}</td>
+                      <td className="coordinator-action-cell">
+                        <button type="button" className="coordinator-delete-btn" onClick={() => handleDeleteCoordinator(coordinator._id)}>
+                          Delete
+                        </button>
+                      </td>
                     </tr>
                   ))
                 )}

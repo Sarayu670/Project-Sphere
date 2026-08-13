@@ -5,6 +5,7 @@ const Batch = require('../models/Batch');
 const Student = require('../models/Student');
 const Admin = require('../models/Admin');
 const TeamMember = require('../models/TeamMember');
+const Coordinator = require('../models/Coordinator');
 
 const VALID_BRANCHES = ['CSE', 'IT', 'ECE', 'CSM', 'EEE', 'CSD', 'ETM'];
 const VALID_SECTIONS = ['A', 'B', 'C', 'D', 'E'];
@@ -229,18 +230,50 @@ exports.importBatches = async (req, res) => {
 // @route   GET /api/admin/coordinators
 exports.getCoordinators = async (req, res) => {
   try {
-    const coordinators = await Guide.find({ isCoordinator: true }).select('-password').sort({ name: 1 });
+    const coordinators = await Coordinator.find().sort({ name: 1 });
 
-    const formatted = coordinators.map((guide) => ({
-      _id: guide._id,
-      name: guide.name,
-      email: guide.email,
-      branch: guide.coordinatorSection?.branch || '',
-      section: guide.coordinatorSection?.section || '',
-      year: guide.coordinatorSection?.year || ''
+    const formatted = coordinators.map((coord) => ({
+      _id: coord._id,
+      name: coord.name,
+      email: coord.email,
+      branch: coord.branch || '',
+      section: coord.section || '',
+      year: coord.year || ''
     }));
 
     res.status(200).json({ success: true, data: formatted });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Delete coordinator record and revoke coordinator access
+// @route   DELETE /api/admin/coordinators/:id
+exports.deleteCoordinator = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const coordinator = await Coordinator.findById(id);
+    if (!coordinator) {
+      return res.status(404).json({ success: false, message: 'Coordinator not found' });
+    }
+
+    await Coordinator.findByIdAndDelete(id);
+
+    if (coordinator.email) {
+      const guide = await Guide.findOne({ email: coordinator.email.toLowerCase().trim() });
+      if (guide) {
+        guide.isCoordinator = false;
+        guide.coordinatorImportedByAdmin = false;
+        guide.coordinatorSection = undefined;
+        await guide.save();
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Coordinator deleted successfully.'
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -307,7 +340,6 @@ exports.importCoordinators = async (req, res) => {
             coordinatorImportedByAdmin: true,
             coordinatorSection: coordinatorScope
           });
-          results.created += 1;
         } else {
           guide.name = rawName;
           guide.department = guide.department || 'Computer Science';
@@ -315,6 +347,25 @@ exports.importCoordinators = async (req, res) => {
           guide.coordinatorImportedByAdmin = true;
           guide.coordinatorSection = coordinatorScope;
           await guide.save();
+        }
+
+        const coordinatorDoc = await Coordinator.findOneAndUpdate(
+          { email: rawEmail },
+          {
+            name: rawName,
+            email: rawEmail,
+            branch: rawBranch,
+            section: rawSection,
+            year: rawYear,
+            guideId: guide._id,
+            isActive: true
+          },
+          { upsert: true, new: true, setDefaultsOnInsert: true }
+        );
+
+        if (coordinatorDoc.wasNew) {
+          results.created += 1;
+        } else {
           results.updated += 1;
         }
       } catch (error) {

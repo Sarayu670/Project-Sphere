@@ -146,6 +146,37 @@
   overflow-x: auto;
 }
 
+.coordinator-row {
+  position: relative;
+}
+
+.coordinator-action-cell {
+  width: 120px;
+  opacity: 0;
+  transition: opacity 0.15s ease-in-out;
+  text-align: right;
+}
+
+.coordinator-row:hover .coordinator-action-cell {
+  opacity: 1;
+}
+
+.coordinator-delete-btn {
+  border: 1px solid #ef4444;
+  background: #fee2e2;
+  color: #991b1b;
+  cursor: pointer;
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-weight: 700;
+  transition: all 0.15s ease;
+}
+
+.coordinator-delete-btn:hover {
+  background: #fecaca;
+  border-color: #dc2626;
+}
+
 .modal-overlay {
   position: fixed;
   top: 0;

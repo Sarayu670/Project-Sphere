@@ -1,31 +1,338 @@
-.coordinator-dashboard { padding: 24px; max-width: 1500px; margin: 0 auto; }
-.coordinator-dashboard .dashboard-header { margin-bottom: 20px; }
-.coordinator-dashboard .dashboard-header h1 { margin-bottom: 6px; color: #1e293b; }
-.coordinator-dashboard .dashboard-header p { margin: 0; color: #64748b; font-weight: 600; }
-.coordinator-error { margin-bottom: 16px; padding: 12px 16px; border-radius: 8px; color: #991b1b; background: #fee2e2; border: 1px solid #fecaca; }
-.coordinator-stats { grid-template-columns: repeat(4, minmax(150px, 1fr)); }
-.coordinator-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
-.outcome-list, .alert-list { display: grid; gap: 10px; }
-.outcome-list > div, .alert-list > div { display: flex; justify-content: space-between; gap: 16px; padding: 11px 12px; border-radius: 6px; background: #f8fafc; }
-.alert-list > div { align-items: flex-start; background: #fff7ed; border-left: 4px solid #f59e0b; }
-.alert-list span { color: #9a3412; text-align: right; }
-.coordinator-ok { color: #15803d; }
-.coordinator-teams-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
-.coordinator-teams-header h2, .coordinator-teams-header p { margin: 0; }
-.coordinator-teams-header p { color: #64748b; margin-top: 4px; }
-.coordinator-table td { vertical-align: top; max-width: 220px; }
-.coordinator-link { border: 0; background: transparent; color: #2563eb; cursor: pointer; font: inherit; font-weight: 700; padding: 0; text-align: left; }
-.coordinator-link:hover { text-decoration: underline; }
-.coordinator-edit-panel { margin-top: 8px; }
-.coordinator-edit-panel h2 { margin: 0; }
-.coordinator-edit-panel p { color: #64748b; }
-.coordinator-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 20px 0; }
-.coordinator-form-grid label { display: flex; flex-direction: column; gap: 6px; color: #334155; font-size: 14px; font-weight: 600; }
-.coordinator-form-grid input, .coordinator-form-grid select { padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font: inherit; }
-.coordinator-full-field { grid-column: 1 / -1; }
-.guide-card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(245px, 1fr)); gap: 16px; }
-.coordinator-guide-card h3 { margin: 0 0 8px; color: #1e293b; }
-.coordinator-guide-card p { margin: 4px 0; color: #64748b; }
-.coordinator-guide-card div { margin-top: 16px; color: #1e293b; }
-.coordinator-guide-card small { display: block; margin-top: 8px; color: #475569; }
-@media (max-width: 800px) { .coordinator-dashboard { padding: 16px; } .coordinator-grid, .coordinator-form-grid { grid-template-columns: 1fr; } .coordinator-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } .coordinator-teams-header { align-items: flex-start; flex-direction: column; } }
+.coordinator-dashboard {
+  padding: 24px;
+  max-width: 1500px;
+  margin: 0 auto;
+}
+
+.coordinator-dashboard .dashboard-header {
+  margin-bottom: 18px;
+}
+
+.coordinator-dashboard .dashboard-header h1 {
+  margin-bottom: 6px;
+  color: #0f172a;
+  font-size: 24px;
+}
+
+.coordinator-dashboard .dashboard-header p {
+  margin: 0;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.coordinator-error {
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  color: #991b1b;
+  background: #fee2e2;
+  border: 1px solid #fecaca;
+}
+
+.coordinator-stats {
+  grid-template-columns: repeat(4, minmax(150px, 1fr));
+}
+
+.coordinator-dashboard .coordinator-stats .stat-card {
+  min-height: 118px;
+  padding: 18px 16px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-top: 3px solid #2563eb;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+.coordinator-dashboard .coordinator-stats .stat-value {
+  color: #0f172a;
+  font-size: 32px;
+  line-height: 1;
+}
+
+.coordinator-dashboard .coordinator-stats .stat-label {
+  color: #64748b;
+}
+
+.coordinator-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.coordinator-panel {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 18px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+.coordinator-panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 14px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.panel-kicker {
+  display: block;
+  margin-bottom: 3px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.coordinator-panel h2 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 20px;
+}
+
+.panel-count {
+  min-width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.status-visual-row {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+}
+
+.status-donut {
+  width: 132px;
+  height: 132px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  position: relative;
+  flex: 0 0 132px;
+}
+
+.status-donut::after {
+  content: '';
+  position: absolute;
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  background: #ffffff;
+}
+
+.status-donut span {
+  position: relative;
+  z-index: 1;
+  color: #0f172a;
+  font-size: 28px;
+  font-weight: 900;
+}
+
+.status-legend {
+  display: grid;
+  gap: 10px;
+  flex: 1;
+}
+
+.status-legend div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #475569;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.status-legend strong {
+  margin-left: auto;
+  color: #0f172a;
+}
+
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-flex;
+}
+
+.legend-dot.completed {
+  background: #16a34a;
+}
+
+.legend-dot.progress {
+  background: #2563eb;
+}
+
+.legend-dot.pending {
+  background: #cbd5e1;
+}
+
+.brainstorm-list,
+.outcome-bars {
+  display: grid;
+  gap: 12px;
+}
+
+.brainstorm-list div {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.brainstorm-list strong {
+  color: #0f172a;
+}
+
+.brainstorm-list span {
+  color: #64748b;
+  font-size: 14px;
+}
+
+.outcome-panel {
+  grid-column: 1 / -1;
+}
+
+.outcome-bar-row {
+  display: grid;
+  gap: 8px;
+}
+
+.outcome-bar-row > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  color: #0f172a;
+  font-weight: 800;
+}
+
+.outcome-track {
+  height: 10px;
+  background: #e2e8f0;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.outcome-track span {
+  display: block;
+  height: 100%;
+  background: #0ea5e9;
+  border-radius: inherit;
+}
+
+.coordinator-teams-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.coordinator-teams-header h2,
+.coordinator-teams-header p {
+  margin: 0;
+}
+
+.coordinator-teams-header p {
+  color: #64748b;
+  margin-top: 4px;
+}
+
+.coordinator-table td {
+  vertical-align: top;
+  max-width: 220px;
+}
+
+.coordinator-link {
+  border: 0;
+  background: transparent;
+  color: #2563eb;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  padding: 0;
+  text-align: left;
+}
+
+.coordinator-link:hover {
+  text-decoration: underline;
+}
+
+.coordinator-edit-panel {
+  margin-top: 8px;
+}
+
+.coordinator-edit-panel h2 {
+  margin: 0;
+}
+
+.coordinator-edit-panel p {
+  color: #64748b;
+}
+
+.coordinator-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin: 20px 0;
+}
+
+.coordinator-form-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: #334155;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.coordinator-form-grid input,
+.coordinator-form-grid select {
+  padding: 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font: inherit;
+}
+
+.coordinator-full-field {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 900px) {
+  .coordinator-dashboard {
+    padding: 16px;
+  }
+
+  .coordinator-overview-grid,
+  .coordinator-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .outcome-panel {
+    grid-column: auto;
+  }
+
+  .status-visual-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .coordinator-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .coordinator-teams-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

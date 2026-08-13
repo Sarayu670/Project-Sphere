@@ -72,3 +72,12 @@ exports.authorizeCoordinator = (req, res, next) => {
   next();
 };
 
+// Allow either admin or a coordinator (guide with coordinator flags)
+exports.authorizeAdminOrCoordinator = (req, res, next) => {
+  if (req.user?.role === 'admin') {
+    return next();
+  }
+  // Fall back to coordinator check
+  return exports.authorizeCoordinator(req, res, next);
+};
+

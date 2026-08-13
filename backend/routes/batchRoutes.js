@@ -20,7 +20,7 @@ const {
   getSectionBatches,
   updateBatchByCoordinator
 } = require('../controllers/batchController');
-const { protect, authorize, authorizeCoordinator } = require('../middleware/auth');
+const { protect, authorize, authorizeCoordinator, authorizeAdminOrCoordinator } = require('../middleware/auth');
 
 // Configure multer for file upload (memory storage)
 const upload = multer({
@@ -51,7 +51,8 @@ router.get('/my-batch', protect, authorize('student'), getMyBatch);
 router.get('/opted-teams', protect, authorize('guide'), getOptedTeams);
 router.get('/:id', protect, getBatch);
 router.post('/', protect, authorize('student'), createBatch);
-router.post('/import', protect, authorize('admin'), upload.single('file'), importStudentBatches);
+// Allow admins or coordinators to import student batches
+router.post('/import', protect, authorizeAdminOrCoordinator, upload.single('file'), importStudentBatches);
 router.post('/select-problem', protect, authorize('student'), selectProblem);
 router.post('/:id/allot', protect, authorize('guide'), allotProblem);
 router.post('/:id/reject', protect, authorize('guide'), rejectProblem);

@@ -203,9 +203,14 @@ const HomePage = () => {
                   )}
                 </div>
               ) : (
-                <button className="btn btn-primary" onClick={() => navigate('/register')}>
-                  Get Started
-                </button>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button className="btn btn-secondary" onClick={() => navigate('/login')}>
+                    Login
+                  </button>
+                  <button className="btn btn-primary" onClick={() => navigate('/register')}>
+                    Get Started
+                  </button>
+                </div>
               )}
             </div>
           </div>

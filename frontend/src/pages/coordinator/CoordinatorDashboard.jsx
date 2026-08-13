@@ -4,6 +4,8 @@ import { useAuth } from '../../context/AuthContext';
 import * as api from '../../services/api';
 import TimelineManagement from '../admin/TimelineManagement';
 import AdminMeetings from '../admin/AdminMeetings';
+import BatchImport from '../admin/BatchImport';
+import ImportProjectData from '../admin/ImportProjectData';
 import usePolling from '../../utils/usePolling';
 import './CoordinatorDashboard.css';
 
@@ -167,6 +169,8 @@ function CoordinatorDashboard() {
         <button className={`tab ${activeTab === 'teams' ? 'active' : ''}`} onClick={() => changeTab('teams')}>My Teams</button>
         <button className={`tab ${activeTab === 'timeline' ? 'active' : ''}`} onClick={() => changeTab('timeline')}>Timeline</button>
         <button className={`tab ${activeTab === 'meetings' ? 'active' : ''}`} onClick={() => changeTab('meetings')}>Meetings</button>
+        <button className={`tab ${activeTab === 'batch-import' ? 'active' : ''}`} onClick={() => changeTab('batch-import')}>📤 Import Batches</button>
+        <button className={`tab ${activeTab === 'project-import' ? 'active' : ''}`} onClick={() => changeTab('project-import')}>📊 Import Projects</button>
       </div>
 
       {activeTab === 'overview' && (
@@ -306,6 +310,30 @@ function CoordinatorDashboard() {
 
       {activeTab === 'timeline' && <TimelineManagement scope={scope} allowRemarkEditing />}
       {activeTab === 'meetings' && <AdminMeetings scope={scope} />}
+
+      {activeTab === 'batch-import' && (
+        <div className="tab-content">
+          <BatchImport
+            onImportComplete={() => {
+              changeTab('teams');
+              fetchData();
+            }}
+            onCancel={() => changeTab('teams')}
+          />
+        </div>
+      )}
+
+      {activeTab === 'project-import' && (
+        <div className="tab-content">
+          <ImportProjectData
+            onImportComplete={() => {
+              changeTab('teams');
+              fetchData();
+            }}
+            onCancel={() => changeTab('teams')}
+          />
+        </div>
+      )}
     </div>
   );
 }

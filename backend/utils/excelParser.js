@@ -75,37 +75,41 @@ function findAllColumnIndices(headers, pattern) {
  * Example: "GNITS, COE-Deep Learning in Eye Disease Prognosis" => "Deep Learning in Eye Disease Prognosis"
  * Example: "Within GNITS, CoE-Advanced Research in AI" => "Advanced Research in AI"
  */
+function normalizeCOEOrRCName(value) {
+    if (value === undefined || value === null) return 'N/A';
+
+    let str = String(value).trim().replace(/\s+/g, ' ');
+    if (!str) return 'N/A';
+
+    // Only strip explicit organization labels. Preserve the actual name text exactly.
+    const explicitLabelPattern = /^(?:within\s+gnits\s*[,;:.-]?\s*|gnits\s*[,;:.-]?\s*|center of excellence|centre of excellence|research center|research centre|resource center|resource centre|coe|rc)\s*[:;,-]*\s*/i;
+    const prefixed = str.replace(explicitLabelPattern, '').trim();
+    if (prefixed) str = prefixed;
+
+    // If the value does not start with a recognized label, keep it exactly as supplied.
+    return str || 'N/A';
+}
+
 function extractCOENameFromText(text) {
     if (!text) return 'N/A';
 
     let str = String(text).trim();
     if (!str) return 'N/A';
 
-    // Remove institution/context prefixes without touching the actual COE/RC value.
-    // Important: do not match "rc" inside words like "Research".
     const cleaned = str
         .replace(/^within\s+gnits\s*,?\s*/i, '')
         .replace(/^gnits\s*,\s*/i, '')
         .trim();
 
-    const keywordMatch = cleaned.match(/(?:coe|rc|research\s+centre|research\s+center)[-\s:,]*(.+)$/i);
     const labelMatch = cleaned.match(
-        /^(?:coe\s*\/\s*rc|coe|rc|research\s+cent(?:er|re))\b\s*[-:/,]?\s*(.+)$/i
+        /^(?:coe\s*\/\s*rc|coe|rc|research\s+cent(?:er|re)|center of excellence|centre of excellence|research center|research centre|resource center|resource centre)\b\s*[-:/,]?\s*(.+)$/i
     );
 
-    const candidate = (keywordMatch && keywordMatch[1])
-        ? keywordMatch[1]
-        : (labelMatch && labelMatch[1])
-            ? labelMatch[1]
-            : cleaned;
+    const candidate = labelMatch && labelMatch[1]
+        ? labelMatch[1]
+        : cleaned;
 
-    const normalized = String(candidate)
-        .trim()
-        .replace(/^(?:center of excellence|centre of excellence|coe|research center|research centre|resource center|resource centre|rc)[-:\s]*/i, '')
-        .replace(/^(?:for|of|in|on|the)\s+/i, '')
-        .trim();
-
-    return normalized || 'N/A';
+    return normalizeCOEOrRCName(candidate);
 }
 
 /**

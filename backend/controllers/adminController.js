@@ -295,15 +295,14 @@ exports.importBatchData = async (req, res) => {
         // Helper to extract proper name from a cell value
         const extractNameFromCell = (cell, type) => {
           if (!cell) return '';
-          let str = String(cell).trim();
 
-          // Remove common prefixes and filler words
-          str = str
-            .replace(/^gnits\s*,\s*/i, '')
-            .replace(/^(?:for|of|in|on|the)\s+/i, '')
-            .replace(/^(?:center of excellence|centre of excellence|coe|research center|research centre|resource center|resource centre|rc)[-:\s]*/i, '');
+          let str = String(cell).trim().replace(/\s+/g, ' ');
+          if (!str) return '';
 
-          return str.trim();
+          const explicitLabelPattern = /^(?:within\s+gnits\s*[,;:.-]?\s*|gnits\s*[,;:.-]?\s*|center of excellence|centre of excellence|research center|research centre|resource center|resource centre|coe|rc)\s*[:;,-]*\s*/i;
+          const cleaned = str.replace(explicitLabelPattern, '').trim();
+
+          return (cleaned || str).trim();
         };
 
         // Improved content-based correction and segregation

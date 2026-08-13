@@ -207,9 +207,6 @@ const HomePage = () => {
                   <button className="btn btn-secondary" onClick={() => navigate('/login')}>
                     Login
                   </button>
-                  <button className="btn btn-primary" onClick={() => navigate('/register')}>
-                    Get Started
-                  </button>
                 </div>
               )}
             </div>

@@ -149,7 +149,6 @@ function RegisterAdmin() {
 
         <div className="auth-footer">
           <p>Already have an account? <Link to="/login">Login</Link></p>
-          <p>Register as <Link to="/register/guide">Guide</Link></p>
         </div>
       </div>
     </div>

@@ -115,11 +115,9 @@ function Login() {
         </form>
 
         <div className="auth-footer">
-          <p>Don't have an account?</p>
+          <p>Don't have an admin account?</p>
           <div className="register-links">
-            <Link to="/register/coordinator" className="register-link">Class Coordinator</Link>
-            <Link to="/register/guide" className="register-link">👨‍🏫 Guide</Link>
-            <Link to="/register/admin" className="register-link">👑 Admin</Link>
+            <Link to="/register/admin" className="register-link">👑 Register as Admin</Link>
           </div>
         </div>
       </div>

@@ -7,7 +7,6 @@ import BatchImport from './BatchImport';
 import usePolling from '../../utils/usePolling';
 import ImportProjectData from './ImportProjectData';
 import GuideSearch from './GuideSearch';
-import AdminMeetings from './AdminMeetings';
 import AdminAIManagement from '../../components/AdminAIManagement';
 import './AdminDashboard.css';
 
@@ -231,7 +230,6 @@ function AdminDashboard() {
         <button className={`tab ${activeTab === 'timeline' ? 'active' : ''}`} onClick={() => handleTabChange('timeline')}>📅 Timeline</button>
         <button className={`tab ${activeTab === 'filter' ? 'active' : ''}`} onClick={() => { handleTabChange('filter'); setSelectedBatch(null); }}>🔍 Filter by Class</button>
         <button className={`tab ${activeTab === 'guide-search' ? 'active' : ''}`} onClick={() => handleTabChange('guide-search')}>👨‍🏫 Search Batches</button>
-        <button className={`tab ${activeTab === 'meetings' ? 'active' : ''}`} onClick={() => handleTabChange('meetings')}>🤝 Meetings</button>
         <button className={`tab ${activeTab === 'import' ? 'active' : ''}`} onClick={() => handleTabChange('import')}>📤 Batch Import</button>
         <button className={`tab ${activeTab === 'project-import' ? 'active' : ''}`} onClick={() => handleTabChange('project-import')}>📊 Import Projects</button>
         <button className={`tab ${activeTab === 'manage-coe-rc' ? 'active' : ''}`} onClick={() => handleTabChange('manage-coe-rc')}>🏛️ Manage COE/RC</button>
@@ -268,12 +266,6 @@ function AdminDashboard() {
       {activeTab === 'project-import' && (
         <div className="tab-content">
           <ImportProjectData />
-        </div>
-      )}
-
-      {activeTab === 'meetings' && (
-        <div className="tab-content">
-          <AdminMeetings />
         </div>
       )}
 

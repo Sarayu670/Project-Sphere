@@ -212,7 +212,7 @@ function AdminDashboard() {
   return (
     <div className="admin-dashboard">
       <div className="dashboard-header">
-        <h1>👑 Overall Coordinator Dashboard</h1>
+        <h1>👑 Admin Dashboard</h1>
         <p>Monitor all years, branches, sections, COEs, teams, and progress</p>
       </div>
 
@@ -228,9 +228,6 @@ function AdminDashboard() {
         <button className={`tab ${activeTab === 'timeline' ? 'active' : ''}`} onClick={() => handleTabChange('timeline')}>📅 Timeline</button>
         <button className={`tab ${activeTab === 'filter' ? 'active' : ''}`} onClick={() => { handleTabChange('filter'); setSelectedBatch(null); }}>🔍 Filter by Class</button>
         <button className={`tab ${activeTab === 'guide-search' ? 'active' : ''}`} onClick={() => handleTabChange('guide-search')}>👨‍🏫 Search Batches</button>
-        <button className={`tab ${activeTab === 'import' ? 'active' : ''}`} onClick={() => handleTabChange('import')}>📤 Batch Import</button>
-        <button className={`tab ${activeTab === 'project-import' ? 'active' : ''}`} onClick={() => handleTabChange('project-import')}>📊 Import Projects</button>
-        <button className={`tab ${activeTab === 'meetings' ? 'active' : ''}`} onClick={() => handleTabChange('meetings')}>🤝 Meetings</button>
         <button className={`tab ${activeTab === 'manage-coe-rc' ? 'active' : ''}`} onClick={() => handleTabChange('manage-coe-rc')}>🏛️ Manage COE/RC</button>
         <button className={`tab ${activeTab === 'ai-agent' ? 'active' : ''}`} onClick={() => handleTabChange('ai-agent')}>🤖 AI Agent</button>
       </div>
@@ -248,8 +245,6 @@ function AdminDashboard() {
           <GuideSearch />
         </div>
       )}
-
-      {/* Project import and meetings sections removed */}
 
       {activeTab === 'filter' && !selectedBatch && (
         <div className="tab-content">

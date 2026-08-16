@@ -181,7 +181,181 @@ const DOMAIN_ROADMAP_TEMPLATES = {
   ]
 };
 
-// Generic Fallback Template generator for any domain
+function extractProjectContext(batch, problemStatement = null) {
+  const title = problemStatement?.title || batch?.problemId?.title || batch?.teamName || 'Academic Project';
+  const description = problemStatement?.description || batch?.problemId?.description || 'Custom academic project execution roadmap.';
+  const domain = problemStatement?.domain || problemStatement?.researchArea || batch?.domain || batch?.researchArea || 'General';
+  const techStack = Array.isArray(problemStatement?.technologies) && problemStatement.technologies.length
+    ? problemStatement.technologies
+    : Array.isArray(batch?.techStack) && batch.techStack.length
+      ? batch.techStack
+      : ['Node.js', 'React', 'MongoDB', 'REST API'];
+
+  return { title, description, domain, techStack };
+}
+
+function buildRoadmapPrompt(batch, problemStatement = null) {
+  const { title, description, domain, techStack } = extractProjectContext(batch, problemStatement);
+  const stackText = techStack.join(', ');
+
+  return `You are an academic project planning expert. Generate a realistic 4-phase project roadmap in valid JSON only.
+
+Project details:
+- Title: ${title}
+- Domain: ${domain}
+- Description: ${description}
+- Tech Stack: ${stackText}
+- Project type: student academic project
+- Timeline: 12 weeks
+- Output must contain ONLY a JSON object with this exact structure:
+{
+  "problemTitle": "string",
+  "problemDescription": "string",
+  "domain": "string",
+  "techStack": ["string"],
+  "aiSummary": "string",
+  "milestones": [
+    {
+      "phase": 1,
+      "title": "string",
+      "description": "string",
+      "targetWeek": 2,
+      "estimatedDays": 14,
+      "tasks": [
+        { "title": "string" }
+      ],
+      "deliverables": ["string"],
+      "status": "not_started",
+      "completedAt": null
+    }
+  ]
+}
+
+Rules:
+- Use exactly 4 milestones.
+- Make each milestone specific to the project description and domain.
+- The roadmap must be meaningfully different across different projects.
+- Each milestone must include 3 to 5 practical tasks.
+- Use a realistic academic project flow: research / design / development / testing / deployment.
+- Use short, actionable task titles.
+- Return valid JSON only, no markdown fences and no explanation.`;
+}
+
+function stripMarkdownCodeFence(content) {
+  if (!content || typeof content !== 'string') return content;
+  return content.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+}
+
+function normalizeMilestones(milestones) {
+  if (!Array.isArray(milestones)) return [];
+
+  return milestones.map((milestone, index) => ({
+    phase: Number(milestone?.phase ?? index + 1),
+    title: String(milestone?.title || `Phase ${index + 1}`),
+    description: String(milestone?.description || 'Project milestone.'),
+    targetWeek: Number(milestone?.targetWeek ?? (index + 1) * 2),
+    estimatedDays: Number(milestone?.estimatedDays ?? 14),
+    tasks: Array.isArray(milestone?.tasks)
+      ? milestone.tasks.map(task => ({
+          title: String(task?.title || 'Task'),
+          completed: false,
+          completedAt: null
+        }))
+      : [],
+    deliverables: Array.isArray(milestone?.deliverables)
+      ? milestone.deliverables.map(item => String(item || 'Deliverable'))
+      : [],
+    status: milestone?.status || (index === 0 ? 'in_progress' : 'not_started'),
+    completedAt: null
+  }));
+}
+
+function normalizeGeneratedRoadmap(rawData, fallbackProject) {
+  if (!rawData || typeof rawData !== 'object') return null;
+
+  const problemTitle = String(rawData.problemTitle || fallbackProject.title || 'Academic Project');
+  const problemDescription = String(rawData.problemDescription || fallbackProject.description || 'Roadmap generated for this project.');
+  const domain = String(rawData.domain || fallbackProject.domain || 'General');
+  const techStack = Array.isArray(rawData.techStack) && rawData.techStack.length
+    ? rawData.techStack.map(item => String(item)).slice(0, 10)
+    : fallbackProject.techStack;
+
+  const milestones = normalizeMilestones(rawData.milestones);
+  if (milestones.length === 0) return null;
+
+  return {
+    problemTitle,
+    problemDescription,
+    domain,
+    techStack,
+    aiSummary: String(rawData.aiSummary || `AI-generated roadmap for ${problemTitle} in ${domain}.`),
+    milestones
+  };
+}
+
+async function callRoadmapModel(prompt) {
+    const geminiApiKey = process.env.SPHERE_GEMINI_API_KEY;
+
+    if (!geminiApiKey) {
+        console.error('AI Roadmap Generation Failed: SPHERE_GEMINI_API_KEY is not configured in the .env file.');
+        throw new Error('AI service is not configured. Please contact the administrator.');
+    }
+
+    const model = 'gemini-3.5-flash-lite';
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey}`;
+
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: {
+                    temperature: 0.7,
+                    maxOutputTokens: 1800,
+                    responseMimeType: 'application/json'
+                }
+            })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            // This will now throw the actual error from Gemini, e.g., API not enabled.
+            throw new Error(`Gemini API request failed: ${response.status} ${errorText}`);
+        }
+
+        const data = await response.json();
+        const content = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        return content || null;
+    } catch (error) {
+        console.error('Gemini API call failed:', error.message);
+        // Re-throw the error to be caught by the calling function, preventing fallback.
+        throw error;
+    }
+}
+
+async function generatePromptBasedRoadmap(batch, problemStatement = null) {
+  const projectContext = extractProjectContext(batch, problemStatement);
+  const prompt = buildRoadmapPrompt(batch, problemStatement);
+
+  try {
+    const responseText = await callRoadmapModel(prompt);
+    if (!responseText) return null;
+
+    const cleanedText = stripMarkdownCodeFence(responseText);
+    const parsed = JSON.parse(cleanedText);
+    const normalized = normalizeGeneratedRoadmap(parsed, projectContext);
+
+    if (!normalized) return null;
+    return normalized;
+  } catch (error) {
+    console.warn('Prompt-based roadmap generation failed, falling back to template generator:', error.message);
+    return null;
+  }
+}
+
 function getGenericTemplate(domain, problemTitle) {
   return [
     {
@@ -243,66 +417,81 @@ function getGenericTemplate(domain, problemTitle) {
   ];
 }
 
-exports.generateRoadmapForBatch = async (batch, problemStatement = null) => {
+function buildTemplateRoadmap(batch, problemStatement = null) {
+  const { title, description, domain, techStack } = extractProjectContext(batch, problemStatement);
+
+  let selectedTemplate = DOMAIN_ROADMAP_TEMPLATES[domain];
+  if (!selectedTemplate) {
+    const domainKey = Object.keys(DOMAIN_ROADMAP_TEMPLATES).find(k => domain.toLowerCase().includes(k.toLowerCase()) || k.toLowerCase().includes(domain.toLowerCase()));
+    selectedTemplate = domainKey ? DOMAIN_ROADMAP_TEMPLATES[domainKey] : getGenericTemplate(domain, title);
+  }
+
+  const milestones = selectedTemplate.map((m, index) => ({
+    phase: m.phase,
+    title: m.title.replace('{problemTitle}', title),
+    description: m.description,
+    targetWeek: m.targetWeek,
+    estimatedDays: m.estimatedDays,
+    tasks: m.tasks.map(t => ({ title: t.title, completed: false, completedAt: null })),
+    deliverables: m.deliverables,
+    status: index === 0 ? 'in_progress' : 'not_started',
+    completedAt: null
+  }));
+
+  return {
+    problemTitle: title,
+    problemDescription: description,
+    domain,
+    techStack,
+    aiSummary: `Personalized AI roadmap generated for "${title}" (${domain} domain). Structured across ${milestones.length} milestone phases targeting completion over 12 weeks.`,
+    milestones
+  };
+}
+
+async function generateRoadmapForBatch(batch, problemStatement = null) {
   try {
-    const title = problemStatement?.title || batch.problemId?.title || batch.teamName || 'Academic Project';
-    const description = problemStatement?.description || batch.problemId?.description || 'Custom academic project execution roadmap.';
-    const domain = problemStatement?.domain || problemStatement?.researchArea || batch.domain || batch.researchArea || 'General';
+    const projectContext = extractProjectContext(batch, problemStatement);
 
-    // Select template array based on domain
-    let selectedTemplate = DOMAIN_ROADMAP_TEMPLATES[domain];
-    if (!selectedTemplate) {
-      // Check partial matches
-      const domainKey = Object.keys(DOMAIN_ROADMAP_TEMPLATES).find(k => domain.toLowerCase().includes(k.toLowerCase()) || k.toLowerCase().includes(domain.toLowerCase()));
-      selectedTemplate = domainKey ? DOMAIN_ROADMAP_TEMPLATES[domainKey] : getGenericTemplate(domain, title);
-    }
+    const promptGenerated = await generatePromptBasedRoadmap(batch, problemStatement);
+    const generatedRoadmap = promptGenerated || buildTemplateRoadmap(batch, problemStatement);
 
-    // Build milestone objects with initial completion state
-    const milestones = selectedTemplate.map(m => ({
-      phase: m.phase,
-      title: m.title.replace('{problemTitle}', title),
-      description: m.description,
-      targetWeek: m.targetWeek,
-      estimatedDays: m.estimatedDays,
-      tasks: m.tasks.map(t => ({ title: t.title, completed: false, completedAt: null })),
-      deliverables: m.deliverables,
-      status: m.phase === 1 ? 'in_progress' : 'not_started',
-      completedAt: null
-    }));
-
-    // Extract tech stack
-    const techStack = problemStatement?.technologies || ['Node.js', 'React', 'Python', 'MongoDB', 'REST API'];
-
-    const aiSummary = `Personalized AI roadmap generated for "${title}" (${domain} domain). Structured across ${milestones.length} milestone phases targeting completion over 12 weeks.`;
-
-    // Find existing or upsert
     let roadmap = await ProjectRoadmap.findOne({ batchId: batch._id });
+    const payload = {
+      batchId: batch._id,
+      problemTitle: generatedRoadmap.problemTitle || projectContext.title,
+      problemDescription: generatedRoadmap.problemDescription || projectContext.description,
+      domain: generatedRoadmap.domain || projectContext.domain,
+      techStack: generatedRoadmap.techStack || projectContext.techStack,
+      aiSummary: generatedRoadmap.aiSummary || `AI roadmap generated for ${projectContext.title}.`,
+      milestones: generatedRoadmap.milestones,
+      generatedBy: 'ai',
+      lastUpdated: new Date()
+    };
+
     if (roadmap) {
-      roadmap.problemTitle = title;
-      roadmap.problemDescription = description;
-      roadmap.domain = domain;
-      roadmap.techStack = techStack;
-      roadmap.aiSummary = aiSummary;
-      roadmap.milestones = milestones;
+      roadmap.problemTitle = payload.problemTitle;
+      roadmap.problemDescription = payload.problemDescription;
+      roadmap.domain = payload.domain;
+      roadmap.techStack = payload.techStack;
+      roadmap.aiSummary = payload.aiSummary;
+      roadmap.milestones = payload.milestones;
       roadmap.lastUpdated = new Date();
       await roadmap.save();
-    } else {
-      roadmap = await ProjectRoadmap.create({
-        batchId: batch._id,
-        problemTitle: title,
-        problemDescription: description,
-        domain,
-        techStack,
-        aiSummary,
-        milestones,
-        generatedBy: 'ai',
-        lastUpdated: new Date()
-      });
+      return roadmap;
     }
 
+    roadmap = await ProjectRoadmap.create(payload);
     return roadmap;
   } catch (error) {
     console.error('aiRoadmapService Error:', error);
     throw error;
   }
+}
+
+module.exports = {
+  buildRoadmapPrompt,
+  generatePromptBasedRoadmap,
+  generateRoadmapForBatch,
+  buildTemplateRoadmap,
+  normalizeGeneratedRoadmap
 };

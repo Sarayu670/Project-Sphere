@@ -11,7 +11,9 @@ import ExcelImportProblem from './ExcelImportProblem';
 import GuideSearch from '../admin/GuideSearch';
 import ConfirmationDialog from '../../components/ConfirmationDialog';
 import GuideMeetings from './GuideMeetings';
+import AIProblemExplorer from '../../components/AIProblemExplorer';
 import './GuideDashboard.css';
+
 
 function GuideDashboard() {
   const [activeTab, setActiveTab] = useState(
@@ -51,6 +53,8 @@ function GuideDashboard() {
   const [filteredProblems, setFilteredProblems] = useState([]);
   const [editingProblem, setEditingProblem] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [problemPage, setProblemPage] = useState(1);
+  const problemItemsPerPage = 6;
 
   const TARGET_YEARS = ['2nd', '3rd', '4th'];
   const YEAR_LABELS = {
@@ -150,8 +154,9 @@ function GuideDashboard() {
     }
   }, [user]);
 
-  // Also preload teams data once (needed for stats row)
+  // Also preload dashboard data once (needed for stats row)
   useEffect(() => {
+    fetchProblemsData();
     fetchTeamsData();
     fetchRequestsData();
     fetchUnreadCounts();
@@ -181,6 +186,7 @@ function GuideDashboard() {
 
   const handleSearch = async (value) => {
     setSearchTerm(value);
+    setProblemPage(1);
     if (!value.trim()) { setFilteredProblems(problems); return; }
     try {
       const response = await api.searchProblems(value);
@@ -346,6 +352,11 @@ function GuideDashboard() {
     </div>
   );
 
+  const totalProblemPages = Math.max(1, Math.ceil(filteredProblems.length / problemItemsPerPage));
+  const safeProblemPage = Math.min(problemPage, totalProblemPages);
+  const problemStartIndex = (safeProblemPage - 1) * problemItemsPerPage;
+  const paginatedProblems = filteredProblems.slice(problemStartIndex, problemStartIndex + problemItemsPerPage);
+
   return (
     <div className="guide-dashboard">
       <div className="dashboard-header">
@@ -383,8 +394,10 @@ function GuideDashboard() {
         <button className={`tab ${activeTab === 'teams' ? 'active' : ''}`} onClick={() => handleTabChange('teams')}>👥 My Teams</button>
         <button className={`tab ${activeTab === 'submissions' ? 'active' : ''}`} onClick={() => handleTabChange('submissions')}>📅 Timeline</button>
         <button className={`tab ${activeTab === 'meetings' ? 'active' : ''}`} onClick={() => handleTabChange('meetings')}>🤝 Meetings</button>
+        <button className={`tab ${activeTab === 'ai-hub' ? 'active' : ''}`} onClick={() => handleTabChange('ai-hub')}>🤖 AI Problem Hub</button>
         <button className={`tab ${activeTab === 'guide-search' ? 'active' : ''}`} onClick={() => handleTabChange('guide-search')}>🔍 Search Batches</button>
       </div>
+
 
       {activeTab === 'problems' && (
         <div className="tab-content">
@@ -447,7 +460,7 @@ function GuideDashboard() {
                 />
               </div>
               <div className="grid grid-2">
-                {filteredProblems.map(p => (
+                {paginatedProblems.map(p => (
                   <div className="card" key={p._id}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
                       <div>
@@ -478,6 +491,13 @@ function GuideDashboard() {
                   </div>
                 ))}
               </div>
+              {filteredProblems.length > problemItemsPerPage && (
+                <div className="dashboard-pagination">
+                  <button className="btn btn-secondary" onClick={() => setProblemPage(prev => Math.max(1, prev - 1))} disabled={safeProblemPage === 1}>Previous</button>
+                  <span>Page {safeProblemPage} of {totalProblemPages}</span>
+                  <button className="btn btn-secondary" onClick={() => setProblemPage(prev => Math.min(totalProblemPages, prev + 1))} disabled={safeProblemPage === totalProblemPages}>Next</button>
+                </div>
+              )}
             </>
           )}
         </div>
@@ -548,9 +568,16 @@ function GuideDashboard() {
 
       {activeTab === 'meetings' && <GuideMeetings />}
 
+      {activeTab === 'ai-hub' && (
+        <div className="tab-content">
+          <AIProblemExplorer userRole="guide" />
+        </div>
+      )}
+
       {activeTab === 'guide-search' && (
         <div className="tab-content"><GuideSearch /></div>
       )}
+
 
       <ConfirmationDialog
         isOpen={dialog.isOpen} title={dialog.title} message={dialog.message} type={dialog.type}

@@ -34,10 +34,25 @@ const ProjectSchema = new mongoose.Schema({
     required: [true, 'Project title is required'],
     trim: true
   },
+  domain: {
+    type: String,
+    trim: true,
+    default: 'N/A'
+  },
   researchArea: {
     type: String,
     trim: true,
     default: 'N/A'
+  },
+  thrustArea: {
+    type: String,
+    trim: true,
+    default: 'N/A'
+  },
+  outcome: {
+    type: String,
+    trim: true,
+    default: 'None'
   },
   coe: {
     type: String,
@@ -63,7 +78,7 @@ const ProjectSchema = new mongoose.Schema({
 });
 
 // Create text index for smart search
-ProjectSchema.index({ guideName: 'text', projectTitle: 'text' });
+ProjectSchema.index({ guideName: 'text', projectTitle: 'text', domain: 'text' });
 
 // Instance method to get formatted student list
 ProjectSchema.methods.getStudentList = function () {

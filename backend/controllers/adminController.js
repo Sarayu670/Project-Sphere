@@ -5,6 +5,11 @@ const Batch = require('../models/Batch');
 const Student = require('../models/Student');
 const Admin = require('../models/Admin');
 const TeamMember = require('../models/TeamMember');
+const Coordinator = require('../models/Coordinator');
+
+const VALID_BRANCHES = ['CSE', 'IT', 'ECE', 'CSM', 'EEE', 'CSD', 'ETM'];
+const VALID_SECTIONS = ['A', 'B', 'C', 'D', 'E'];
+const VALID_YEARS = ['2nd', '3rd', '4th'];
 
 // @desc    Get admin dashboard stats
 // @route   GET /api/admin/dashboard
@@ -221,6 +226,172 @@ exports.importBatches = async (req, res) => {
   }
 };
 
+// @desc    Get all coordinators (guide accounts with coordinator scope)
+// @route   GET /api/admin/coordinators
+exports.getCoordinators = async (req, res) => {
+  try {
+    const coordinators = await Coordinator.find().sort({ name: 1 });
+
+    const formatted = coordinators.map((coord) => ({
+      _id: coord._id,
+      name: coord.name,
+      email: coord.email,
+      branch: coord.branch || '',
+      section: coord.section || '',
+      year: coord.year || ''
+    }));
+
+    res.status(200).json({ success: true, data: formatted });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Delete coordinator record and revoke coordinator access
+// @route   DELETE /api/admin/coordinators/:id
+exports.deleteCoordinator = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const coordinator = await Coordinator.findById(id);
+    if (!coordinator) {
+      return res.status(404).json({ success: false, message: 'Coordinator not found' });
+    }
+
+    await Coordinator.findByIdAndDelete(id);
+
+    if (coordinator.email) {
+      const guide = await Guide.findOne({ email: coordinator.email.toLowerCase().trim() });
+      if (guide) {
+        guide.isCoordinator = false;
+        guide.coordinatorImportedByAdmin = false;
+        guide.coordinatorSection = undefined;
+        await guide.save();
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Coordinator deleted successfully.'
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Import coordinators from Excel/CSV file
+// @route   POST /api/admin/import-coordinators
+exports.importCoordinators = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No file provided' });
+    }
+
+    const XLSX = require('xlsx');
+    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+
+    const results = { created: 0, updated: 0, skipped: 0, errors: [] };
+
+    for (const row of rows) {
+      try {
+        const rawName = String(row.name || row.Name || row['Full Name'] || '').trim();
+        const rawBranch = String(row.branch || row.Branch || '').trim().toUpperCase();
+        const rawSection = String(row.section || row.Section || '').trim().toUpperCase();
+        const rawEmail = String(row.email || row.Email || '').trim().toLowerCase();
+        let rawYear = String(row.year || row.Year || '').trim().toLowerCase();
+        // Normalize common year formats (e.g. "2", "2nd year", "II") to the canonical values
+        const yearDigitMatch = rawYear.match(/\d/);
+        if (yearDigitMatch) {
+          const yearMap = { '1': '1st', '2': '2nd', '3': '3rd', '4': '4th' };
+          rawYear = yearMap[yearDigitMatch[0]] || rawYear;
+        } else if (rawYear) {
+          rawYear = rawYear.replace(/\s*year\s*$/i, '').trim();
+        }
+
+        if (!rawName || !rawBranch || !rawSection || !rawEmail) {
+          throw new Error('Missing required fields in row');
+        }
+
+        if (!VALID_BRANCHES.includes(rawBranch)) {
+          throw new Error(`Invalid branch: ${rawBranch}`);
+        }
+
+        if (!VALID_SECTIONS.includes(rawSection)) {
+          throw new Error(`Invalid section: ${rawSection}`);
+        }
+
+        if (!VALID_YEARS.includes(rawYear)) {
+          throw new Error(`Invalid year: "${row.year || row.Year || ''}". Expected one of: ${VALID_YEARS.join(', ')}`);
+        }
+
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail)) {
+          throw new Error(`Invalid email: ${rawEmail}`);
+        }
+
+        let guide = await Guide.findOne({ email: rawEmail });
+
+        const coordinatorScope = {
+          branch: rawBranch,
+          section: rawSection,
+          year: rawYear
+        };
+
+        if (!guide) {
+          guide = await Guide.create({
+            name: rawName,
+            email: rawEmail,
+            password: 'gnits@123',
+            department: 'Computer Science',
+            isCoordinator: true,
+            coordinatorImportedByAdmin: true,
+            coordinatorSection: coordinatorScope
+          });
+        } else {
+          guide.name = rawName;
+          guide.department = guide.department || 'Computer Science';
+          guide.isCoordinator = true;
+          guide.coordinatorImportedByAdmin = true;
+          guide.coordinatorSection = coordinatorScope;
+          await guide.save();
+        }
+
+        const coordinatorDoc = await Coordinator.findOneAndUpdate(
+          { email: rawEmail },
+          {
+            name: rawName,
+            email: rawEmail,
+            branch: rawBranch,
+            section: rawSection,
+            year: rawYear,
+            guideId: guide._id,
+            isActive: true
+          },
+          { upsert: true, new: true, setDefaultsOnInsert: true }
+        );
+
+        if (coordinatorDoc.wasNew) {
+          results.created += 1;
+        } else {
+          results.updated += 1;
+        }
+      } catch (error) {
+        results.skipped += 1;
+        results.errors.push({ error: error.message });
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      data: results,
+      message: `Coordinator import finished: ${results.created} created, ${results.updated} updated, ${results.skipped} skipped.`
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // @desc    Import batches with students from Excel file
 // @route   POST /api/admin/import-batch-data
 exports.importBatchData = async (req, res) => {
@@ -295,13 +466,14 @@ exports.importBatchData = async (req, res) => {
         // Helper to extract proper name from a cell value
         const extractNameFromCell = (cell, type) => {
           if (!cell) return '';
-          let str = String(cell).trim();
 
-          // Remove common prefixes
-          str = str.replace(/^gnits\s*,\s*/i, '');
-          str = str.replace(/^(?:center of excellence|centre of excellence|coe|research center|research centre|resource center|resource centre|rc)[-:\s]*/i, '');
+          let str = String(cell).trim().replace(/\s+/g, ' ');
+          if (!str) return '';
 
-          return str.trim();
+          const explicitLabelPattern = /^(?:within\s+gnits\s*[,;:.-]?\s*|gnits\s*[,;:.-]?\s*|center of excellence|centre of excellence|research center|research centre|resource center|resource centre|coe|rc)\s*[:;,-]*\s*/i;
+          const cleaned = str.replace(explicitLabelPattern, '').trim();
+
+          return (cleaned || str).trim();
         };
 
         // Improved content-based correction and segregation

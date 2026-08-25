@@ -48,6 +48,20 @@ const BatchSchema = new mongoose.Schema({
     index: true,
     default: ''
   },
+
+  // Thrust Area (specific technical domain/thrust)
+  thrustArea: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+
+  // Project Outcome (e.g., Patented, Published, Copyrighted, Prototype, None)
+  outcome: {
+    type: String,
+    trim: true,
+    default: 'None'
+  },
   
   // COE (Center of Excellence) - from Excel import
   coe: {
@@ -135,6 +149,6 @@ const BatchSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Index for search
-BatchSchema.index({ teamName: 'text', domain: 'text', 'coe.name': 'text', 'rc.name': 'text' });
+BatchSchema.index({ teamName: 'text', domain: 'text', thrustArea: 'text', 'coe.name': 'text', 'rc.name': 'text' });
 
 module.exports = mongoose.model('Batch', BatchSchema);

@@ -45,10 +45,13 @@ export const getBatch = (id) => axios.get(`${API_URL}/batches/${id}`);
 export const createBatch = (data) => axios.post(`${API_URL}/batches`, data);
 export const selectProblem = (problemId) => axios.post(`${API_URL}/batches/select-problem`, { problemId });
 export const updateBatchStatus = (id, status) => axios.put(`${API_URL}/batches/${id}/status`, { status });
+export const updateBatchOutcome = (id, outcome) => axios.put(`${API_URL}/batches/${id}/outcome`, { outcome });
 export const getOptedTeams = () => axios.get(`${API_URL}/batches/opted-teams`);
 export const allotProblem = (batchId, problemId) => axios.post(`${API_URL}/batches/${batchId}/allot`, { problemId });
 export const rejectProblem = (batchId, problemId) => axios.post(`${API_URL}/batches/${batchId}/reject`, { problemId });
 export const updateBatchByAdmin = (id, data) => axios.put(`${API_URL}/batches/${id}/admin-update`, data);
+export const getSectionBatches = () => axios.get(`${API_URL}/batches/section`);
+export const updateBatchByCoordinator = (id, data) => axios.put(`${API_URL}/batches/${id}/coordinator-update`, data);
 
 // Team Members
 export const getTeamMembers = (batchId) => axios.get(`${API_URL}/team-members/${batchId}`);
@@ -65,12 +68,15 @@ export const getGuideProgressUpdates = () => axios.get(`${API_URL}/progress/guid
 // Meetings
 export const getMeetingPlan = (batchId) => axios.get(`${API_URL}/meetings/${batchId}`);
 export const getAllMeetingPlans = () => axios.get(`${API_URL}/meetings`);
+export const getSectionMeetingPlans = () => axios.get(`${API_URL}/meetings/section`);
 export const updateMeetingPlan = (batchId, data) => axios.post(`${API_URL}/meetings/${batchId}`, data);
 
 // Admin
 export const getAdminDashboard = () => axios.get(`${API_URL}/admin/dashboard`);
 export const getAdminOverview = () => axios.get(`${API_URL}/admin/overview`);
 export const getBatchGuideMapping = () => axios.get(`${API_URL}/admin/batch-guide-mapping`);
+export const getAllCoordinators = () => axios.get(`${API_URL}/admin/coordinators`);
+export const deleteCoordinator = (id) => axios.delete(`${API_URL}/admin/coordinators/${id}`);
 export const createAdmin = (data) => axios.post(`${API_URL}/admin/create`, data);
 export const importBatches = (data) => axios.post(`${API_URL}/admin/import-batches`, data);
 export const importBatchData = (file) => {
@@ -84,6 +90,13 @@ export const importStudentBatchesFromExcel = (file) => {
   const formData = new FormData();
   formData.append('file', file);
   return axios.post(`${API_URL}/batches/import`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+};
+export const importCoordinators = (file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  return axios.post(`${API_URL}/admin/import-coordinators`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   });
 };
@@ -112,6 +125,7 @@ export const getAllSubmissions = (params = {}) => {
   if (params.batchId) queryParams.append('batchId', params.batchId);
   if (params.page) queryParams.append('page', params.page);
   if (params.limit) queryParams.append('limit', params.limit);
+  if (params.status) queryParams.append('status', params.status);
   
   const queryString = queryParams.toString();
   return axios.get(`${API_URL}/submissions${queryString ? '?' + queryString : ''}`);
@@ -164,3 +178,25 @@ export const searchRCs = (query) => axios.get(`${API_URL}/rc/search`, { params: 
 export const createRC = (data) => axios.post(`${API_URL}/rc`, data);
 export const updateRC = (id, data) => axios.put(`${API_URL}/rc/${id}`, data);
 export const deleteRC = (id) => axios.delete(`${API_URL}/rc/${id}`);
+
+// AI Problem Agent endpoints
+export const getAIProblems = (params = {}) => axios.get(`${API_URL}/ai-problems`, { params });
+export const getAIProblem = (id) => axios.get(`${API_URL}/ai-problems/${id}`);
+export const requestAIProblem = (id) => axios.post(`${API_URL}/ai-problems/${id}/request`);
+export const adoptAIProblem = (id, data) => axios.post(`${API_URL}/ai-problems/${id}/adopt`, data);
+export const triggerAICrawl = () => axios.post(`${API_URL}/ai-problems/crawl`);
+
+export const getAICrawlerStats = () => axios.get(`${API_URL}/ai-problems/stats`);
+export const createAIProblem = (data) => axios.post(`${API_URL}/ai-problems`, data);
+export const updateAIProblem = (id, data) => axios.put(`${API_URL}/ai-problems/${id}`, data);
+export const deleteAIProblem = (id) => axios.delete(`${API_URL}/ai-problems/${id}`);
+
+// AI Mentor & Progress Suite endpoints
+export const getBatchRoadmap = (batchId) => axios.get(`${API_URL}/ai-mentor/roadmap/${batchId}`);
+export const regenerateBatchRoadmap = (batchId) => axios.post(`${API_URL}/ai-mentor/roadmap/${batchId}/regenerate`);
+export const updateMilestoneTask = (batchId, data) => axios.put(`${API_URL}/ai-mentor/roadmap/${batchId}/tasks`, data);
+export const getBatchProgressAnalysis = (batchId) => axios.get(`${API_URL}/ai-mentor/progress-analysis/${batchId}`);
+export const refreshBatchProgressAnalysis = (batchId) => axios.post(`${API_URL}/ai-mentor/progress-analysis/${batchId}/refresh`);
+export const getRecommendedProblems = (params = {}) => axios.get(`${API_URL}/ai-mentor/recommend-problems`, { params });
+
+

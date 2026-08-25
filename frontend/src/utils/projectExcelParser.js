@@ -139,34 +139,52 @@ export const parseProjectsFromExcel = (jsonData) => {
   return { projects: validProjects, errors };
 };
 
-// Extract COE name from "GNITS, CoE-Deep Learning in Eye Disease Prognosis" format
-// COE is typically the first value before comma (organization name)
-export const extractCOE = (coeRcString) => {
-  if (!coeRcString) return '';
-  const parts = coeRcString.split(',').map(part => part.trim());
-  // Return the part that looks like an organization (GNITS, BITS, etc.)
-  // Usually the first part or one without "CoE-" prefix
-  for (const part of parts) {
-    if (!part.toLowerCase().includes('coe-') && !part.toLowerCase().includes('rc-')) {
-      return part;
-    }
-  }
-  return parts[0] || '';
+const cleanCoeRcValue = (value) => {
+  if (!value) return '';
+
+  let text = String(value).trim().replace(/\s+/g, ' ');
+  if (!text) return '';
+
+  const explicitLabelPattern = /^(?:within\s+gnits\s*[,;:.-]?\s*|gnits\s*[,;:.-]?\s*|center of excellence|centre of excellence|research center|research centre|resource center|resource centre|coe|rc)\s*[:;,-]*\s*/i;
+  const cleaned = text.replace(explicitLabelPattern, '').trim();
+
+  return (cleaned || text).trim();
 };
 
-// Extract RC name from "GNITS, CoE-Deep Learning in Eye Disease Prognosis" format
-// RC is typically the part with "CoE-" or "RC-" prefix, or the longer description
+// Extract COE name from "GNITS, CoE-Deep Learning in Eye Disease Prognosis" format.
+// Preserve the exact value after only removing explicit label prefixes.
+export const extractCOE = (coeRcString) => {
+  if (!coeRcString) return '';
+
+  const raw = String(coeRcString).trim();
+  const match = raw.match(/^(?:center of excellence|centre of excellence|coe)\s*[:;,-]*\s*(.+)$/i) ||
+    raw.match(/^(?:research center|research centre|resource center|resource centre)\s*[:;,-]*\s*(.+)$/i);
+  if (match && match[1]) return cleanCoeRcValue(match[1]);
+
+  const segments = raw
+    .split(/[;,]/)
+    .map(part => cleanCoeRcValue(part))
+    .filter(Boolean);
+
+  if (segments.length === 0) return '';
+  return segments[0];
+};
+
+// Extract RC name from "GNITS, CoE-Deep Learning in Eye Disease Prognosis" format.
 export const extractRC = (coeRcString) => {
   if (!coeRcString) return '';
-  const parts = coeRcString.split(',').map(part => part.trim());
-  // Return the part that looks like an RC (has CoE- or RC- prefix, or is descriptive)
-  for (const part of parts) {
-    if (part.toLowerCase().includes('coe-') || part.toLowerCase().includes('rc-')) {
-      return part;
-    }
-  }
-  // If no RC- or CoE- prefix, return the longer part or last part
-  return parts[parts.length - 1] || '';
+
+  const raw = String(coeRcString).trim();
+  const match = raw.match(/^(?:rc|research center|research centre|resource center|resource centre)\s*[:;,-]*\s*(.+)$/i);
+  if (match && match[1]) return cleanCoeRcValue(match[1]);
+
+  const segments = raw
+    .split(/[;,]/)
+    .map(part => cleanCoeRcValue(part))
+    .filter(Boolean);
+
+  if (segments.length <= 1) return '';
+  return segments[segments.length - 1];
 };
 
 // Extract year from batch string or project ID

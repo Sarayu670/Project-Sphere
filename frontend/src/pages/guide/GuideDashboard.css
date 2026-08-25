@@ -72,43 +72,58 @@
   background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
 }
 
-.stats-row {
+.guide-dashboard .stats-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 14px;
   margin-bottom: 18px;
 }
 
-.stat-card {
-  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
-  border: none;
-  border-radius: var(--radius-md);
-  padding: 24px 20px;
+.guide-dashboard .stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-top: 3px solid #0ea5e9;
+  border-radius: 8px;
+  padding: 18px 16px;
   text-align: center;
   box-shadow: var(--shadow-sm);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+  min-height: 130px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
-.stat-card:hover {
+.guide-dashboard .stat-card:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
 }
 
-.stat-icon {
-  font-size: 34px;
-  margin-bottom: 10px;
-  color: rgba(255, 255, 255, 0.9);
+.guide-dashboard .stat-icon {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 10px;
+  display: grid;
+  place-items: center;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 26px;
+  line-height: 1;
+  color: #0f766e;
 }
 
-.stat-value {
+.guide-dashboard .stat-value {
   font-size: 30px;
   font-weight: 800;
-  color: #ffffff;
+  color: #0f172a;
   margin-bottom: 6px;
+  line-height: 1.1;
+  min-height: 34px;
 }
 
-.stat-label {
-  color: rgba(255, 255, 255, 0.85);
+.guide-dashboard .stat-label {
+  color: var(--text-muted);
   font-size: 13px;
   font-weight: 600;
 }
@@ -485,6 +500,24 @@
   flex-direction: column;
   gap: 8px;
   padding: 18px;
+}
+
+.dashboard-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.dashboard-pagination span {
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.dashboard-pagination .btn {
+  padding: 8px 12px;
 }
 
 .unread-badge {

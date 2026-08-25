@@ -1,7 +1,7 @@
 import * as XLSX from 'xlsx';
 
 export function downloadProjectExcelTemplate() {
-  // This template matches the format you want for project import
+  // Template for project import — Outcome is NOT required here (set by guide post-project)
   const sampleData = [
     {
       'Batch No': 'S19',
@@ -13,6 +13,7 @@ export function downloadProjectExcelTemplate() {
       'Internal Guide': 'N.Tejaswi',
       'Project Title': 'Project Sphere',
       'Domain': 'Cloud Computing',
+      'Thrust Area': 'Cloud & Distributed Systems',
       'CoE/RC': 'Cloud Computing',
       'Guide Email': 'pittalasarayu99@gmail.com'
     },
@@ -26,6 +27,7 @@ export function downloadProjectExcelTemplate() {
       'Internal Guide': 'N.Tejaswi',
       'Project Title': 'Project Sphere',
       'Domain': 'Cloud Computing',
+      'Thrust Area': 'Cloud & Distributed Systems',
       'CoE/RC': 'Cloud Computing',
       'Guide Email': 'pittalasarayu99@gmail.com'
     },
@@ -39,6 +41,7 @@ export function downloadProjectExcelTemplate() {
       'Internal Guide': 'N.Tejaswi',
       'Project Title': 'Project Sphere',
       'Domain': 'Cloud Computing',
+      'Thrust Area': 'Cloud & Distributed Systems',
       'CoE/RC': 'Cloud Computing',
       'Guide Email': 'pittalasarayu99@gmail.com'
     }
@@ -56,6 +59,7 @@ export function downloadProjectExcelTemplate() {
     { wch: 18 }, // Internal Guide
     { wch: 20 }, // Project Title
     { wch: 18 }, // Domain
+    { wch: 25 }, // Thrust Area
     { wch: 18 }, // CoE/RC
     { wch: 28 }  // Guide Email
   ];

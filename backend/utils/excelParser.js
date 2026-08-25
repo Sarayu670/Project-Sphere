@@ -17,7 +17,10 @@ const COLUMN_PATTERNS = {
     guideName: /name.*of.*the.*guide|internal.*guide|guide.*name|name.*of.*guide|mentor|supervisor|faculty|advisor|(?!.*email)\bguide\b/i,
     guideEmail: /guide.*email|guide.*mail|email.*guide|mail.*id.*guide|mail.*id/i,
     projectTitle: /project.*title|title/i,
-    researchArea: /domain|research.*thrust|thrust.*area|research.*area|\barea\b/i,
+    domain: /\bdomain\b/i,
+    researchArea: /research.*area|\barea\b/i,
+    thrustArea: /thrust.*area|thrust/i,
+    outcome: /outcome|status.*outcome|patent|publication|patented|published/i,
     coe: /\bcoe\b|\brc\b|center.*excellence|center.*of.*excellence/i,
     year: /year|class.*year/i,
     branch: /branch|department|dept/i,
@@ -72,22 +75,41 @@ function findAllColumnIndices(headers, pattern) {
  * Example: "GNITS, COE-Deep Learning in Eye Disease Prognosis" => "Deep Learning in Eye Disease Prognosis"
  * Example: "Within GNITS, CoE-Advanced Research in AI" => "Advanced Research in AI"
  */
+function normalizeCOEOrRCName(value) {
+    if (value === undefined || value === null) return 'N/A';
+
+    let str = String(value).trim().replace(/\s+/g, ' ');
+    if (!str) return 'N/A';
+
+    // Only strip explicit organization labels. Preserve the actual name text exactly.
+    const explicitLabelPattern = /^(?:within\s+gnits\s*[,;:.-]?\s*|gnits\s*[,;:.-]?\s*|center of excellence|centre of excellence|research center|research centre|resource center|resource centre|coe|rc)\s*[:;,-]*\s*/i;
+    const prefixed = str.replace(explicitLabelPattern, '').trim();
+    if (prefixed) str = prefixed;
+
+    // If the value does not start with a recognized label, keep it exactly as supplied.
+    return str || 'N/A';
+}
+
 function extractCOENameFromText(text) {
     if (!text) return 'N/A';
 
-    const str = String(text).trim();
+    let str = String(text).trim();
+    if (!str) return 'N/A';
 
-    // Look for keywords followed by separators
-    const keywordMatch = str.match(/(?:coe|rc|research\s+centre)[-\s:,]*(.+)$/i);
+    const cleaned = str
+        .replace(/^within\s+gnits\s*,?\s*/i, '')
+        .replace(/^gnits\s*,\s*/i, '')
+        .trim();
 
-    if (keywordMatch && keywordMatch[1]) {
-        return keywordMatch[1].trim();
-    }
+    const labelMatch = cleaned.match(
+        /^(?:coe\s*\/\s*rc|coe|rc|research\s+cent(?:er|re)|center of excellence|centre of excellence|research center|research centre|resource center|resource centre)\b\s*[-:/,]?\s*(.+)$/i
+    );
 
-    // fallback: strip "GNITS, " prefix if present
-    const cleaned = str.replace(/^gnits\s*,\s*/i, '');
+    const candidate = labelMatch && labelMatch[1]
+        ? labelMatch[1]
+        : cleaned;
 
-    return cleaned || 'N/A';
+    return normalizeCOEOrRCName(candidate);
 }
 
 /**
@@ -117,7 +139,19 @@ function parseExcelFile(fileBuffer) {
         const guideNameIndex = findColumnIndex(headers, COLUMN_PATTERNS.guideName);
         const guideEmailIndex = findColumnIndex(headers, COLUMN_PATTERNS.guideEmail);
         const projectTitleIndex = findColumnIndex(headers, COLUMN_PATTERNS.projectTitle);
-        const researchAreaIndex = findColumnIndex(headers, COLUMN_PATTERNS.researchArea);
+        const domainIndex = headers.findIndex(header => {
+            const value = normalizeText(header);
+            return value && /\bdomain\b/i.test(value);
+        });
+        const researchAreaIndex = headers.findIndex(header => {
+            const value = normalizeText(header);
+            return value && !/domain|thrust/i.test(value) && /research.*area|\barea\b/i.test(value);
+        });
+        const thrustAreaIndex = headers.findIndex(header => {
+            const value = normalizeText(header);
+            return value && /thrust.*area|thrust/i.test(value);
+        });
+        const outcomeIndex = findColumnIndex(headers, COLUMN_PATTERNS.outcome);
         const coeIndex = findColumnIndex(headers, COLUMN_PATTERNS.coe);
         const yearIndex = findColumnIndex(headers, COLUMN_PATTERNS.year);
         const branchIndex = findColumnIndex(headers, COLUMN_PATTERNS.branch);
@@ -134,7 +168,10 @@ function parseExcelFile(fileBuffer) {
             guideName: guideNameIndex >= 0 ? `Matched '${headers[guideNameIndex]}'` : 'NOT FOUND',
             guideEmail: guideEmailIndex >= 0 ? `Matched '${headers[guideEmailIndex]}'` : 'NOT FOUND',
             projectTitle: projectTitleIndex >= 0 ? `Matched '${headers[projectTitleIndex]}'` : 'NOT FOUND',
+            domain: domainIndex >= 0 ? `Matched '${headers[domainIndex]}'` : 'NOT FOUND',
             researchArea: researchAreaIndex >= 0 ? `Matched '${headers[researchAreaIndex]}'` : 'NOT FOUND',
+            thrustArea: thrustAreaIndex >= 0 ? `Matched '${headers[thrustAreaIndex]}'` : 'NOT FOUND',
+            outcome: outcomeIndex >= 0 ? `Matched '${headers[outcomeIndex]}'` : 'NOT FOUND',
             coe: coeIndex >= 0 ? `Matched '${headers[coeIndex]}'` : 'NOT FOUND',
             students: studentNameIndices.map(idx => headers[idx]),
             rollNumbers: rollNumberIndices.map(idx => headers[idx])
@@ -147,6 +184,7 @@ function parseExcelFile(fileBuffer) {
         let lastGuideName = '';
         let lastGuideEmail = '';
         let lastProjectTitle = '';
+        let lastDomain = 'N/A';
         let lastResearchArea = 'N/A';
         let lastCoe = 'N/A';
         let lastYear = '4th';
@@ -200,7 +238,10 @@ function parseExcelFile(fileBuffer) {
             let guideName = guideNameIndex >= 0 ? normalizeText(row[guideNameIndex]) : '';
             let guideEmail = guideEmailIndex >= 0 ? normalizeText(row[guideEmailIndex]) : '';
             let projectTitle = projectTitleIndex >= 0 ? normalizeText(row[projectTitleIndex]) : '';
+            let domain = domainIndex >= 0 ? normalizeText(row[domainIndex]) : '';
             let researchArea = researchAreaIndex >= 0 ? normalizeText(row[researchAreaIndex]) : '';
+            let thrustArea = thrustAreaIndex >= 0 ? normalizeText(row[thrustAreaIndex]) : '';
+            let outcome = outcomeIndex >= 0 ? normalizeText(row[outcomeIndex]) : '';
             // Extract COE from cell value and parse it
             let coeRaw = coeIndex >= 0 ? normalizeText(row[coeIndex]) : '';
             let coe = coeRaw ? extractCOENameFromText(coeRaw) : 'N/A';
@@ -219,6 +260,7 @@ function parseExcelFile(fileBuffer) {
             if (!guideName && !isNewBatch && lastGuideName) guideName = lastGuideName;
             if (!guideEmail && !isNewBatch && lastGuideEmail) guideEmail = lastGuideEmail;
             if (!projectTitle && !isNewBatch && lastProjectTitle) projectTitle = lastProjectTitle;
+            if (!domain && !isNewBatch && lastDomain !== 'N/A') domain = lastDomain;
             if (!researchArea && !isNewBatch && lastResearchArea !== 'N/A') researchArea = lastResearchArea;
             if (!coeRaw && !isNewBatch && lastCoe !== 'N/A') coe = lastCoe;
             if (!year && lastYear) year = lastYear;
@@ -229,6 +271,7 @@ function parseExcelFile(fileBuffer) {
             if (guideName) lastGuideName = guideName;
             if (guideEmail) lastGuideEmail = guideEmail;
             if (projectTitle) lastProjectTitle = projectTitle;
+            if (domain) lastDomain = domain;
             if (researchArea) lastResearchArea = researchArea;
             if (coe && coe !== 'N/A') lastCoe = coe;
             if (year) lastYear = year;
@@ -243,7 +286,10 @@ function parseExcelFile(fileBuffer) {
                     guideName: guideName || 'N/A',
                     guideEmail: guideEmail || 'N/A',
                     projectTitle: projectTitle || 'N/A',
+                    domain: domain || 'N/A',
                     researchArea: researchArea || 'N/A',
+                    thrustArea: thrustArea || researchArea || 'N/A',
+                    outcome: outcome || 'None',
                     coe: coe || 'N/A',
                     year: year || '4th',
                     branch: branch || 'CSE',
@@ -268,7 +314,9 @@ function parseExcelFile(fileBuffer) {
             if (batchGroups[groupKey].guideName === 'N/A' && guideName) batchGroups[groupKey].guideName = guideName;
             if (batchGroups[groupKey].guideEmail === 'N/A' && guideEmail) batchGroups[groupKey].guideEmail = guideEmail;
             if (batchGroups[groupKey].projectTitle === 'N/A' && projectTitle) batchGroups[groupKey].projectTitle = projectTitle;
+            if (batchGroups[groupKey].domain === 'N/A' && domain && domain !== 'N/A') batchGroups[groupKey].domain = domain;
             if (batchGroups[groupKey].researchArea === 'N/A' && researchArea && researchArea !== 'N/A') batchGroups[groupKey].researchArea = researchArea;
+            if (batchGroups[groupKey].thrustArea === 'N/A' && thrustArea && thrustArea !== 'N/A') batchGroups[groupKey].thrustArea = thrustArea;
             if (batchGroups[groupKey].coe === 'N/A' && coe && coe !== 'N/A') batchGroups[groupKey].coe = coe;
         }
 
@@ -283,7 +331,9 @@ function parseExcelFile(fileBuffer) {
                 guideName: group.guideName || 'N/A',
                 guideEmail: group.guideEmail || 'N/A',
                 projectTitle: group.projectTitle || 'N/A',
+                domain: group.domain || 'N/A',
                 researchArea: group.researchArea || 'N/A',
+                thrustArea: group.thrustArea || group.researchArea || 'N/A',
                 coe: group.coe || 'N/A',
                 year: group.year,
                 branch: group.branch,

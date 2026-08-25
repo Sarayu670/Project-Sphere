@@ -218,10 +218,12 @@ exports.importExcelFiles = async (req, res) => {
                     if (record.year) batch.year = record.year;
                     if (record.branch) batch.branch = record.branch;
                     if (record.section) batch.section = record.section;
+                    if (record.domain && record.domain !== 'N/A') batch.domain = record.domain;
                     if (record.researchArea && record.researchArea !== 'N/A') {
                         batch.researchArea = record.researchArea;
-                        batch.domain = record.researchArea;
                     }
+                    if (record.thrustArea && record.thrustArea !== 'N/A') batch.thrustArea = record.thrustArea;
+                    if (record.outcome && record.outcome !== 'N/A') batch.outcome = record.outcome;
                     await batch.save();
                 } else {
                     batch = await Batch.create({
@@ -236,8 +238,10 @@ exports.importExcelFiles = async (req, res) => {
                         year: record.year || '4th',
                         branch: record.branch || 'CSE',
                         section: record.section || 'A',
+                        domain: record.domain && record.domain !== 'N/A' ? record.domain : undefined,
                         researchArea: record.researchArea && record.researchArea !== 'N/A' ? record.researchArea : undefined,
-                        domain: record.researchArea && record.researchArea !== 'N/A' ? record.researchArea : undefined
+                        thrustArea: record.thrustArea && record.thrustArea !== 'N/A' ? record.thrustArea : (record.researchArea || undefined),
+                        outcome: record.outcome && record.outcome !== 'N/A' ? record.outcome : 'None'
                     });
                 }
 
@@ -279,7 +283,10 @@ exports.importExcelFiles = async (req, res) => {
                     project.rollNumbers = record.rollNumbers || [];
                     project.guideName = record.guideName;
                     project.projectTitle = record.projectTitle !== 'N/A' ? record.projectTitle : project.projectTitle;
+                    project.domain = record.domain || 'N/A';
                     project.researchArea = record.researchArea || 'N/A';
+                    project.thrustArea = record.thrustArea || record.researchArea || 'N/A';
+                    project.outcome = record.outcome || 'None';
                     project.coe = record.coe;
                     await project.save();
                 } else {
@@ -291,7 +298,10 @@ exports.importExcelFiles = async (req, res) => {
                         rollNumbers: record.rollNumbers || [],
                         guideName: record.guideName,
                         projectTitle: record.projectTitle,
+                        domain: record.domain || 'N/A',
                         researchArea: record.researchArea || 'N/A',
+                        thrustArea: record.thrustArea || record.researchArea || 'N/A',
+                        outcome: record.outcome || 'None',
                         coe: record.coe,
                         source: 'excel_import'
                     });
@@ -350,6 +360,7 @@ exports.searchProjects = async (req, res) => {
                 $or: [
                     { guideName: searchRegex },
                     { projectTitle: searchRegex },
+                    { domain: searchRegex },
                     { researchArea: searchRegex },
                     { coe: searchRegex }
                 ]
@@ -360,6 +371,8 @@ exports.searchProjects = async (req, res) => {
             query = { projectTitle: searchRegex };
         } else if (type === 'research') {
             query = { researchArea: searchRegex };
+        } else if (type === 'domain') {
+            query = { domain: searchRegex };
         } else if (type === 'coe') {
             query = { coe: searchRegex };
         }

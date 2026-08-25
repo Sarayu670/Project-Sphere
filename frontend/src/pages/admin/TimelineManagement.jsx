@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import * as api from "../../services/api";
 import usePolling from "../../utils/usePolling";
 
@@ -10,17 +10,83 @@ const ALL_COLUMNS = [
   { key: "branch", label: "Branch" },
   { key: "section", label: "Section" },
   { key: "coe", label: "COE", width: "100px" },
+  { key: "domain", label: "Domain", width: "100px" },
   { key: "guide", label: "Guide", width: "100px" },
   { key: "marks", label: "Marks" },
   { key: "guidesFeedback", label: "Guide's Feedback", width: "120px" },
   { key: "adminRemarks", label: "Admin Remarks", width: "120px" },
 ];
 
-function TimelineManagement() {
+function TimelineReadOnly({ scope }) {
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadEvents = async () => {
+      try {
+        const response = await api.getAllTimelineEvents(scope?.year);
+        setEvents(response.data?.data || response.data || []);
+      } catch (error) {
+        console.error('Unable to fetch the section timeline:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadEvents();
+  }, [scope?.year]);
+
+  if (loading) return <div className="tab-content"><div className="card loading"><h3>Loading timeline...</h3></div></div>;
+
+  return (
+    <div className="tab-content">
+      <div className="section-header" style={{ marginBottom: '20px' }}>
+        <div>
+          <h2>📅 Section Timeline</h2>
+          <p style={{ color: '#64748b', margin: '4px 0 0' }}>Read-only milestones for {scope?.year} year.</p>
+        </div>
+      </div>
+      {events.length === 0 ? (
+        <div className="card empty-state"><h3>No timeline events</h3><p>There are no active milestones for this year.</p></div>
+      ) : (
+        <div style={{ display: 'grid', gap: '14px' }}>
+          {events.map(event => (
+            <article className="card" key={event._id} style={{ borderLeft: '4px solid #3b82f6' }}>
+              <div className="flex-between" style={{ gap: '16px' }}>
+                <div><h3 style={{ margin: 0 }}>{event.title}</h3><p style={{ margin: '8px 0', color: '#475569' }}>{event.description || 'No description provided.'}</p></div>
+                <strong style={{ color: '#1d4ed8', whiteSpace: 'nowrap' }}>{new Date(event.deadline).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</strong>
+              </div>
+              {event.submissionRequirements && <small style={{ color: '#64748b' }}>Requirements: {event.submissionRequirements}</small>}
+            </article>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
   const [events, setEvents] = useState([]);
   const [batches, setBatches] = useState([]);
   const [submissions, setSubmissions] = useState([]);
+  const canAddRemarks = allowRemarkEditing;
   const [loading, setLoading] = useState(true);
+  const visibleBatches = useMemo(() => {
+    if (!scope) return batches;
+    return batches.filter(batch =>
+      batch.year === scope.year &&
+      batch.branch === scope.branch &&
+      batch.section === scope.section
+    );
+  }, [batches, scope]);
+  const visibleEvents = useMemo(() => {
+    if (!scope) return events;
+    return events.filter(event =>
+      event.targetYear === 'all' ||
+      event.targetYear === scope.year ||
+      event.targetYear === undefined ||
+      event.targetYear === null
+    );
+  }, [events, scope]);
   const [showForm, setShowForm] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
@@ -30,7 +96,7 @@ function TimelineManagement() {
     deadline: "",
     maxMarks: "",
     submissionRequirements: "",
-    targetYear: "all",
+    targetYear: scope?.year || "all",
     order: 0,
     isMarksEnabled: true,
   });
@@ -46,9 +112,9 @@ function TimelineManagement() {
   const [isLoadingMoreSubmissions, setIsLoadingMoreSubmissions] = useState(false);
 
   // Filters
-  const [filterYear, setFilterYear] = useState("");
-  const [filterBranch, setFilterBranch] = useState("");
-  const [filterSection, setFilterSection] = useState("");
+  const [filterYear, setFilterYear] = useState(scope?.year || "");
+  const [filterBranch, setFilterBranch] = useState(scope?.branch || "");
+  const [filterSection, setFilterSection] = useState(scope?.section || "");
 
   // Admin remarks state
   const [showRemarkModal, setShowRemarkModal] = useState(false);
@@ -69,7 +135,7 @@ function TimelineManagement() {
       let eventsData = [];
 
       try {
-        const eventsRes = await api.getAllTimelineEvents();
+        const eventsRes = await api.getAllTimelineEvents(scope?.year);
         if (Array.isArray(eventsRes.data)) {
           eventsData = eventsRes.data;
         } else if (eventsRes.data?.data && Array.isArray(eventsRes.data.data)) {
@@ -86,20 +152,23 @@ function TimelineManagement() {
       console.error("Fetch error:", error.message);
       if (loading) setLoading(false);
     }
-  }, [loading]);
+  }, [loading, scope?.year]);
 
   // Fetch batches lazily - only when event is selected
   const fetchBatchesForEvent = useCallback(async () => {
     try {
-      const batchesRes = await api.getAllBatches();
+      const batchesRes = scope ? await api.getSectionBatches() : await api.getAllBatches();
       const batchesData = batchesRes.data?.data || batchesRes.data || [];
-      setBatches(batchesData);
-      return batchesData;
+      const scoped = scope
+        ? batchesData.filter(batch => batch.year === scope.year && batch.branch === scope.branch && batch.section === scope.section)
+        : batchesData;
+      setBatches(scoped);
+      return scoped;
     } catch (error) {
       console.error("Batches fetch error:", error.message);
       return [];
     }
-  }, []);
+  }, [scope]);
 
   // Fetch submissions for selected event with pagination
   const fetchSubmissionsForEvent = useCallback(async (eventId, page = 1) => {
@@ -115,7 +184,8 @@ function TimelineManagement() {
       const submissionsRes = await api.getAllSubmissions({
         eventId,
         page,
-        limit: 50
+        limit: 50,
+        status: canAddRemarks ? 'all' : 'accepted'
       });
 
       const newSubmissions = submissionsRes.data?.data || submissionsRes.data || [];
@@ -147,19 +217,29 @@ function TimelineManagement() {
   }, [fetchEvents]);
 
   useEffect(() => {
+    if (!scope) return;
+    setFilterYear(scope.year || "");
+    setFilterBranch(scope.branch || "");
+    setFilterSection(scope.section || "");
+  }, [scope]);
+
+  useEffect(() => {
+    if (scope && selectedEvent && !visibleEvents.some(event => event._id === selectedEvent._id)) {
+      setSelectedEvent(null);
+    }
+  }, [scope, selectedEvent, visibleEvents]);
+
+  useEffect(() => {
     if (selectedEvent?._id) {
       const load = async () => {
-        // If batches haven't been fetched yet, fetch them once for the dashboard session
-        // or if explicitly empty
         if (batches.length === 0) {
           await fetchBatchesForEvent();
         }
-        // Then fetch submissions
         await fetchSubmissionsForEvent(selectedEvent._id, 1);
       };
       load();
     }
-  }, [selectedEvent?._id, fetchSubmissionsForEvent, fetchBatchesForEvent]); // Removed 'batches' from deps
+  }, [selectedEvent?._id, fetchSubmissionsForEvent, fetchBatchesForEvent, batches.length]);
 
   // Poll every 60s for new events/batches only (not submissions) - reduced from 25s
   usePolling(fetchEvents, 60000);
@@ -200,7 +280,7 @@ function TimelineManagement() {
         deadline: "",
         maxMarks: "",
         submissionRequirements: "",
-        targetYear: "all",
+        targetYear: scope?.year || "all",
         order: 0,
         isMarksEnabled: true,
       });
@@ -220,7 +300,7 @@ function TimelineManagement() {
       deadline: event.deadline.split("T")[0],
       maxMarks: event.maxMarks,
       submissionRequirements: event.submissionRequirements || "",
-      targetYear: event.targetYear,
+      targetYear: scope?.year || event.targetYear,
       order: event.order || 0,
       isMarksEnabled: event.isMarksEnabled !== undefined ? event.isMarksEnabled : true,
     });
@@ -291,7 +371,7 @@ function TimelineManagement() {
               deadline: defaultDate,
               maxMarks: "",
               submissionRequirements: "",
-              targetYear: "all",
+              targetYear: scope?.year || "all",
               order: 0,
               isMarksEnabled: true,
             });
@@ -366,18 +446,32 @@ function TimelineManagement() {
               )}
               <div className="form-group">
                 <label>Target Year</label>
-                <select
-                  value={formData.targetYear}
-                  onChange={(e) =>
-                    setFormData({ ...formData, targetYear: e.target.value })
-                  }
-                >
-                  {TARGET_YEARS.map((y) => (
-                    <option key={y} value={y}>
-                      {y === "all" ? "All Years" : `${y} Year`}
-                    </option>
-                  ))}
-                </select>
+                {scope ? (
+                  <div
+                    style={{
+                      padding: "10px 12px",
+                      border: "1px solid #cbd5e1",
+                      borderRadius: "8px",
+                      background: "#f8fafc",
+                      fontWeight: 700
+                    }}
+                  >
+                    {scope.year} Year
+                  </div>
+                ) : (
+                  <select
+                    value={formData.targetYear}
+                    onChange={(e) =>
+                      setFormData({ ...formData, targetYear: e.target.value })
+                    }
+                  >
+                    {TARGET_YEARS.map((y) => (
+                      <option key={y} value={y}>
+                        {y === "all" ? "All Years" : `${y} Year`}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
               <div className="form-group">
                 <label>Order (for sorting)</label>
@@ -492,48 +586,69 @@ function TimelineManagement() {
                 flexWrap: "wrap",
               }}
             >
-              <div className="form-group" style={{ margin: 0 }}>
-                <label>Year</label>
-                <select
-                  value={filterYear}
-                  onChange={(e) => setFilterYear(e.target.value)}
-                >
-                  <option value="">All Years</option>
-                  <option value="2nd">2nd Year</option>
-                  <option value="3rd">3rd Year</option>
-                  <option value="4th">4th Year</option>
-                </select>
-              </div>
-              <div className="form-group" style={{ margin: 0 }}>
-                <label>Branch</label>
-                <select
-                  value={filterBranch}
-                  onChange={(e) => setFilterBranch(e.target.value)}
-                >
-                  <option value="">All Branches</option>
-                  <option value="CSE">CSE</option>
-                  <option value="IT">IT</option>
-                  <option value="ECE">ECE</option>
-                  <option value="CSM">CSM</option>
-                  <option value="EEE">EEE</option>
-                  <option value="CSD">CSD</option>
-                  <option value="ETM">ETM</option>
-                </select>
-              </div>
-              <div className="form-group" style={{ margin: 0 }}>
-                <label>Section</label>
-                <select
-                  value={filterSection}
-                  onChange={(e) => setFilterSection(e.target.value)}
-                >
-                  <option value="">All Sections</option>
-                  <option value="A">A</option>
-                  <option value="B">B</option>
-                  <option value="C">C</option>
-                  <option value="D">D</option>
-                  <option value="E">E</option>
-                </select>
-              </div>
+              {scope ? (
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label>Class</label>
+                  <div
+                    style={{
+                      padding: "10px 14px",
+                      border: "1px solid #cbd5e1",
+                      borderRadius: "8px",
+                      background: "#eff6ff",
+                      color: "#1d4ed8",
+                      fontWeight: 800,
+                      minWidth: "190px"
+                    }}
+                  >
+                    {scope.year} {scope.branch}-{scope.section}
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label>Year</label>
+                    <select
+                      value={filterYear}
+                      onChange={(e) => setFilterYear(e.target.value)}
+                    >
+                      <option value="">All Years</option>
+                      <option value="2nd">2nd Year</option>
+                      <option value="3rd">3rd Year</option>
+                      <option value="4th">4th Year</option>
+                    </select>
+                  </div>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label>Branch</label>
+                    <select
+                      value={filterBranch}
+                      onChange={(e) => setFilterBranch(e.target.value)}
+                    >
+                      <option value="">All Branches</option>
+                      <option value="CSE">CSE</option>
+                      <option value="IT">IT</option>
+                      <option value="ECE">ECE</option>
+                      <option value="CSM">CSM</option>
+                      <option value="EEE">EEE</option>
+                      <option value="CSD">CSD</option>
+                      <option value="ETM">ETM</option>
+                    </select>
+                  </div>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label>Section</label>
+                    <select
+                      value={filterSection}
+                      onChange={(e) => setFilterSection(e.target.value)}
+                    >
+                      <option value="">All Sections</option>
+                      <option value="A">A</option>
+                      <option value="B">B</option>
+                      <option value="C">C</option>
+                      <option value="D">D</option>
+                      <option value="E">E</option>
+                    </select>
+                  </div>
+                </>
+              )}
               <div className="form-group column-dropdown-container" style={{ margin: 0, position: "relative" }}>
                 <label>Select Columns</label>
                 <div
@@ -606,16 +721,18 @@ function TimelineManagement() {
                   </div>
                 )}
               </div>
-              <button
-                className="btn btn-secondary"
-                onClick={() => {
-                  setFilterYear("");
-                  setFilterBranch("");
-                  setFilterSection("");
-                }}
-              >
-                Clear Filters
-              </button>
+              {!scope && (
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    setFilterYear("");
+                    setFilterBranch("");
+                    setFilterSection("");
+                  }}
+                >
+                  Clear Filters
+                </button>
+              )}
             </div>
           </div>
 
@@ -634,7 +751,7 @@ function TimelineManagement() {
                   <th>Team Members</th>
                   <th>Class</th>
                   <th style={{ width: "100px", maxWidth: "100px" }}>COE/RC</th>
-                  <th style={{ width: "100px", maxWidth: "100px" }}>Research Area</th>
+                  <th style={{ width: "100px", maxWidth: "100px" }}>Domain</th>
                   <th style={{ width: "100px", maxWidth: "100px" }}>Guide</th>
                   <th>Marks</th>
                   <th style={{ width: "120px", maxWidth: "120px", overflow: "hidden", textOverflow: "ellipsis" }}>Guide's Feedback</th>
@@ -657,7 +774,7 @@ function TimelineManagement() {
                       typeof sub.batchId === "string"
                         ? sub.batchId
                         : sub.batchId?._id;
-                    const batch = batches.find((b) => b._id === batchId);
+                    const batch = visibleBatches.find((b) => b._id === batchId);
                     if (!batch) return false;
                     if (filterYear && batch.year !== filterYear) return false;
                     if (filterBranch && batch.branch !== filterBranch)
@@ -671,7 +788,7 @@ function TimelineManagement() {
                       typeof sub.batchId === "string"
                         ? sub.batchId
                         : sub.batchId?._id;
-                    const batch = batches.find((b) => b._id === batchId);
+                    const batch = visibleBatches.find((b) => b._id === batchId);
                     const latestVersion =
                       sub.versions?.[sub.versions.length - 1];
                     const latestAdminRemark =
@@ -724,7 +841,7 @@ function TimelineManagement() {
                           {batch?.year} {batch?.branch}-{batch?.section}
                         </td>
                         <td>{batch?.problemId?.coeId?.name || batch?.coeId?.name || batch?.coe?.name || "Not Assigned"}</td>
-                        <td>{batch?.problemId?.researchArea || batch?.researchArea || "Not Assigned"}</td>
+                        <td>{batch?.domain || "Not Assigned"}</td>
                         <td>
                           {batch?.guideId?.name ? (
                             <span
@@ -834,20 +951,26 @@ function TimelineManagement() {
                                 </small>
                               </div>
                             ) : (
-                              <button
-                                className="btn btn-secondary"
-                                style={{
-                                  fontSize: "11px",
-                                  padding: "5px 10px",
-                                  width: "100%"
-                                }}
-                                onClick={() => {
-                                  setSelectedSubmissionForRemark(sub);
-                                  setShowRemarkModal(true);
-                                }}
-                              >
-                                + Add Remark
-                              </button>
+                              canAddRemarks ? (
+                                <button
+                                  className="btn btn-secondary"
+                                  style={{
+                                    fontSize: "11px",
+                                    padding: "5px 10px",
+                                    width: "100%"
+                                  }}
+                                  onClick={() => {
+                                    setSelectedSubmissionForRemark(sub);
+                                    setShowRemarkModal(true);
+                                  }}
+                                >
+                                  + Add Remark
+                                </button>
+                              ) : (
+                                <span style={{ color: '#999', fontSize: '12px', display: 'block', textAlign: 'center' }}>
+                                  View only
+                                </span>
+                              )
                             )}
                           </div>
                         </td>
@@ -927,7 +1050,7 @@ function TimelineManagement() {
           </div>
         ) : !selectedEvent ? (
           <div className="timeline-container">
-            {events.map((event, idx) => (
+            {visibleEvents.map((event, idx) => (
               <div
                 key={event._id}
                 className="card timeline-event"
@@ -1262,20 +1385,22 @@ function TimelineManagement() {
                 );
               })()}
               <div style={{ display: "flex", gap: "10px" }}>
-                <button
-                  className="btn btn-primary"
-                  onClick={() => {
-                    const sub = submissions.find(s => s._id === expandedRemarkSubmission);
-                    if (sub) {
-                      setSelectedSubmissionForRemark(sub);
-                      setShowRemarkModal(true);
-                      setExpandedRemarkSubmission(null);
-                    }
-                  }}
-                  style={{ flex: 1 }}
-                >
-                  + Add Another Remark
-                </button>
+                {canAddRemarks && (
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => {
+                      const sub = submissions.find(s => s._id === expandedRemarkSubmission);
+                      if (sub) {
+                        setSelectedSubmissionForRemark(sub);
+                        setShowRemarkModal(true);
+                        setExpandedRemarkSubmission(null);
+                      }
+                    }}
+                    style={{ flex: 1 }}
+                  >
+                    + Add Another Remark
+                  </button>
+                )}
                 <button
                   className="btn btn-secondary"
                   onClick={() => setExpandedRemarkSubmission(null)}
@@ -1448,6 +1573,7 @@ function TimelineManagement() {
         branch: batch?.branch || "N/A",
         section: batch?.section || "N/A",
         coe,
+        domain: batch?.domain || "N/A",
         guide,
         marks:
           sub.marks !== null ? `${sub.marks}/${selectedEvent.maxMarks}` : "N/A",
@@ -1473,6 +1599,10 @@ function TimelineManagement() {
     link.click();
     document.body.removeChild(link);
   }
+}
+
+function TimelineManagement({ readOnly = false, scope = null, allowRemarkEditing = false }) {
+  return readOnly ? <TimelineReadOnly scope={scope} /> : <TimelineEditor scope={scope} allowRemarkEditing={allowRemarkEditing} />;
 }
 
 export default TimelineManagement;

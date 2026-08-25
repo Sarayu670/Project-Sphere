@@ -14,39 +14,53 @@ const seedData = async () => {
     await mongoose.connect(process.env.MONGODB_URI);
     console.log('MongoDB Connected');
 
-    // Create Admin
-    const existingAdmin = await Admin.findOne({ email: 'admin@example.com' });
+    // Create or repair Admin
+    const existingAdmin = await Admin.findOne({ email: { $in: ['admin@gmail.com', 'admin@example.com'] } });
     if (!existingAdmin) {
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash('admin123', salt);
-      
       await Admin.create({
         name: 'System Admin',
-        email: 'admin@example.com',
-        password: hashedPassword,
+        email: 'admin@gmail.com',
+        password: 'Admin@123',
         department: 'Computer Science'
       });
-      console.log('Admin created: admin@example.com / admin123');
+      console.log('Admin created: admin@gmail.com / Admin@123');
     } else {
-      console.log('Admin already exists');
+      if (existingAdmin.email !== 'admin@gmail.com') {
+        existingAdmin.email = 'admin@gmail.com';
+      }
+      const matchesDefault = await existingAdmin.matchPassword('Admin@123');
+      if (!matchesDefault) {
+        existingAdmin.password = 'Admin@123';
+        await existingAdmin.save();
+        console.log('Admin password repaired: admin@gmail.com / Admin@123');
+      } else {
+        console.log('Admin already exists');
+      }
+      if (existingAdmin.email === 'admin@gmail.com') {
+        await existingAdmin.save();
+      }
     }
 
-    // Create a sample Guide
+    // Create or repair a sample Guide
     const existingGuide = await Guide.findOne({ email: 'guide@example.com' });
     if (!existingGuide) {
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash('guide123', salt);
-      
       await Guide.create({
         name: 'Sample Guide',
         email: 'guide@example.com',
-        password: hashedPassword,
+        password: 'guide123',
         department: 'Computer Science',
         specialization: 'Web Development'
       });
       console.log('Guide created: guide@example.com / guide123');
     } else {
-      console.log('Guide already exists');
+      const matchesDefault = await existingGuide.matchPassword('guide123');
+      if (!matchesDefault) {
+        existingGuide.password = 'guide123';
+        await existingGuide.save();
+        console.log('Guide password repaired: guide@example.com / guide123');
+      } else {
+        console.log('Guide already exists');
+      }
     }
 
     // Clear existing COEs first

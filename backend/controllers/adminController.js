@@ -300,7 +300,15 @@ exports.importCoordinators = async (req, res) => {
         const rawBranch = String(row.branch || row.Branch || '').trim().toUpperCase();
         const rawSection = String(row.section || row.Section || '').trim().toUpperCase();
         const rawEmail = String(row.email || row.Email || '').trim().toLowerCase();
-        const rawYear = String(row.year || row.Year || '').trim();
+        let rawYear = String(row.year || row.Year || '').trim().toLowerCase();
+        // Normalize common year formats (e.g. "2", "2nd year", "II") to the canonical values
+        const yearDigitMatch = rawYear.match(/\d/);
+        if (yearDigitMatch) {
+          const yearMap = { '1': '1st', '2': '2nd', '3': '3rd', '4': '4th' };
+          rawYear = yearMap[yearDigitMatch[0]] || rawYear;
+        } else if (rawYear) {
+          rawYear = rawYear.replace(/\s*year\s*$/i, '').trim();
+        }
 
         if (!rawName || !rawBranch || !rawSection || !rawEmail) {
           throw new Error('Missing required fields in row');
@@ -315,7 +323,7 @@ exports.importCoordinators = async (req, res) => {
         }
 
         if (!VALID_YEARS.includes(rawYear)) {
-          throw new Error(`Invalid year: ${rawYear}`);
+          throw new Error(`Invalid year: "${row.year || row.Year || ''}". Expected one of: ${VALID_YEARS.join(', ')}`);
         }
 
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail)) {

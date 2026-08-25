@@ -172,7 +172,13 @@ function AdminDashboard() {
 
     try {
       const response = await api.importCoordinators(coordinatorFile);
-      setCoordinatorStatus(response.data.message || 'Coordinator import completed.');
+      const importResult = response.data.data;
+      let statusMessage = response.data.message || 'Coordinator import completed.';
+      if (importResult?.errors?.length > 0) {
+        const errorDetails = importResult.errors.map((e, i) => `Row ${i + 1}: ${e.error}`).join(' | ');
+        statusMessage += ` Details: ${errorDetails}`;
+      }
+      setCoordinatorStatus(statusMessage);
       const updatedCoordinators = await api.getAllCoordinators();
       setCoordinators(updatedCoordinators.data.data || []);
       setCoordinatorFile(null);

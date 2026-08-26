@@ -11,7 +11,9 @@ function GuideTimeline() {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [selectedSubmission, setSelectedSubmission] = useState(null);
   const [comment, setComment] = useState('');
-  const [marks, setMarks] = useState('');
+  const [studentMarkInputs, setStudentMarkInputs] = useState({}); // { studentId: marksValue }
+  const [batchStudents, setBatchStudents] = useState([]);
+  const [loadingStudents, setLoadingStudents] = useState(false);
   const [dialog, setDialog] = useState({ isOpen: false, title: '', message: '', type: 'info', onConfirm: null });
   const [lastUpdated, setLastUpdated] = useState(null);
 
@@ -52,6 +54,49 @@ function GuideTimeline() {
   // Auto-poll every 20s: picks up new admin timeline events + student submissions
   usePolling(fetchData, 20000);
 
+  // Fetch batch students when selectedSubmission changes
+  useEffect(() => {
+    if (!selectedSubmission) {
+      setBatchStudents([]);
+      setStudentMarkInputs({});
+      return;
+    }
+
+    const batchId = typeof selectedSubmission.batchId === 'string'
+      ? selectedSubmission.batchId
+      : selectedSubmission.batchId?._id;
+
+    if (!batchId) return;
+
+    setLoadingStudents(true);
+    api.getBatchStudents(batchId)
+      .then(res => {
+        const students = res.data.data || [];
+        setBatchStudents(students);
+
+        // Pre-fill inputs from existing studentMarks if already assigned
+        const existing = {};
+        if (Array.isArray(selectedSubmission.studentMarks)) {
+          selectedSubmission.studentMarks.forEach(sm => {
+            const sid = typeof sm.studentId === 'object' ? sm.studentId?._id : sm.studentId;
+            if (sid) {
+              existing[sid] = sm.marks !== null && sm.marks !== undefined ? String(sm.marks) : '';
+            }
+          });
+        }
+        // Fill blanks for any student not yet marked
+        students.forEach(s => {
+          if (!(s._id in existing)) existing[s._id] = '';
+        });
+        setStudentMarkInputs(existing);
+      })
+      .catch(err => {
+        console.error('Failed to fetch batch students', err);
+        setBatchStudents([]);
+      })
+      .finally(() => setLoadingStudents(false));
+  }, [selectedSubmission?._id]);
+
   const getLastUpdatedText = () => {
     if (!lastUpdated) return '';
     const diff = Math.round((Date.now() - lastUpdated.getTime()) / 1000);
@@ -61,15 +106,12 @@ function GuideTimeline() {
 
   const getSubmissionsForEvent = (eventId) => {
     return submissions.filter(s => {
-      // Handle both object and string formats for timelineEventId
       const subEventId = typeof s.timelineEventId === 'string'
         ? s.timelineEventId
         : s.timelineEventId?._id;
       return subEventId === eventId;
     });
   };
-
-
 
   const handleAddComment = async () => {
     if (!comment.trim()) {
@@ -91,17 +133,56 @@ function GuideTimeline() {
   const handleAssignMarks = async (status) => {
     const isMarksDisabled = selectedEvent?.isMarksEnabled === false || selectedEvent?.isMarksEnabled === 'false';
     const isMarksEnabled = !isMarksDisabled;
-    if (isMarksEnabled && !marks && status === 'accepted') {
-      showDialog('Error', 'Please enter marks', 'danger');
-      return;
+
+    if (isMarksEnabled && status === 'accepted') {
+      if (batchStudents.length === 0) {
+        showDialog('Error', 'No students found in this batch to assign marks.', 'danger');
+        return;
+      }
+
+      // Check if any student marks are missing or exceed max marks
+      const missing = batchStudents.filter(s =>
+        studentMarkInputs[s._id] === '' ||
+        studentMarkInputs[s._id] === undefined ||
+        studentMarkInputs[s._id] === null
+      );
+
+      if (missing.length > 0) {
+        showDialog('Error', `Please enter marks for all students. Missing: ${missing.map(s => s.name || s.rollNumber).join(', ')}`, 'danger');
+        return;
+      }
+
+      const invalid = batchStudents.filter(s => {
+        const val = parseFloat(studentMarkInputs[s._id]);
+        return isNaN(val) || val < 0 || val > selectedEvent.maxMarks;
+      });
+
+      if (invalid.length > 0) {
+        showDialog('Error', `Marks must be between 0 and ${selectedEvent.maxMarks}. Please check entered marks.`, 'danger');
+        return;
+      }
     }
+
     try {
-      await api.assignSubmissionMarks(selectedSubmission._id, parseFloat(marks) || 0, status, comment);
+      const studentMarks = batchStudents.map(s => ({
+        studentId: s._id,
+        marks: studentMarkInputs[s._id] !== '' && studentMarkInputs[s._id] !== undefined
+          ? parseFloat(studentMarkInputs[s._id])
+          : null
+      }));
+
+      await api.assignSubmissionMarks(selectedSubmission._id, {
+        status,
+        comment,
+        studentMarks: isMarksEnabled ? studentMarks : []
+      });
+
       const res = await api.getSubmission(selectedSubmission._id);
       setSelectedSubmission(res.data.data);
       fetchData();
-      setMarks('');
-      setComment(''); // Clear comment after successful action
+      setStudentMarkInputs({});
+      setComment('');
+      showDialog('Success', status === 'accepted' ? 'Marks assigned successfully!' : 'Revision requested successfully.', 'success');
     } catch (error) {
       showDialog('Error', error.response?.data?.message || 'Failed to assign marks', 'danger');
     }
@@ -149,6 +230,10 @@ function GuideTimeline() {
     const submission = selectedSubmission;
     if (!submission) return <div>No submission found</div>;
 
+    const isMarksDisabled = selectedEvent?.isMarksEnabled === false || selectedEvent?.isMarksEnabled === 'false';
+    const isMarksEnabled = !isMarksDisabled;
+    const hasStudentMarks = Array.isArray(submission.studentMarks) && submission.studentMarks.length > 0;
+
     return (
       <div>
         <button className="btn btn-secondary" onClick={() => setSelectedSubmission(null)} style={{ marginBottom: '20px' }}>← Back to Submissions</button>
@@ -160,7 +245,7 @@ function GuideTimeline() {
             <span style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <strong>📅 Deadline:</strong> {new Date(selectedEvent.deadline).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
             </span>
-            {selectedEvent.isMarksEnabled !== false && (
+            {isMarksEnabled && (
               <span style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <strong>🎯 Max Marks:</strong> {selectedEvent.maxMarks}
               </span>
@@ -177,9 +262,35 @@ function GuideTimeline() {
           )}
         </div>
 
-        {(selectedEvent.isMarksEnabled !== false && selectedEvent.isMarksEnabled !== 'false') && submission.marks !== null && submission.marks !== undefined && (
+        {/* Display Assigned Individual Marks if available */}
+        {isMarksEnabled && hasStudentMarks && (submission.status === 'accepted' || submission.status === 'completed') && (
+          <div className="card" style={{ marginBottom: '20px', background: '#f0fdf4', border: '1px solid #86efac' }}>
+            <h3 style={{ color: '#166534', marginBottom: '10px' }}>✅ Assigned Marks (Individual)</h3>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Roll Number</th>
+                  <th>Student Name</th>
+                  <th>Marks (out of {selectedEvent.maxMarks})</th>
+                </tr>
+              </thead>
+              <tbody>
+                {submission.studentMarks.map((sm, idx) => (
+                  <tr key={idx}>
+                    <td><strong>{sm.studentId?.rollNumber || '—'}</strong></td>
+                    <td>{sm.studentId?.name || '—'}</td>
+                    <td><strong style={{ color: '#166534' }}>{sm.marks !== null && sm.marks !== undefined ? sm.marks : '—'}</strong> / {selectedEvent.maxMarks}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Fallback for legacy group marks */}
+        {isMarksEnabled && !hasStudentMarks && submission.marks !== null && submission.marks !== undefined && (
           <div className="card" style={{ marginBottom: '20px', background: '#f0fdf4', border: '1px solid #22c55e' }}>
-            <h3 style={{ color: '#22c55e' }}>✅ Marks Assigned</h3>
+            <h3 style={{ color: '#22c55e' }}>✅ Marks Assigned (Group)</h3>
             <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#22c55e' }}>{submission.marks} / {selectedEvent.maxMarks}</p>
           </div>
         )}
@@ -255,27 +366,71 @@ function GuideTimeline() {
 
         {(submission.status === 'submitted' || submission.status === 'under_review') && (
           <div className="card" style={{ marginTop: '20px' }}>
-            <h3>🎯 {(selectedEvent.isMarksEnabled === false || selectedEvent.isMarksEnabled === 'false') ? 'Review Decision' : 'Assign Marks'}</h3>
-            {(selectedEvent.isMarksEnabled !== false && selectedEvent.isMarksEnabled !== 'false') && (
-              <>
-                <p style={{ color: '#666', marginBottom: '15px' }}>Max Marks: {selectedEvent.maxMarks}</p>
-                {submission.marks !== null && (
-                  <p style={{ color: '#22c55e', marginBottom: '15px' }}>✅ Current Marks: <strong>{submission.marks}/{selectedEvent.maxMarks}</strong></p>
+            <h3>🎯 {isMarksDisabled ? 'Review Decision' : 'Assign Individual Marks'}</h3>
+            
+            {isMarksEnabled && (
+              <div style={{ marginBottom: '15px' }}>
+                <p style={{ color: '#666', marginBottom: '12px' }}>
+                  Max Marks: <strong>{selectedEvent.maxMarks}</strong> — Enter marks for each student individually.
+                </p>
+
+                {loadingStudents ? (
+                  <p style={{ color: '#888' }}>Loading students...</p>
+                ) : batchStudents.length === 0 ? (
+                  <p style={{ color: '#e53e3e' }}>⚠️ No students found in this batch.</p>
+                ) : (
+                  <div style={{ overflowX: 'auto', marginBottom: '15px' }}>
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th>Roll Number</th>
+                          <th>Student Name</th>
+                          <th>Marks (out of {selectedEvent.maxMarks})</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {batchStudents.map(student => (
+                          <tr key={student._id}>
+                            <td><strong>{student.rollNumber}</strong></td>
+                            <td>{student.name}</td>
+                            <td>
+                              <input
+                                type="number"
+                                min="0"
+                                max={selectedEvent.maxMarks}
+                                value={studentMarkInputs[student._id] ?? ''}
+                                onChange={e => setStudentMarkInputs(prev => ({ ...prev, [student._id]: e.target.value }))}
+                                placeholder="Enter marks"
+                                style={{ width: '110px' }}
+                              />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
-              </>
+              </div>
             )}
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end', marginBottom: '15px' }}>
-              {(selectedEvent.isMarksEnabled !== false && selectedEvent.isMarksEnabled !== 'false') && (
-                <input type="number" value={marks} onChange={(e) => setMarks(e.target.value)} placeholder="Enter marks" style={{ width: '120px' }} min="0" max={selectedEvent.maxMarks} />
-              )}
+
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '15px' }}>
               <button className="btn btn-primary" onClick={() => handleAssignMarks('accepted')}>
-                {(selectedEvent.isMarksEnabled !== false && selectedEvent.isMarksEnabled !== 'false') ? '✅ Accept & Assign' : '✅ Accept Submission'}
+                {isMarksEnabled ? '✅ Accept & Assign Marks' : '✅ Accept Submission'}
               </button>
-              <button className="btn btn-warning" onClick={() => handleAssignMarks('needs_revision')}>🔄 Request Revision</button>
+              <button className="btn btn-warning" onClick={() => handleAssignMarks('needs_revision')}>
+                🔄 Request Revision
+              </button>
             </div>
+
             <div className="form-group">
               <label style={{ marginBottom: '8px', display: 'block' }}>Add Feedback (Optional):</label>
-              <textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={3} placeholder="Add feedback or revision comments..." style={{ width: '100%' }} />
+              <textarea
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                rows={3}
+                placeholder="Add feedback or revision comments..."
+                style={{ width: '100%' }}
+              />
             </div>
           </div>
         )}
@@ -317,7 +472,16 @@ function GuideTimeline() {
                     <strong>Status:</strong>
                     {getStatusBadge(sub.status)}
                   </p>
-                  {(selectedEvent.isMarksEnabled !== false && selectedEvent.isMarksEnabled !== 'false') && sub.marks !== null && <p style={{ margin: '4px 0', fontSize: '14px', lineHeight: '1.6', display: 'flex', alignItems: 'center', gap: '12px' }}><strong>Marks:</strong> <span>{sub.marks}/{selectedEvent.maxMarks}</span></p>}
+                  {(selectedEvent.isMarksEnabled !== false && selectedEvent.isMarksEnabled !== 'false') && (
+                    <p style={{ margin: '4px 0', fontSize: '14px', lineHeight: '1.6', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <strong>Marks:</strong>{' '}
+                      <span>
+                        {Array.isArray(sub.studentMarks) && sub.studentMarks.length > 0
+                          ? `Individual (${sub.studentMarks.length} students)`
+                          : sub.marks !== null ? `${sub.marks}/${selectedEvent.maxMarks}` : '-'}
+                      </span>
+                    </p>
+                  )}
                   <p style={{ margin: '4px 0', fontSize: '14px', lineHeight: '1.6', display: 'flex', alignItems: 'center', gap: '12px' }}><strong>Submission:</strong> <span>{sub.currentVersion}</span></p>
                   <div className="batch-action" style={{ marginTop: '6px', fontSize: '14px', color: '#667eea', fontWeight: '700' }}>Review Submission →</div>
                 </div>

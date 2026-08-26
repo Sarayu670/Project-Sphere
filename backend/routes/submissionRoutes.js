@@ -12,7 +12,8 @@ const {
   addComment,
   assignMarks,
   getAllSubmissions,
-  addAdminRemark
+  addAdminRemark,
+  getStudentsByBatch
 } = require('../controllers/submissionController');
 
 // Configure multer for file uploads
@@ -34,6 +35,7 @@ const upload = multer({ storage: storage });
 // Student routes
 router.post('/', protect, authorize('student'), createOrUpdateSubmission);
 router.get('/batch/:batchId', protect, getBatchSubmissions);
+router.get('/batch/:batchId/students', protect, authorize('guide'), getStudentsByBatch);
 
 // Guide routes
 router.get('/guide', protect, authorize('guide'), getGuideSubmissions);

@@ -858,9 +858,28 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
                           )}
                         </td>
                         <td>
-                          {sub.marks !== null
-                            ? `${sub.marks}/${selectedEvent.maxMarks}`
-                            : "-"}
+                          {(sub.status === 'accepted' || sub.status === 'completed') ? (
+                            Array.isArray(sub.studentMarks) && sub.studentMarks.length > 0 ? (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                {sub.studentMarks.map((sm, idx) => (
+                                  <div key={idx} style={{ fontSize: '12px', display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                    <span style={{ color: '#4a5568', fontWeight: '500' }}>
+                                      {sm.studentId?.rollNumber || '—'}
+                                    </span>
+                                    <span style={{ color: sm.marks !== null ? '#22c55e' : '#aaa', fontWeight: '600' }}>
+                                      {sm.marks !== null ? `${sm.marks}/${selectedEvent.maxMarks}` : '—'}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : sub.marks !== null ? (
+                              <span style={{ fontSize: '13px' }}>{`${sub.marks}/${selectedEvent.maxMarks}`}</span>
+                            ) : (
+                              <span style={{ color: '#aaa', fontSize: '13px' }}>—</span>
+                            )
+                          ) : (
+                            <span style={{ color: '#aaa', fontSize: '13px' }}>—</span>
+                          )}
                         </td>
                         <td>
                           <div
@@ -1576,7 +1595,13 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
         domain: batch?.domain || "N/A",
         guide,
         marks:
-          sub.marks !== null ? `${sub.marks}/${selectedEvent.maxMarks}` : "N/A",
+          (sub.status === 'accepted' || sub.status === 'completed')
+            ? (Array.isArray(sub.studentMarks) && sub.studentMarks.length > 0
+                ? sub.studentMarks.map(sm =>
+                    `${sm.studentId?.rollNumber || '?'}:${sm.marks !== null ? sm.marks : 'N/A'}`
+                  ).join('; ')
+                : sub.marks !== null ? `${sub.marks}/${selectedEvent.maxMarks}` : "N/A")
+            : "N/A",
         guidesFeedback: `"${guideFeedbackText}"`,
         adminRemarks: `"${adminRemarksText}"`,
       };

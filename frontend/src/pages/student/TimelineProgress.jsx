@@ -161,13 +161,6 @@ function TimelineProgress({ batchId }) {
           )}
         </div>
 
-        {(selectedEvent.isMarksEnabled !== false && selectedEvent.isMarksEnabled !== 'false') && submission?.marks !== null && submission?.marks !== undefined && (
-          <div className="card" style={{ marginBottom: '20px', background: '#f0fdf4', border: '1px solid #22c55e' }}>
-            <h3 style={{ color: '#22c55e' }}>✅ Marks Assigned</h3>
-            <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#22c55e' }}>{submission.marks} / {selectedEvent.maxMarks}</p>
-          </div>
-        )}
-
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
           <div className="card">
             <h3>📄 Your Submissions</h3>
@@ -310,8 +303,7 @@ function TimelineProgress({ batchId }) {
         <div className="timeline-list">
           {timeline.map((event, idx) => {
             const deadlineStatus = getDeadlineStatus(event.deadline);
-            const isMarksEnabled = event.isMarksEnabled !== false && event.isMarksEnabled !== 'false';
-            const progress = (isMarksEnabled && event.marks !== null) ? (event.marks / event.maxMarks * 100) : (event.submissionStatus === 'accepted' ? 100 : event.submissionStatus === 'submitted' ? 50 : 0);
+            const progress = event.submissionStatus === 'accepted' ? 100 : event.submissionStatus === 'submitted' ? 50 : 0;
 
             return (
               <div key={event._id} className="card" style={{ marginBottom: '15px', borderLeft: `4px solid ${event.submissionStatus === 'accepted' ? '#22c55e' : '#667eea'}`, cursor: 'pointer' }} onClick={() => setSelectedEvent(event)}>
@@ -342,7 +334,6 @@ function TimelineProgress({ batchId }) {
                   <div style={{ textAlign: 'right', marginLeft: '15px' }}>
                     <div style={{ color: deadlineStatus.color, fontWeight: '500' }}>{deadlineStatus.text}</div>
                     <small style={{ color: '#888' }}>{new Date(event.deadline).toLocaleDateString()}</small>
-                    {(event.isMarksEnabled !== false && event.isMarksEnabled !== 'false') && event.marks !== null && <div style={{ color: '#22c55e', fontWeight: 'bold', marginTop: '5px' }}>{event.marks}/{event.maxMarks}</div>}
                   </div>
                 </div>
                 <div style={{ marginTop: '10px', background: '#e5e7eb', borderRadius: '4px', height: '6px', overflow: 'hidden' }}>

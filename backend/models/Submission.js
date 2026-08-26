@@ -1,5 +1,24 @@
 const mongoose = require('mongoose');
 
+const StudentMarkSchema = new mongoose.Schema({
+  studentId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Student',
+    required: true
+  },
+  marks: {
+    type: Number,
+    default: null
+  },
+  assignedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Guide'
+  },
+  assignedAt: {
+    type: Date
+  }
+});
+
 const CommentSchema = new mongoose.Schema({
   guideId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -96,6 +115,7 @@ const SubmissionSchema = new mongoose.Schema({
     type: Number,
     default: null
   },
+  studentMarks: [StudentMarkSchema],
   marksAssignedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Guide'

@@ -131,8 +131,10 @@ export const getAllSubmissions = (params = {}) => {
   return axios.get(`${API_URL}/submissions${queryString ? '?' + queryString : ''}`);
 };
 export const addSubmissionComment = (id, comment) => axios.post(`${API_URL}/submissions/${id}/comment`, { comment });
-export const assignSubmissionMarks = (id, marks, status, comment) => axios.post(`${API_URL}/submissions/${id}/marks`, { marks, status, comment });
+export const assignSubmissionMarks = (id, { marks, status, comment, studentMarks }) =>
+  axios.post(`${API_URL}/submissions/${id}/marks`, { marks, status, comment, studentMarks });
 export const addAdminRemark = (id, remark) => axios.post(`${API_URL}/submissions/${id}/admin-remark`, { remark });
+export const getBatchStudents = (batchId) => axios.get(`${API_URL}/submissions/batch/${batchId}/students`);
 
 // Chat
 export const getGuideChats = () => axios.get(`${API_URL}/chat/guide/chats`);

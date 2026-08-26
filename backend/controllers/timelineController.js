@@ -329,11 +329,18 @@ exports.getTimelineForBatch = async (req, res) => {
         s => s.timelineEventId.toString() === event._id.toString()
       );
 
+      let sanitizedSubmission = null;
+      if (submission) {
+        sanitizedSubmission = submission.toObject();
+        delete sanitizedSubmission.marks;
+        delete sanitizedSubmission.studentMarks;
+      }
+
       return {
         ...event.toObject(),
-        submission: submission || null,
+        submission: sanitizedSubmission,
         submissionStatus: submission?.status || 'not_started',
-        marks: submission?.marks,
+        marks: null, // Hidden from students
         currentVersion: submission?.currentVersion || 0
       };
     });

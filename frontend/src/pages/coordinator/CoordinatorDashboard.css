@@ -177,48 +177,68 @@
   background: #cbd5e1;
 }
 
-.brainstorm-list,
-.outcome-bars {
-  display: grid;
-  gap: 12px;
+.outcome-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
-.brainstorm-list div {
-  display: grid;
-  gap: 4px;
-  padding: 12px;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  background: #f8fafc;
-}
-
-.brainstorm-list strong {
-  color: #0f172a;
-}
-
-.brainstorm-list span {
+.outcome-empty {
+  padding: 24px;
+  text-align: center;
   color: #64748b;
   font-size: 14px;
 }
 
-.outcome-panel {
-  grid-column: 1 / -1;
-}
-
-.outcome-bar-row {
-  display: grid;
-  gap: 8px;
-}
-
-.outcome-bar-row > div:first-child {
+.outcome-item {
   display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  background: #f8fafc;
+  border: 1px solid #f1f5f9;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.outcome-item:hover {
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+}
+
+.outcome-meta {
+  display: flex;
+  align-items: center;
   justify-content: space-between;
+  gap: 12px;
+}
+
+.outcome-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #1e293b;
+  font-size: 14px;
+}
+
+.outcome-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.outcome-stat {
+  font-size: 13px;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.outcome-stat strong {
   color: #0f172a;
   font-weight: 800;
 }
 
 .outcome-track {
-  height: 10px;
+  height: 8px;
   background: #e2e8f0;
   border-radius: 999px;
   overflow: hidden;
@@ -227,8 +247,8 @@
 .outcome-track span {
   display: block;
   height: 100%;
-  background: #0ea5e9;
   border-radius: inherit;
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .coordinator-teams-header {

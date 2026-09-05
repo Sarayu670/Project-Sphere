@@ -196,41 +196,49 @@ function CoordinatorDashboard() {
               </div>
             </section>
 
-            <section className="coordinator-panel brainstorm-panel">
-              <div className="coordinator-panel-header">
-                <div>
-                  <span className="panel-kicker">Brainstorm</span>
-                  <h2>Class Focus Ideas</h2>
-                </div>
-                <span className="panel-count">{inProgressPercent}%</span>
-              </div>
-              <div className="brainstorm-list">
-                <div><strong>Review rhythm</strong><span>Keep PRC and submission checks weekly for active teams.</span></div>
-                <div><strong>Outcome push</strong><span>Shortlist teams ready for prototype, paper, patent, or funding outcomes.</span></div>
-                <div><strong>Guide sync</strong><span>Use meetings to close blockers before the next timeline deadline.</span></div>
-              </div>
-            </section>
-
             <section className="coordinator-panel outcome-panel">
               <div className="coordinator-panel-header">
                 <div>
-                  <span className="panel-kicker">Outcome graph</span>
+                  <span className="panel-kicker">Project outcomes</span>
                   <h2>Outcome Summary</h2>
                 </div>
                 <span className="panel-count">{batches.length}</span>
               </div>
-              <div className="outcome-bars">
+              <div className="outcome-list">
                 {outcomeRows.length === 0 ? (
-                  <p>No outcome data yet.</p>
+                  <div className="outcome-empty">
+                    <p>No project outcome data recorded yet.</p>
+                  </div>
                 ) : (
-                  outcomeRows.map(([outcome, count]) => (
-                    <div className="outcome-bar-row" key={outcome}>
-                      <div><span>{outcome}</span><strong>{count}</strong></div>
-                      <div className="outcome-track">
-                        <span style={{ width: `${stats.total ? Math.round((count / stats.total) * 100) : 0}%` }}></span>
+                  outcomeRows.map(([outcome, count]) => {
+                    const percent = stats.total ? Math.round((count / stats.total) * 100) : 0;
+                    const config = {
+                      'Patented': { icon: '📜', color: '#8b5cf6' },
+                      'Published': { icon: '📚', color: '#3b82f6' },
+                      'Copyrighted': { icon: '©️', color: '#10b981' },
+                      'Prototype': { icon: '⚙️', color: '#f59e0b' },
+                      'Funded': { icon: '💰', color: '#06b6d4' },
+                      'Other': { icon: '🏷️', color: '#6366f1' },
+                      'None': { icon: '⚪', color: '#94a3b8' }
+                    }[outcome] || { icon: '📌', color: '#0ea5e9' };
+
+                    return (
+                      <div className="outcome-item" key={outcome}>
+                        <div className="outcome-meta">
+                          <span className="outcome-label">
+                            <span className="outcome-icon">{config.icon}</span>
+                            <strong>{outcome === 'None' ? 'None / Pending' : outcome}</strong>
+                          </span>
+                          <span className="outcome-stat">
+                            <strong>{count}</strong> {count === 1 ? 'team' : 'teams'} ({percent}%)
+                          </span>
+                        </div>
+                        <div className="outcome-track">
+                          <span style={{ width: `${percent}%`, background: config.color }}></span>
+                        </div>
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </section>

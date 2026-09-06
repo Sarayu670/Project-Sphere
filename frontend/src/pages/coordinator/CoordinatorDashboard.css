@@ -258,6 +258,124 @@
   gap: 16px;
 }
 
+.coordinator-marks-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 8px 26px rgba(15, 23, 42, 0.06);
+  overflow: hidden;
+}
+
+.marks-table-container {
+  overflow-x: auto;
+}
+
+.coordinator-marks-table {
+  min-width: 980px;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.coordinator-marks-table thead th {
+  position: sticky;
+  top: 0;
+  background: linear-gradient(180deg, #f8fafc 0%, #eef4ff 100%);
+  color: #1e293b;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 14px 12px;
+  border-bottom: 1px solid #dfe7f5;
+  text-align: center;
+}
+
+.coordinator-marks-table tbody td {
+  padding: 12px 10px;
+  border-bottom: 1px solid #edf2f7;
+  text-align: center;
+  color: #334155;
+  background: #fff;
+}
+
+.coordinator-marks-table tbody tr:hover td {
+  background: #f8fbff;
+}
+
+.marks-subtext {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.marks-cell {
+  font-weight: 700;
+}
+
+.marks-positive {
+  display: inline-flex;
+  min-width: 24px;
+  justify-content: center;
+  background: #ecfdf5;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+  border-radius: 999px;
+  padding: 6px 8px;
+}
+
+.marks-neutral {
+  display: inline-flex;
+  min-width: 24px;
+  justify-content: center;
+  background: #f8fafc;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  padding: 6px 8px;
+}
+
+.marks-total-cell {
+  font-size: 15px;
+  color: #0f172a;
+}
+
+.coordinator-empty-state {
+  padding: 32px 20px;
+  text-align: center;
+  color: #475569;
+}
+
+.coordinator-empty-state h3 {
+  margin: 0 0 8px;
+  color: #0f172a;
+}
+
+.marks-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px 12px 20px;
+  border-top: 1px solid #edf2f7;
+  background: #f8fafc;
+  color: #334155;
+  font-weight: 700;
+}
+
+.marks-pagination .btn {
+  min-width: 110px;
+}
+
+.timeline-card--locked {
+  background: linear-gradient(180deg, #f8fafc 0%, #f3f4f6 100%);
+  border-color: #d1d5db;
+}
+
+.timeline-card__alert--locked {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #475569;
+}
+
 .coordinator-teams-header h2,
 .coordinator-teams-header p {
   margin: 0;

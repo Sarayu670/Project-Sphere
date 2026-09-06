@@ -116,6 +116,29 @@ exports.createOrUpdateSubmission = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Timeline event not found' });
     }
 
+    const timelineEvents = await TimelineEvent.find({
+      isActive: true,
+      $or: [
+        { targetYear: batch.year },
+        { targetYear: 'all' }
+      ]
+    }).sort({ order: 1, deadline: 1 }).select('_id');
+    const eventIndex = timelineEvents.findIndex(item => item._id.toString() === event._id.toString());
+
+    if (eventIndex > 0) {
+      const previousSubmission = await Submission.findOne({
+        batchId,
+        timelineEventId: timelineEvents[eventIndex - 1]._id
+      }).select('status');
+
+      if (previousSubmission?.status !== 'accepted') {
+        return res.status(400).json({
+          success: false,
+          message: 'Complete and get the previous timeline milestone accepted before submitting this event.'
+        });
+      }
+    }
+
     // Check if deadline has passed
     if (new Date() > event.deadline) {
       return res.status(400).json({ success: false, message: 'Submission deadline has passed' });

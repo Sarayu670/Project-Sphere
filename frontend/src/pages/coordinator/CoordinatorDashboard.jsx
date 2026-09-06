@@ -10,9 +10,112 @@ import usePolling from '../../utils/usePolling';
 import './CoordinatorDashboard.css';
 
 const OUTCOMES = ['None', 'Patented', 'Published', 'Copyrighted', 'Prototype', 'Funded', 'Other'];
+const TRACKED_MARK_EVENTS = [
+  { key: 'abstractReview', label: 'Abstract Review', aliases: ['abstract review', 'abstract-review', 'abstractreview'] },
+  { key: 'prc1', label: 'PRC-1', aliases: ['prc-1', 'prc 1', 'prc1'] },
+  { key: 'prc2', label: 'PRC-2', aliases: ['prc-2', 'prc 2', 'prc2'] },
+  { key: 'prc3', label: 'PRC-3', aliases: ['prc-3', 'prc 3', 'prc3'] },
+  { key: 'thesis', label: 'Thesis', aliases: ['thesis'] }
+];
+
+const normalizeEventTitle = (value = '') => String(value).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 
 function idOf(value) {
   return typeof value === 'object' && value ? value._id : value;
+}
+
+function buildMarksReport(batches = [], timelineEvents = [], submissions = []) {
+  const relevantEvents = (timelineEvents || [])
+    .map(event => {
+      const normalized = normalizeEventTitle(event?.title || '');
+      const match = TRACKED_MARK_EVENTS.find(config => config.aliases.some(alias => normalized.includes(alias)));
+      return match ? { ...event, markKey: match.key, markLabel: match.label, order: TRACKED_MARK_EVENTS.findIndex(item => item.key === match.key) } : null;
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.order - b.order);
+
+  if (!relevantEvents.length) {
+    return { columns: [], rows: [] };
+  }
+
+  const submissionsByKey = new Map();
+  for (const submission of submissions) {
+    const batchId = submission?.batchId && typeof submission.batchId === 'object' ? submission.batchId._id : submission.batchId;
+    const eventId = submission?.timelineEventId && typeof submission.timelineEventId === 'object' ? submission.timelineEventId._id : submission.timelineEventId;
+    if (!batchId || !eventId) continue;
+    submissionsByKey.set(`${String(batchId)}::${String(eventId)}`, submission);
+  }
+
+  const rows = [];
+  for (const batch of batches) {
+    const batchId = String(batch?._id || '');
+    if (!batchId) continue;
+
+    const members = new Map();
+    const addMember = (member) => {
+      if (!member) return;
+      const uniqueKey = String(member._id || member.rollNo || member.rollNumber || `${member.name || 'member'}-${Math.random()}`);
+      if (!members.has(uniqueKey)) {
+        members.set(uniqueKey, {
+          _id: member._id || member.rollNo || member.rollNumber || uniqueKey,
+          name: member.name || 'Unknown Student',
+          rollNo: member.rollNo || member.rollNumber || '—'
+        });
+      }
+    };
+
+    (batch.teamMembers || []).forEach(addMember);
+
+    for (const submission of submissions) {
+      const currentBatchId = submission?.batchId && typeof submission.batchId === 'object' ? submission.batchId._id : submission.batchId;
+      if (String(currentBatchId) !== batchId) continue;
+      (submission.studentMarks || []).forEach(markEntry => {
+        const student = markEntry?.studentId && typeof markEntry.studentId === 'object' ? markEntry.studentId : null;
+        if (!student) return;
+        addMember({
+          _id: student._id,
+          name: student.name,
+          rollNumber: student.rollNumber,
+          rollNo: student.rollNumber
+        });
+      });
+    }
+
+    const memberList = Array.from(members.values());
+    if (!memberList.length) continue;
+
+    for (const member of memberList) {
+      const row = {
+        teamName: batch.teamName || 'Unknown Team',
+        memberName: member.name,
+        rollNumber: member.rollNo || '—'
+      };
+      let total = 0;
+      let outOf = 0;
+
+      for (const event of relevantEvents) {
+        const submission = submissionsByKey.get(`${batchId}::${String(event._id)}`);
+        const scoreEntry = (submission?.studentMarks || []).find(markEntry => {
+          const studentId = markEntry?.studentId && typeof markEntry.studentId === 'object' ? markEntry.studentId._id : markEntry.studentId;
+          return String(studentId) === String(member._id);
+        });
+        const score = scoreEntry && scoreEntry.marks !== null && scoreEntry.marks !== undefined ? Number(scoreEntry.marks) : 0;
+        row[event.markKey] = score;
+        total += score;
+        outOf += Number(event.maxMarks || 0);
+      }
+
+      row.total = total;
+      row.outOf = outOf;
+      row.percentage = outOf ? Math.round((total / outOf) * 100) : 0;
+      rows.push(row);
+    }
+  }
+
+  return {
+    columns: relevantEvents.map(event => ({ key: event.markKey, label: event.markLabel, max: Number(event.maxMarks || 0) })),
+    rows
+  };
 }
 
 function CoordinatorDashboard() {
@@ -31,26 +134,33 @@ function CoordinatorDashboard() {
   const [selectedBatch, setSelectedBatch] = useState(null);
   const [saving, setSaving] = useState(false);
   const [editForm, setEditForm] = useState({});
+  const [marksReport, setMarksReport] = useState({ columns: [], rows: [] });
+  const [marksPage, setMarksPage] = useState(1);
+  const MARKS_PAGE_SIZE = 10;
 
   const fetchData = useCallback(async () => {
     try {
-      const [batchesRes, coesRes, rcsRes, guidesRes] = await Promise.all([
+      const [batchesRes, coesRes, rcsRes, guidesRes, timelineRes, submissionsRes] = await Promise.all([
         api.getSectionBatches(),
         api.getAllCOEs(),
         api.getAllRCs(),
-        api.getAllGuides()
+        api.getAllGuides(),
+        api.getAllTimelineEvents(scope?.year),
+        api.getAllSubmissions({ status: 'all', limit: 500 })
       ]);
-      setBatches(batchesRes.data.data || []);
+      const nextBatches = batchesRes.data.data || [];
+      setBatches(nextBatches);
       setCoes(coesRes.data.data || []);
       setRcs(rcsRes.data.data || []);
       setGuides(guidesRes.data.data || []);
+      setMarksReport(buildMarksReport(nextBatches, timelineRes.data.data || [], submissionsRes.data.data || []));
       setError('');
     } catch (err) {
       setError(err.response?.data?.message || 'Unable to load the coordinator dashboard.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [scope?.year]);
 
   useEffect(() => {
     fetchData();
@@ -140,6 +250,40 @@ function CoordinatorDashboard() {
     XLSX.writeFile(workbook, `Project_Sphere_${scope?.year}_${scope?.branch}_${scope?.section}_Report.xlsx`);
   };
 
+  const downloadMarksReport = () => {
+    if (!marksReport.columns.length) {
+      return;
+    }
+
+    const rows = marksReport.rows.map(row => {
+      const record = {
+        Team: row.teamName,
+        Student: row.memberName,
+        'Roll Number': row.rollNumber
+      };
+      marksReport.columns.forEach(column => {
+        record[column.label] = row[column.key];
+      });
+      record['Total'] = row.total;
+      record['Out of'] = row.outOf;
+      record['%'] = row.percentage;
+      return record;
+    });
+
+    const workbook = XLSX.utils.book_new();
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    worksheet['!cols'] = [
+      { wch: 20 }, { wch: 22 }, { wch: 15 },
+      ...marksReport.columns.map(() => ({ wch: 15 })),
+      { wch: 12 }, { wch: 12 }, { wch: 10 }
+    ];
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Marks Report');
+    XLSX.writeFile(workbook, `Project_Sphere_${scope?.year}_${scope?.branch}_${scope?.section}_Marks_Report.xlsx`);
+  };
+
+  const marksTotalPages = Math.max(1, Math.ceil((marksReport.rows?.length || 0) / MARKS_PAGE_SIZE));
+  const paginatedMarksRows = marksReport.rows.slice((marksPage - 1) * MARKS_PAGE_SIZE, marksPage * MARKS_PAGE_SIZE);
+
   if (loading) {
     return (
       <div className="coordinator-dashboard">
@@ -167,6 +311,7 @@ function CoordinatorDashboard() {
       <div className="tabs">
         <button className={`tab ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => changeTab('overview')}>Section Overview</button>
         <button className={`tab ${activeTab === 'teams' ? 'active' : ''}`} onClick={() => changeTab('teams')}>My Teams</button>
+        <button className={`tab ${activeTab === 'marks' ? 'active' : ''}`} onClick={() => changeTab('marks')}>Marks Report</button>
         <button className={`tab ${activeTab === 'timeline' ? 'active' : ''}`} onClick={() => changeTab('timeline')}>Timeline</button>
         <button className={`tab ${activeTab === 'meetings' ? 'active' : ''}`} onClick={() => changeTab('meetings')}>Meetings</button>
         <button className={`tab ${activeTab === 'batch-import' ? 'active' : ''}`} onClick={() => changeTab('batch-import')}>📤 Import Batches</button>
@@ -313,6 +458,86 @@ function CoordinatorDashboard() {
               </table>
             </div>
           )}
+        </div>
+      )}
+
+      {activeTab === 'marks' && (
+        <div className="tab-content">
+          <div className="section-header coordinator-teams-header">
+            <div>
+              <h2>Team Marks Report</h2>
+              <p>Individual assessment for each batch across Abstract Review, PRC-1, PRC-2, PRC-3 and Thesis.</p>
+            </div>
+            <button className="btn btn-primary" onClick={downloadMarksReport} disabled={!marksReport.columns.length}>
+              Download Excel
+            </button>
+          </div>
+
+          <div className="coordinator-marks-card">
+            {marksReport.columns.length === 0 ? (
+              <div className="coordinator-empty-state">
+                <h3>No guided marks available yet</h3>
+                <p>Once the guide assigns marks for the timeline events, they will appear here for each student.</p>
+              </div>
+            ) : (
+              <div className="table-container marks-table-container">
+                <table className="data-table coordinator-marks-table">
+                  <thead>
+                    <tr>
+                      <th>Team</th>
+                      <th>Student</th>
+                      <th>Roll No</th>
+                      {marksReport.columns.map(column => (
+                        <th key={column.key}>{column.label}<br /><span className="marks-subtext">/{column.max}</span></th>
+                      ))}
+                      <th>Total<br /><span className="marks-subtext">/25</span></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedMarksRows.length === 0 ? (
+                      <tr><td colSpan={5 + marksReport.columns.length}>No team data found.</td></tr>
+                    ) : (
+                      paginatedMarksRows.map((row, index) => (
+                        <tr key={`${row.teamName}-${row.memberName}-${index}`}>
+                          <td>{row.teamName}</td>
+                          <td>{row.memberName}</td>
+                          <td>{row.rollNumber}</td>
+                          {marksReport.columns.map(column => (
+                            <td key={`${row.teamName}-${row.memberName}-${column.key}`} className="marks-cell">
+                              <span className={row[column.key] > 0 ? 'marks-positive' : 'marks-neutral'}>{row[column.key] ?? 0}</span>
+                            </td>
+                          ))}
+                          <td className="marks-total-cell">
+                            <strong>{row.total}</strong>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+
+                {marksReport.rows.length > MARKS_PAGE_SIZE && (
+                  <div className="marks-pagination">
+                    <button
+                      className="btn btn-secondary"
+                      disabled={marksPage === 1}
+                      onClick={() => setMarksPage(prev => Math.max(1, prev - 1))}
+                    >
+                      Previous
+                    </button>
+                    <span>{marksPage} / {marksTotalPages}</span>
+                    <button
+                      className="btn btn-secondary"
+                      disabled={marksPage >= marksTotalPages}
+                      onClick={() => setMarksPage(prev => Math.min(marksTotalPages, prev + 1))}
+                    >
+                      Next
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
 

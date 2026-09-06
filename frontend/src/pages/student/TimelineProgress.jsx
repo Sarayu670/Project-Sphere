@@ -116,6 +116,11 @@ function TimelineProgress({ batchId }) {
     return { text: `${Math.ceil(diff)} days left`, color: '#22c55e' };
   };
 
+  const isEventUnlocked = (eventIndex) => {
+    if (eventIndex === 0) return true;
+    return timeline[eventIndex - 1]?.submissionStatus === 'accepted';
+  };
+
   if (loading && timeline.length === 0) return (
     <div style={{ padding: '20px' }}>
       {[1, 2, 3].map(i => (
@@ -303,14 +308,26 @@ function TimelineProgress({ batchId }) {
         <div className="timeline-list">
           {timeline.map((event, idx) => {
             const deadlineStatus = getDeadlineStatus(event.deadline);
+            const unlocked = isEventUnlocked(idx);
             const progress = event.submissionStatus === 'accepted' ? 100 : event.submissionStatus === 'submitted' ? 50 : 0;
 
             return (
-              <div key={event._id} className="card" style={{ marginBottom: '15px', borderLeft: `4px solid ${event.submissionStatus === 'accepted' ? '#22c55e' : '#667eea'}`, cursor: 'pointer' }} onClick={() => setSelectedEvent(event)}>
+              <div
+                key={event._id}
+                className="card"
+                style={{
+                  marginBottom: '15px',
+                  borderLeft: `4px solid ${event.submissionStatus === 'accepted' ? '#22c55e' : unlocked ? '#667eea' : '#cbd5e1'}`,
+                  cursor: unlocked ? 'pointer' : 'not-allowed',
+                  opacity: unlocked ? 1 : 0.68,
+                  background: unlocked ? '#fff' : '#f8fafc'
+                }}
+                onClick={() => unlocked && setSelectedEvent(event)}
+              >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: '15px', flex: 1 }}>
                     <span style={{
-                      background: event.submissionStatus === 'accepted' ? '#22c55e' : '#667eea',
+                      background: event.submissionStatus === 'accepted' ? '#22c55e' : unlocked ? '#667eea' : '#94a3b8',
                       color: 'white',
                       borderRadius: '50%',
                       width: '32px',
@@ -326,19 +343,24 @@ function TimelineProgress({ batchId }) {
                     <div style={{ flex: 1 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '5px' }}>
                         <h3 style={{ margin: 0, fontSize: '18px' }}>{event.title}</h3>
-                        {getStatusBadge(event.submissionStatus)}
+                        {unlocked ? getStatusBadge(event.submissionStatus) : <span className="timeline-badge badge-secondary">🔒 Locked</span>}
                       </div>
                       <p style={{ color: '#666', fontSize: '14px', margin: '5px 0' }}>{event.description}</p>
                     </div>
                   </div>
                   <div style={{ textAlign: 'right', marginLeft: '15px' }}>
-                    <div style={{ color: deadlineStatus.color, fontWeight: '500' }}>{deadlineStatus.text}</div>
+                    <div style={{ color: unlocked ? deadlineStatus.color : '#64748b', fontWeight: '500' }}>{unlocked ? deadlineStatus.text : 'Locked'}</div>
                     <small style={{ color: '#888' }}>{new Date(event.deadline).toLocaleDateString()}</small>
                   </div>
                 </div>
                 <div style={{ marginTop: '10px', background: '#e5e7eb', borderRadius: '4px', height: '6px', overflow: 'hidden' }}>
                   <div style={{ width: `${progress}%`, height: '100%', background: event.submissionStatus === 'accepted' ? '#22c55e' : '#667eea', transition: 'width 0.3s' }}></div>
                 </div>
+                {!unlocked && (
+                  <p style={{ margin: '10px 0 0', color: '#64748b', fontSize: '13px', fontWeight: '600' }}>
+                    Complete and get the previous milestone accepted to unlock this event.
+                  </p>
+                )}
               </div>
             );
           })}

@@ -137,6 +137,8 @@ function CoordinatorDashboard() {
   const [marksReport, setMarksReport] = useState({ columns: [], rows: [] });
   const [marksPage, setMarksPage] = useState(1);
   const MARKS_PAGE_SIZE = 10;
+  const [teamsPage, setTeamsPage] = useState(1);
+  const TEAMS_PAGE_SIZE = 10;
 
   const fetchData = useCallback(async () => {
     try {
@@ -306,6 +308,18 @@ function CoordinatorDashboard() {
   const marksTotalPages = Math.max(1, Math.ceil((marksReport.rows?.length || 0) / MARKS_PAGE_SIZE));
   const paginatedMarksRows = marksReport.rows.slice((marksPage - 1) * MARKS_PAGE_SIZE, marksPage * MARKS_PAGE_SIZE);
 
+  const teamsTotalPages = Math.max(1, Math.ceil(batches.length / TEAMS_PAGE_SIZE));
+  const paginatedBatches = useMemo(() => {
+    const start = (teamsPage - 1) * TEAMS_PAGE_SIZE;
+    return batches.slice(start, start + TEAMS_PAGE_SIZE);
+  }, [batches, teamsPage]);
+
+  useEffect(() => {
+    if (teamsPage > teamsTotalPages) {
+      setTeamsPage(teamsTotalPages);
+    }
+  }, [teamsTotalPages, teamsPage]);
+
   if (loading) {
     return (
       <div className="coordinator-dashboard">
@@ -465,7 +479,7 @@ function CoordinatorDashboard() {
                   {batches.length === 0 ? (
                     <tr><td colSpan="9">No teams have been added to this section.</td></tr>
                   ) : (
-                    batches.map(batch => (
+                    paginatedBatches.map(batch => (
                       <tr key={batch._id}>
                         <td><button className="coordinator-link" onClick={() => selectBatch(batch)}>{batch.teamName}</button></td>
                         <td>{formatMembersForDisplay(batch.teamMembers) || '-'}</td>
@@ -486,6 +500,49 @@ function CoordinatorDashboard() {
                   )}
                 </tbody>
               </table>
+
+              {batches.length > TEAMS_PAGE_SIZE && (
+                <div className="coordinator-pagination">
+                  <span className="coordinator-pagination-info">
+                    Showing {(teamsPage - 1) * TEAMS_PAGE_SIZE + 1}–{Math.min(teamsPage * TEAMS_PAGE_SIZE, batches.length)} of {batches.length} teams
+                  </span>
+                  <div className="coordinator-pagination-controls">
+                    <button
+                      className="btn btn-secondary"
+                      disabled={teamsPage === 1}
+                      onClick={() => setTeamsPage(prev => Math.max(1, prev - 1))}
+                    >
+                      Previous
+                    </button>
+                    <div className="coordinator-page-numbers">
+                      {Array.from({ length: teamsTotalPages }, (_, i) => i + 1)
+                        .filter(page => {
+                          if (teamsTotalPages <= 7) return true;
+                          return page === 1 || page === teamsTotalPages || Math.abs(page - teamsPage) <= 1;
+                        })
+                        .map((page, idx, arr) => (
+                          <span key={page} style={{ display: 'inline-flex', alignItems: 'center' }}>
+                            {idx > 0 && arr[idx - 1] !== page - 1 && <span style={{ padding: '0 4px', color: '#94a3b8' }}>...</span>}
+                            <button
+                              className={`btn btn-sm ${page === teamsPage ? 'btn-primary' : 'btn-secondary'}`}
+                              onClick={() => setTeamsPage(page)}
+                              style={{ minWidth: '36px', height: '36px', padding: '0 8px', fontWeight: page === teamsPage ? '700' : '500' }}
+                            >
+                              {page}
+                            </button>
+                          </span>
+                        ))}
+                    </div>
+                    <button
+                      className="btn btn-secondary"
+                      disabled={teamsPage >= teamsTotalPages}
+                      onClick={() => setTeamsPage(prev => Math.min(teamsTotalPages, prev + 1))}
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

@@ -10,22 +10,58 @@ const XLSX = require('xlsx');
  * Uses regex patterns to match various column name formats
  */
 const COLUMN_PATTERNS = {
-    batchId: /batch.*id|batchid|proj.*id|proj.*batch|batch.*no/i,
-    teamName: /team|batch(?!.*(id|no))|group|squad/i,
-    students: /student.*name|name.*of.*the.*student/i,
-    rollNumbers: /roll.*no.*\(s\)|roll.*number|roll.*no|roll\s*no|htno/i,
+    batchId: /batch.*id|batchid|proj.*id|proj.*batch|batch.*no|team.*no|team.*id|batch\s*#|team\s*#/i,
+    teamName: /team.*name|team|batch(?!.*(id|no))|group|squad/i,
+    students: /student.*name|name.*of.*the.*student|name.*of.*student|student\(s\)|\bstudents?\b/i,
+    rollNumbers: /roll.*no.*\(s\)|roll.*number|roll.*no|roll\s*no|htno|hall\s*ticket/i,
     guideName: /name.*of.*the.*guide|internal.*guide|guide.*name|name.*of.*guide|mentor|supervisor|faculty|advisor|(?!.*email)\bguide\b/i,
     guideEmail: /guide.*email|guide.*mail|email.*guide|mail.*id.*guide|mail.*id/i,
-    projectTitle: /project.*title|title/i,
+    projectTitle: /project.*title|\btitle\b/i,
     domain: /\bdomain\b/i,
     researchArea: /research.*area|\barea\b/i,
     thrustArea: /thrust.*area|thrust/i,
     outcome: /outcome|status.*outcome|patent|publication|patented|published/i,
-    coe: /\bcoe\b|\brc\b|center.*excellence|center.*of.*excellence/i,
+    coe: /\bcoe\b|\brc\b|center.*excellence|centre.*excellence|coe\s*\/\s*rc/i,
     year: /year|class.*year/i,
     branch: /branch|department|dept/i,
-    section: /section|sec/i
+    section: /section|sec\b/i
 };
+
+/**
+ * Find the most likely header row index in a 2D sheet array
+ */
+function findHeaderRow(jsonData) {
+    let bestRowIdx = -1;
+    let bestScore = -1;
+
+    // Scan up to first 25 rows for the header row
+    const scanLimit = Math.min(25, jsonData.length);
+    for (let r = 0; r < scanLimit; r++) {
+        const row = jsonData[r];
+        if (!row || !Array.isArray(row)) continue;
+        const normalized = row.map(c => normalizeText(c));
+
+        let matchCount = 0;
+        let hasCore = 0;
+        for (const [key, pat] of Object.entries(COLUMN_PATTERNS)) {
+            if (normalized.some(c => c && pat.test(c))) {
+                matchCount++;
+                if (['projectTitle', 'students', 'rollNumbers', 'guideName', 'batchId'].includes(key)) {
+                    hasCore++;
+                }
+            }
+        }
+
+        // Must match at least 2 core columns (e.g. project title + students)
+        if (hasCore >= 2 && matchCount > bestScore) {
+            bestScore = matchCount;
+            bestRowIdx = r;
+        }
+    }
+
+    return { bestRowIdx, bestScore };
+}
+
 
 /**
  * Normalize text field
@@ -118,20 +154,49 @@ function extractCOENameFromText(text) {
 function parseExcelFile(fileBuffer) {
     try {
         const workbook = XLSX.read(fileBuffer, { type: 'buffer' });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
 
+        if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+            throw new Error('Excel file contains no sheets');
+        }
+
+        // Find the sheet that best matches our template columns
+        let selectedSheetName = workbook.SheetNames[0];
+        let selectedHeaderRowIndex = 0;
+        let highestScore = -1;
+
+        for (const sheetName of workbook.SheetNames) {
+            const ws = workbook.Sheets[sheetName];
+            if (!ws) continue;
+
+            const data = XLSX.utils.sheet_to_json(ws, {
+                header: 1,
+                defval: '',
+                blankrows: false
+            });
+
+            if (!data || data.length < 2) continue;
+
+            const { bestRowIdx, bestScore } = findHeaderRow(data);
+            if (bestScore > highestScore) {
+                highestScore = bestScore;
+                selectedSheetName = sheetName;
+                selectedHeaderRowIndex = bestRowIdx >= 0 ? bestRowIdx : 0;
+            }
+        }
+
+        const worksheet = workbook.Sheets[selectedSheetName];
         const jsonData = XLSX.utils.sheet_to_json(worksheet, {
             header: 1,
             defval: '',
             blankrows: false
         });
 
-        if (jsonData.length < 2) {
+        if (jsonData.length <= selectedHeaderRowIndex) {
             throw new Error('Excel file must have at least a header row and one data row');
         }
 
-        const headers = jsonData[0].map(h => normalizeText(h));
+        const headers = jsonData[selectedHeaderRowIndex].map(h => normalizeText(h));
+        console.log(`[Parser] Selected sheet: "${selectedSheetName}" (Header row: ${selectedHeaderRowIndex + 1}, Matched template columns: ${highestScore})`);
 
         // Find column indices
         const batchIdIndex = findColumnIndex(headers, COLUMN_PATTERNS.batchId);
@@ -191,7 +256,7 @@ function parseExcelFile(fileBuffer) {
         let lastBranch = 'CSE';
         let lastSection = 'A';
 
-        for (let i = 1; i < jsonData.length; i++) {
+        for (let i = selectedHeaderRowIndex + 1; i < jsonData.length; i++) {
             const row = jsonData[i];
 
             // Skip empty rows

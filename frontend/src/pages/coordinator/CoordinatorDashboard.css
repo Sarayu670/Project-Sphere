@@ -365,6 +365,36 @@
   min-width: 110px;
 }
 
+.coordinator-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 14px 18px;
+  border-top: 1px solid #edf2f7;
+  background: #f8fafc;
+  color: #334155;
+}
+
+.coordinator-pagination-info {
+  font-size: 13px;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.coordinator-pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.coordinator-page-numbers {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .timeline-card--locked {
   background: linear-gradient(180deg, #f8fafc 0%, #f3f4f6 100%);
   border-color: #d1d5db;

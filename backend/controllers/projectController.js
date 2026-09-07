@@ -80,30 +80,37 @@ exports.importExcelFiles = async (req, res) => {
                         : `${record.guideName.toLowerCase().replace(/[^a-z0-9]/g, '')}${Date.now()}@guide.gnits.ac.in`;
 
                     try {
-                        // Hash password ONCE manually - we use updateOne/findOneAndUpdate to bypass pre-save hook
-                        const hashedGuidePassword = await bcrypt.hash('gnits@123', 10);
                         const escapedName = record.guideName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                        
-                        guide = await Guide.findOneAndUpdate(
-                            { 
-                                $or: [
-                                    { email: guideEmail },
-                                    { name: { $regex: `^${escapedName}$`, $options: 'i' } }
-                                ]
-                            },
-                            {
-                                $set: {
-                                    name: record.guideName,
-                                    email: guideEmail,
-                                    password: hashedGuidePassword,
-                                    role: 'guide'
-                                }
-                            },
-                            { upsert: true, new: true, setDefaultsOnInsert: true }
-                        );
+                        guide = await Guide.findOne({
+                            $or: [
+                                { email: guideEmail },
+                                { name: { $regex: `^${escapedName}$`, $options: 'i' } }
+                            ]
+                        });
+
+                        if (guide) {
+                            guide.name = record.guideName;
+                            if (record.guideEmail && record.guideEmail !== 'N/A') {
+                                guide.email = guideEmail;
+                            }
+                            await guide.save();
+                        } else {
+                            const hashedGuidePassword = await bcrypt.hash('gnits@123', 10);
+                            guide = await Guide.create({
+                                name: record.guideName,
+                                email: guideEmail,
+                                password: hashedGuidePassword,
+                                role: 'guide'
+                            });
+                        }
                         console.log(`[Import] Guide synced: ${guide.name} (${guide.email})`);
                     } catch (error) {
-                        console.error(`[Import] Error syncing guide ${record.guideName}: ${error.message}`);
+                        if (error.code === 11000) {
+                            guide = await Guide.findOne({ email: guideEmail }) || await Guide.findOne({ name: record.guideName });
+                            console.log(`[Import] Guide found after duplicate key: ${guide?.name}`);
+                        } else {
+                            console.error(`[Import] Error syncing guide ${record.guideName}: ${error.message}`);
+                        }
                     }
                 }
 

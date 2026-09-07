@@ -15,47 +15,70 @@ const RC = require('../models/RC');
 function parseStudentBatchExcel(fileBuffer) {
   try {
     const workbook = XLSX.read(fileBuffer, { type: 'buffer' });
-    const sheetName = workbook.SheetNames[0];
-    const worksheet = workbook.Sheets[sheetName];
 
-    // Read as 2D array to preserve structure with merged cells
+    if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+      throw new Error('Excel file contains no sheets');
+    }
+
+    let selectedSheetName = workbook.SheetNames[0];
+    let selectedHeaderRowIndex = 0;
+    let highestScore = -1;
+    let selectedIndices = { batchNoIndex: -1, rollNumIndex: -1, studentNameIndex: -1 };
+
+    for (const sheetName of workbook.SheetNames) {
+      const ws = workbook.Sheets[sheetName];
+      if (!ws) continue;
+
+      const data = XLSX.utils.sheet_to_json(ws, {
+        header: 1,
+        defval: '',
+        blankrows: false
+      });
+
+      if (!data || data.length < 2) continue;
+
+      const scanLimit = Math.min(25, data.length);
+      for (let r = 0; r < scanLimit; r++) {
+        const row = data[r];
+        if (!row || !Array.isArray(row)) continue;
+
+        let bIdx = -1, rIdx = -1, sIdx = -1;
+        for (let i = 0; i < row.length; i++) {
+          const h = String(row[i] || '').trim().toLowerCase();
+          if ((h.includes('batch') && (h.includes('no') || h.includes('id'))) || (h.includes('team') && h.includes('no'))) bIdx = i;
+          if (h.includes('roll') && (h.includes('number') || h.includes('no') || h.includes('htno'))) rIdx = i;
+          if ((h.includes('student') && h.includes('name')) || h === 'name of the student' || h === 'name of student') sIdx = i;
+        }
+
+        let score = (bIdx >= 0 ? 1 : 0) + (rIdx >= 0 ? 1 : 0) + (sIdx >= 0 ? 1 : 0);
+        if (score > highestScore) {
+          highestScore = score;
+          selectedSheetName = sheetName;
+          selectedHeaderRowIndex = r;
+          selectedIndices = { batchNoIndex: bIdx, rollNumIndex: rIdx, studentNameIndex: sIdx };
+        }
+      }
+    }
+
+    const worksheet = workbook.Sheets[selectedSheetName];
     const jsonData = XLSX.utils.sheet_to_json(worksheet, {
       header: 1,
       defval: '',
       blankrows: false
     });
 
-    if (jsonData.length < 2) {
-      throw new Error('Excel file must have at least a header row and one data row');
+    if (highestScore < 3) {
+      throw new Error(`Could not find required columns in sheet "${selectedSheetName}". Need: Batch No., Roll Number, Student Name`);
     }
 
-    // Get headers and normalize
-    const headers = jsonData[0];
-    console.log('[BatchParser] Raw headers:', headers);
-
-    // Find exact column positions
-    let batchNoIndex = -1;
-    let rollNumIndex = -1;
-    let studentNameIndex = -1;
-
-    for (let i = 0; i < headers.length; i++) {
-      const h = String(headers[i] || '').trim().toLowerCase();
-      if (h.includes('batch') && h.includes('no')) batchNoIndex = i;
-      if (h.includes('roll') && (h.includes('number') || h.includes('no'))) rollNumIndex = i;
-      if (h.includes('student') && h.includes('name')) studentNameIndex = i;
-    }
-
-    console.log('[BatchParser] Column indices:', { batchNoIndex, rollNumIndex, studentNameIndex });
-
-    if (batchNoIndex === -1 || rollNumIndex === -1 || studentNameIndex === -1) {
-      throw new Error(`Could not find columns. Need: Batch No., Roll Number, Student Name`);
-    }
+    const { batchNoIndex, rollNumIndex, studentNameIndex } = selectedIndices;
+    console.log(`[BatchParser] Sheet: "${selectedSheetName}", Header row: ${selectedHeaderRowIndex + 1}, Indices:`, { batchNoIndex, rollNumIndex, studentNameIndex });
 
     // Group students by batch with fill-down for merged cells
     const batchGroups = {};
     let lastBatchNo = '';
 
-    for (let i = 1; i < jsonData.length; i++) {
+    for (let i = selectedHeaderRowIndex + 1; i < jsonData.length; i++) {
       const row = jsonData[i];
 
       // Ensure row has enough columns

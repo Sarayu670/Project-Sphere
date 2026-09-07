@@ -55,6 +55,20 @@ const ProjectEntrySchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+
+  // Thrust Area (specific technical domain/thrust)
+  thrustArea: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+
+  // Outcome (e.g. Patented, Published, Copyrighted, Prototype, None)
+  outcome: {
+    type: String,
+    trim: true,
+    default: 'None'
+  },
   
   // COE (Center of Excellence)
   coe: {

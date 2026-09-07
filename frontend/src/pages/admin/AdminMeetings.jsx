@@ -24,26 +24,26 @@ function formatDate(iso) {
   return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-export default function AdminMeetings() {
+export default function AdminMeetings({ scope = null }) {
 const [batches, setBatches] = useState([]);
 const [plans, setPlans] = useState([]);
 const [selectedMeetingIndex, setSelectedMeetingIndex] = useState(null);
 const [loading, setLoading] = useState(true);
   
 // Filters
-const [filterYear, setFilterYear] = useState('All');
-const [filterBranch, setFilterBranch] = useState('All');
-const [filterSection, setFilterSection] = useState('All');
+const [filterYear, setFilterYear] = useState(scope?.year || 'All');
+const [filterBranch, setFilterBranch] = useState(scope?.branch || 'All');
+const [filterSection, setFilterSection] = useState(scope?.section || 'All');
 const [filterCompletionStatus, setFilterCompletionStatus] = useState('All');
 
   // Load data
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [batchesRes, plansRes] = await Promise.all([
-          api.getAllBatches(),
-          api.getAllMeetingPlans()
-        ]);
+        const [batchesRes, plansRes] = await Promise.all(scope
+          ? [api.getSectionBatches(), api.getSectionMeetingPlans()]
+          : [api.getAllBatches(), api.getAllMeetingPlans()]
+        );
         setBatches(batchesRes.data.data || []);
         setPlans(plansRes.data.data || []);
       } catch (error) {
@@ -53,11 +53,11 @@ const [filterCompletionStatus, setFilterCompletionStatus] = useState('All');
       }
     };
     fetchData();
-  }, []);
+  }, [scope?.year, scope?.branch, scope?.section]);
 
-  const years = ['All', '2nd', '3rd', '4th'];
-  const branches = ['All', 'CSE', 'IT', 'ECE', 'CSM', 'EEE', 'CSD', 'ETM'];
-  const sections = ['All', 'A', 'B', 'C', 'D', 'E'];
+  const years = scope ? [scope.year] : ['All', '2nd', '3rd', '4th'];
+  const branches = scope ? [scope.branch] : ['All', 'CSE', 'IT', 'ECE', 'CSM', 'EEE', 'CSD', 'ETM'];
+  const sections = scope ? [scope.section] : ['All', 'A', 'B', 'C', 'D', 'E'];
 
   const filteredBatches = useMemo(() => {
     return batches.filter(b => {
@@ -118,9 +118,9 @@ const [filterCompletionStatus, setFilterCompletionStatus] = useState('All');
   }, [selectedMeetingIndex, filteredBatches, plans, batches, filterCompletionStatus]);
 
   const clearFilters = () => {
-    setFilterYear('All');
-    setFilterBranch('All');
-    setFilterSection('All');
+    setFilterYear(scope?.year || 'All');
+    setFilterBranch(scope?.branch || 'All');
+    setFilterSection(scope?.section || 'All');
     setFilterCompletionStatus('All');
   };
 
@@ -200,8 +200,8 @@ const [filterCompletionStatus, setFilterCompletionStatus] = useState('All');
     <div className="tab-content">
       <div className="section-header" style={{ marginBottom: '20px' }}>
         <div>
-          <h2 style={{ margin: 0 }}>Meetings Overview</h2>
-          <p style={{ color: '#666', fontSize: '14px', margin: '4px 0 0' }}>Click on a meeting to view all teams and their completion status.</p>
+          <h2 style={{ margin: 0 }}>{scope ? 'Section Meetings' : 'Meetings Overview'}</h2>
+          <p style={{ color: '#666', fontSize: '14px', margin: '4px 0 0' }}>{scope ? `${scope.year} ${scope.branch}-${scope.section} only. ` : ''}Click on a meeting to view all teams and their completion status.</p>
         </div>
       </div>
 

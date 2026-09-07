@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
+import * as XLSX from 'xlsx';
 import * as api from '../../services/api';
 import COEandRCManagement from '../../components/COEandRCManagement';
 import TimelineManagement from './TimelineManagement';
-import BatchImport from './BatchImport';
 import usePolling from '../../utils/usePolling';
-import ImportProjectData from './ImportProjectData';
 import GuideSearch from './GuideSearch';
-import AdminMeetings from './AdminMeetings';
+import AdminAIManagement from '../../components/AdminAIManagement';
 import './AdminDashboard.css';
+
 
 const YEARS = ['2nd', '3rd', '4th'];
 const BRANCHES = ['CSE', 'IT', 'ECE', 'CSM', 'EEE', 'CSD', 'ETM'];
@@ -18,6 +18,7 @@ function AdminDashboard() {
   const [coes, setCoes] = useState([]);
   const [rcs, setRcs] = useState([]);
   const [guides, setGuides] = useState([]);
+  const [coordinators, setCoordinators] = useState([]);
   const [batches, setBatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedBatch, setSelectedBatch] = useState(null);
@@ -36,17 +37,19 @@ function AdminDashboard() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [statsRes, coesRes, rcsRes, guidesRes, batchesRes] = await Promise.all([
+      const [statsRes, coesRes, rcsRes, guidesRes, coordinatorsRes, batchesRes] = await Promise.all([
         api.getAdminDashboard(),
         api.getAllCOEs(),
         api.getAllRCs(),
         api.getAllGuides(),
+        api.getAllCoordinators(),
         api.getAllBatches()
       ]);
       setStats(statsRes.data.data);
       setCoes(coesRes.data.data);
       setRcs(rcsRes.data.data);
       setGuides(guidesRes.data.data);
+      setCoordinators(coordinatorsRes.data.data || []);
       setBatches(batchesRes.data.data);
     } catch (error) {
       console.error('AdminDashboard: Failed to fetch data:', error);
@@ -88,11 +91,17 @@ function AdminDashboard() {
   };
 
   const [isEditingAssignments, setIsEditingAssignments] = useState(false);
+  const [coordinatorFile, setCoordinatorFile] = useState(null);
+  const [coordinatorStatus, setCoordinatorStatus] = useState('');
+  const [coordinatorError, setCoordinatorError] = useState('');
+  const [coordinatorLoading, setCoordinatorLoading] = useState(false);
   const [editForm, setEditForm] = useState({
     coeId: '',
     rcId: '',
     guideId: '',
     researchArea: '',
+    thrustArea: '',
+    outcome: 'None',
     problemTitle: ''
   });
 
@@ -102,6 +111,8 @@ function AdminDashboard() {
       rcId: selectedBatch.rcId?._id || selectedBatch.rc?.rcId || '',
       guideId: selectedBatch.guideId?._id || selectedBatch.guideId || '',
       researchArea: selectedBatch.problemId?.researchArea || selectedBatch.researchArea || '',
+      thrustArea: selectedBatch.thrustArea || selectedBatch.domain || '',
+      outcome: selectedBatch.outcome || 'None',
       problemTitle: selectedBatch.problemId?.title || ''
     });
     setIsEditingAssignments(true);
@@ -119,6 +130,121 @@ function AdminDashboard() {
       console.error('Failed to update assignments:', error);
       alert('Failed to update assignments');
     }
+  };
+
+  const handleDownloadCoordinatorTemplate = () => {
+    const rows = [
+      { name: 'John Doe', branch: 'CSE', section: 'A', year: '3rd', email: 'john.doe@gmail.com' },
+      { name: 'Jane Smith', branch: 'IT', section: 'B', year: '2nd', email: 'jane.smith@gmail.com' }
+    ];
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Coordinators');
+    XLSX.writeFile(wb, 'Coordinator_Import_Template.xlsx');
+  };
+
+  const handleDeleteCoordinator = async (coordinatorId) => {
+    if (!window.confirm('Delete this coordinator from the database and remove their coordinator access?')) {
+      return;
+    }
+
+    try {
+      setCoordinatorError('');
+      const response = await api.deleteCoordinator(coordinatorId);
+      setCoordinatorStatus(response.data.message || 'Coordinator deleted successfully.');
+      setCoordinators(prev => prev.filter(coord => coord._id !== coordinatorId));
+    } catch (error) {
+      setCoordinatorError(error.response?.data?.message || 'Failed to delete coordinator.');
+      setCoordinatorStatus('');
+    }
+  };
+
+  const handleCoordinatorImport = async () => {
+    if (!coordinatorFile) {
+      setCoordinatorError('Please select a coordinator file first.');
+      return;
+    }
+
+    setCoordinatorLoading(true);
+    setCoordinatorError('');
+    setCoordinatorStatus('Importing coordinators...');
+
+    try {
+      const response = await api.importCoordinators(coordinatorFile);
+      const importResult = response.data.data;
+      let statusMessage = response.data.message || 'Coordinator import completed.';
+      if (importResult?.errors?.length > 0) {
+        const errorDetails = importResult.errors.map((e, i) => `Row ${i + 1}: ${e.error}`).join(' | ');
+        statusMessage += ` Details: ${errorDetails}`;
+      }
+      setCoordinatorStatus(statusMessage);
+      const updatedCoordinators = await api.getAllCoordinators();
+      setCoordinators(updatedCoordinators.data.data || []);
+      setCoordinatorFile(null);
+      document.getElementById('coordinator-file-input').value = '';
+    } catch (error) {
+      setCoordinatorError(error.response?.data?.message || 'Failed to import coordinators.');
+      setCoordinatorStatus('');
+    } finally {
+      setCoordinatorLoading(false);
+    }
+  };
+
+  const handleDownloadReport = () => {
+    const reportData = filteredBatches.map((batch, index) => {
+      const membersList = batch.teamMembers && batch.teamMembers.length > 0
+        ? batch.teamMembers.map(m => `${m.name || ''} (${m.rollNo || ''})`).join(', ')
+        : (batch.leaderStudentId ? `${batch.leaderStudentId.name} (${batch.leaderStudentId.rollNumber})` : 'N/A');
+
+      return {
+        'S.No': index + 1,
+        'Team Name': batch.teamName || '',
+        'Leader Roll No': batch.leaderStudentId?.rollNumber || (batch.teamMembers?.[0]?.rollNo || ''),
+        'Leader Name': batch.leaderStudentId?.name || (batch.teamMembers?.[0]?.name || ''),
+        'Team Members': membersList,
+        'Year': batch.year || '',
+        'Branch': batch.branch || '',
+        'Section': batch.section || '',
+        'COE / RC': batch.problemId?.coeId?.name || batch.coeId?.name || batch.coe?.name || 'Not Assigned',
+        'Domain': batch.domain || 'Not Assigned',
+        'Thrust Area': batch.thrustArea || batch.domain || 'Not Assigned',
+        'Guide': batch.guideId?.name || 'Not Assigned',
+        'Problem Title': batch.problemId?.title || 'Not Assigned',
+        'Outcome': batch.outcome || 'None',
+        'Allotment Status': batch.allotmentStatus || 'none',
+        'Progress Status': batch.status || 'Not Started'
+      };
+    });
+
+    const ws = XLSX.utils.json_to_sheet(reportData);
+    ws['!cols'] = [
+      { wch: 6 },  // S.No
+      { wch: 12 }, // Team Name
+      { wch: 16 }, // Leader Roll No
+      { wch: 22 }, // Leader Name
+      { wch: 35 }, // Team Members
+      { wch: 8 },  // Year
+      { wch: 10 }, // Branch
+      { wch: 10 }, // Section
+      { wch: 22 }, // COE/RC
+      { wch: 20 }, // Domain
+      { wch: 25 }, // Thrust Area
+      { wch: 20 }, // Guide
+      { wch: 35 }, // Problem Title
+      { wch: 15 }, // Outcome
+      { wch: 18 }, // Allotment Status
+      { wch: 18 }  // Progress Status
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Teams Report');
+    
+    const yearStr = filterYear ? `${filterYear}_Year` : 'All_Years';
+    const branchStr = filterBranch ? filterBranch : 'All_Branches';
+    const secStr = filterSection ? `Sec_${filterSection}` : 'All_Sections';
+    
+    XLSX.writeFile(wb, `Project_Sphere_Report_${yearStr}_${branchStr}_${secStr}.xlsx`);
   };
 
   // Reset to page 1 when filters change
@@ -153,7 +279,7 @@ function AdminDashboard() {
     <div className="admin-dashboard">
       <div className="dashboard-header">
         <h1>👑 Admin Dashboard</h1>
-        <p>Project Coordinator - Monitor all COEs, teams, and progress</p>
+        <p>Monitor all years, branches, sections, COEs, teams, and progress</p>
       </div>
 
       <div className="stats-row">
@@ -168,41 +294,92 @@ function AdminDashboard() {
         <button className={`tab ${activeTab === 'timeline' ? 'active' : ''}`} onClick={() => handleTabChange('timeline')}>📅 Timeline</button>
         <button className={`tab ${activeTab === 'filter' ? 'active' : ''}`} onClick={() => { handleTabChange('filter'); setSelectedBatch(null); }}>🔍 Filter by Class</button>
         <button className={`tab ${activeTab === 'guide-search' ? 'active' : ''}`} onClick={() => handleTabChange('guide-search')}>👨‍🏫 Search Batches</button>
-        <button className={`tab ${activeTab === 'meetings' ? 'active' : ''}`} onClick={() => handleTabChange('meetings')}>🤝 Meetings</button>
-        <button className={`tab ${activeTab === 'import' ? 'active' : ''}`} onClick={() => handleTabChange('import')}>📤 Batch Import</button>
-        <button className={`tab ${activeTab === 'project-import' ? 'active' : ''}`} onClick={() => handleTabChange('project-import')}>📊 Import Projects</button>
         <button className={`tab ${activeTab === 'manage-coe-rc' ? 'active' : ''}`} onClick={() => handleTabChange('manage-coe-rc')}>🏛️ Manage COE/RC</button>
+        <button className={`tab ${activeTab === 'import-coordinators' ? 'active' : ''}`} onClick={() => handleTabChange('import-coordinators')}>👥 Import Coordinators</button>
+        <button className={`tab ${activeTab === 'ai-agent' ? 'active' : ''}`} onClick={() => handleTabChange('ai-agent')}>🤖 AI Agent</button>
       </div>
 
       {activeTab === 'timeline' && <TimelineManagement />}
 
-      {activeTab === 'import' && (
+      {activeTab === 'import-coordinators' && (
         <div className="tab-content">
-          <BatchImport
-            onImportComplete={() => {
-              setActiveTab('filter');
-              fetchData();
-            }}
-            onCancel={() => setActiveTab('filter')}
-          />
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', gap: '12px', flexWrap: 'wrap' }}>
+            <div>
+              <h2 style={{ margin: 0 }}>Import Coordinators</h2>
+              <p style={{ margin: '6px 0 0', color: '#64748b' }}>Existing coordinator accounts are listed below.</p>
+            </div>
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              <button type="button" className="btn btn-secondary" onClick={handleDownloadCoordinatorTemplate}>📥 Download Template</button>
+              <label className="btn btn-primary" style={{ cursor: 'pointer' }}>
+                <input id="coordinator-file-input" type="file" accept=".xlsx,.xls,.csv" onChange={(e) => setCoordinatorFile(e.target.files[0] || null)} style={{ display: 'none' }} />
+                Choose File
+              </label>
+              <button type="button" className="btn btn-primary" onClick={handleCoordinatorImport} disabled={!coordinatorFile || coordinatorLoading}>
+                {coordinatorLoading ? 'Importing...' : 'Import Coordinators'}
+              </button>
+            </div>
+          </div>
+
+          {coordinatorError && (
+            <div style={{ padding: '12px 14px', background: '#fee2e2', color: '#991b1b', border: '1px solid #fecaca', borderRadius: '8px', marginBottom: '16px' }}>
+              {coordinatorError}
+            </div>
+          )}
+
+          {coordinatorStatus && (
+            <div style={{ padding: '12px 14px', background: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0', borderRadius: '8px', marginBottom: '16px' }}>
+              {coordinatorStatus}
+            </div>
+          )}
+
+          <div className="table-container">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Branch</th>
+                  <th>Section</th>
+                  <th>Year</th>
+                  <th>Email</th>
+                </tr>
+              </thead>
+              <tbody>
+                {coordinators.length === 0 ? (
+                  <tr>
+                    <td colSpan="6" style={{ textAlign: 'center', color: '#64748b', padding: '18px' }}>No coordinators imported yet.</td>
+                  </tr>
+                ) : (
+                  coordinators.map((coordinator) => (
+                    <tr key={coordinator._id} className="coordinator-row">
+                      <td>{coordinator.name}</td>
+                      <td>{coordinator.branch || '—'}</td>
+                      <td>{coordinator.section || '—'}</td>
+                      <td>{coordinator.year || '—'}</td>
+                      <td>{coordinator.email}</td>
+                      <td className="coordinator-action-cell">
+                        <button type="button" className="coordinator-delete-btn" onClick={() => handleDeleteCoordinator(coordinator._id)}>
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+
+      {activeTab === 'ai-agent' && (
+        <div className="tab-content">
+          <AdminAIManagement />
         </div>
       )}
 
       {activeTab === 'guide-search' && (
         <div className="tab-content">
           <GuideSearch />
-        </div>
-      )}
-
-      {activeTab === 'project-import' && (
-        <div className="tab-content">
-          <ImportProjectData />
-        </div>
-      )}
-
-      {activeTab === 'meetings' && (
-        <div className="tab-content">
-          <AdminMeetings />
         </div>
       )}
 
@@ -233,9 +410,14 @@ function AdminDashboard() {
                   {SECTIONS.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
-              <button className="btn btn-secondary" onClick={() => { setFilterYear(''); setFilterBranch(''); setFilterSection(''); }}>
-                Clear Filters
-              </button>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button className="btn btn-secondary" onClick={() => { setFilterYear(''); setFilterBranch(''); setFilterSection(''); }}>
+                  Clear Filters
+                </button>
+                <button className="btn btn-primary" style={{ backgroundColor: '#28a745', borderColor: '#28a745' }} onClick={handleDownloadReport}>
+                  📥 Download Report
+                </button>
+              </div>
             </div>
           </div>
 
@@ -259,16 +441,39 @@ function AdminDashboard() {
                     <th>Team Name</th>
                     <th>Team Members</th>
                     <th>COE/RC</th>
-                    <th>Research Area</th>
+                    <th>Domain</th>
+                    <th>Thrust Area</th>
                     <th>Guide</th>
                     <th>Problem</th>
-                    <th style={{ width: "120px" }}>Actions</th>
+                    <th>Outcome</th>
                   </tr>
                 </thead>
                 <tbody>
                   {paginatedBatches.map((batch) => (
                     <tr key={batch._id}>
-                      <td><strong>{batch.teamName}</strong></td>
+                      <td>
+                        <button
+                          onClick={() => handleSelectBatch(batch)}
+                          title="Click to view & edit team details"
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            padding: 0,
+                            margin: 0,
+                            color: '#2b6cb0',
+                            fontWeight: 'bold',
+                            fontSize: '14px',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            textAlign: 'left'
+                          }}
+                        >
+                          <span>{batch.teamName}</span>
+                          <span style={{ fontSize: '12px', opacity: 0.7 }} title="Edit Team">✏️</span>
+                        </button>
+                      </td>
                       <td>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                           {batch.teamMembers && batch.teamMembers.map((member, idx) => (
@@ -279,11 +484,22 @@ function AdminDashboard() {
                         </div>
                       </td>
                       <td>{batch.problemId?.coeId?.name || batch.coeId?.name || batch.coe?.name || 'Not Assigned'}</td>
-                      <td>{batch.problemId?.researchArea || batch.researchArea || 'Not Assigned'}</td>
+                      <td>{batch.domain || 'Not Assigned'}</td>
+                      <td>{batch.thrustArea || batch.domain || 'Not Assigned'}</td>
                       <td>{batch.guideId?.name || 'Not Assigned'}</td>
                       <td>{batch.problemId?.title || 'Not Assigned'}</td>
                       <td>
-                        <button className="btn btn-primary btn-sm" onClick={() => handleSelectBatch(batch)}>View Details</button>
+                        <span style={{
+                          padding: '4px 8px',
+                          borderRadius: '12px',
+                          fontSize: '11px',
+                          fontWeight: '600',
+                          backgroundColor: batch.outcome && batch.outcome !== 'None' ? '#e6fffa' : '#edf2f7',
+                          color: batch.outcome && batch.outcome !== 'None' ? '#234e52' : '#718096',
+                          border: batch.outcome && batch.outcome !== 'None' ? '1px solid #b2f5ea' : '1px solid #e2e8f0'
+                        }}>
+                          {batch.outcome || 'None'}
+                        </span>
                       </td>
                     </tr>
                   ))}
@@ -367,7 +583,9 @@ function AdminDashboard() {
                       ✎ Edit
                     </button>
                     <p><strong>COE/RC:</strong> {selectedBatch.problemId?.coeId?.name || selectedBatch.coeId?.name || selectedBatch.coe?.name || 'Not Assigned'}</p>
-                    <p><strong>Research Area:</strong> {selectedBatch.problemId?.researchArea || selectedBatch.researchArea || 'Not Assigned'}</p>
+                    <p><strong>Domain:</strong> {selectedBatch.domain || 'Not Assigned'}</p>
+                    <p><strong>Thrust Area:</strong> {selectedBatch.thrustArea || selectedBatch.domain || 'Not Assigned'}</p>
+                    <p><strong>Outcome:</strong> {selectedBatch.outcome || 'None'}</p>
                     <p><strong>Guide:</strong> {selectedBatch.guideId?.name || 'Not Assigned'}</p>
                     <p><strong>Problem:</strong> {selectedBatch.problemId?.title || 'Not Assigned'}</p>
                   </>
@@ -404,6 +622,34 @@ function AdminDashboard() {
                         placeholder="Research Area"
                         style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e0' }}
                       />
+                    </div>
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label style={{ fontSize: '12px', fontWeight: 'bold' }}>Thrust Area</label>
+                      <input 
+                        type="text" 
+                        value={editForm.thrustArea} 
+                        onChange={(e) => setEditForm({...editForm, thrustArea: e.target.value})}
+                        placeholder="Thrust Area (e.g. AI/ML, Cloud)"
+                        style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e0' }}
+                      />
+                    </div>
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label style={{ fontSize: '12px', fontWeight: 'bold' }}>Outcome</label>
+                      <select 
+                        value={editForm.outcome} 
+                        onChange={(e) => setEditForm({...editForm, outcome: e.target.value})}
+                        style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e0' }}
+                      >
+                        <option value="None">None</option>
+                        <option value="Patented">Patented</option>
+                        <option value="Published">Published</option>
+                        <option value="Copyrighted">Copyrighted</option>
+                        <option value="Paper Published">Paper Published</option>
+                        <option value="Journal Published">Journal Published</option>
+                        <option value="Conference Published">Conference Published</option>
+                        <option value="Prototype">Prototype</option>
+                        <option value="Other">Other</option>
+                      </select>
                     </div>
                     <div className="form-group" style={{ marginBottom: 0 }}>
                       <label style={{ fontSize: '12px', fontWeight: 'bold' }}>Problem Statement Title</label>

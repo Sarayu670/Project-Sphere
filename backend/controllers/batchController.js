@@ -15,47 +15,70 @@ const RC = require('../models/RC');
 function parseStudentBatchExcel(fileBuffer) {
   try {
     const workbook = XLSX.read(fileBuffer, { type: 'buffer' });
-    const sheetName = workbook.SheetNames[0];
-    const worksheet = workbook.Sheets[sheetName];
 
-    // Read as 2D array to preserve structure with merged cells
+    if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+      throw new Error('Excel file contains no sheets');
+    }
+
+    let selectedSheetName = workbook.SheetNames[0];
+    let selectedHeaderRowIndex = 0;
+    let highestScore = -1;
+    let selectedIndices = { batchNoIndex: -1, rollNumIndex: -1, studentNameIndex: -1 };
+
+    for (const sheetName of workbook.SheetNames) {
+      const ws = workbook.Sheets[sheetName];
+      if (!ws) continue;
+
+      const data = XLSX.utils.sheet_to_json(ws, {
+        header: 1,
+        defval: '',
+        blankrows: false
+      });
+
+      if (!data || data.length < 2) continue;
+
+      const scanLimit = Math.min(25, data.length);
+      for (let r = 0; r < scanLimit; r++) {
+        const row = data[r];
+        if (!row || !Array.isArray(row)) continue;
+
+        let bIdx = -1, rIdx = -1, sIdx = -1;
+        for (let i = 0; i < row.length; i++) {
+          const h = String(row[i] || '').trim().toLowerCase();
+          if ((h.includes('batch') && (h.includes('no') || h.includes('id'))) || (h.includes('team') && h.includes('no'))) bIdx = i;
+          if (h.includes('roll') && (h.includes('number') || h.includes('no') || h.includes('htno'))) rIdx = i;
+          if ((h.includes('student') && h.includes('name')) || h === 'name of the student' || h === 'name of student') sIdx = i;
+        }
+
+        let score = (bIdx >= 0 ? 1 : 0) + (rIdx >= 0 ? 1 : 0) + (sIdx >= 0 ? 1 : 0);
+        if (score > highestScore) {
+          highestScore = score;
+          selectedSheetName = sheetName;
+          selectedHeaderRowIndex = r;
+          selectedIndices = { batchNoIndex: bIdx, rollNumIndex: rIdx, studentNameIndex: sIdx };
+        }
+      }
+    }
+
+    const worksheet = workbook.Sheets[selectedSheetName];
     const jsonData = XLSX.utils.sheet_to_json(worksheet, {
       header: 1,
       defval: '',
       blankrows: false
     });
 
-    if (jsonData.length < 2) {
-      throw new Error('Excel file must have at least a header row and one data row');
+    if (highestScore < 3) {
+      throw new Error(`Could not find required columns in sheet "${selectedSheetName}". Need: Batch No., Roll Number, Student Name`);
     }
 
-    // Get headers and normalize
-    const headers = jsonData[0];
-    console.log('[BatchParser] Raw headers:', headers);
-
-    // Find exact column positions
-    let batchNoIndex = -1;
-    let rollNumIndex = -1;
-    let studentNameIndex = -1;
-
-    for (let i = 0; i < headers.length; i++) {
-      const h = String(headers[i] || '').trim().toLowerCase();
-      if (h.includes('batch') && h.includes('no')) batchNoIndex = i;
-      if (h.includes('roll') && (h.includes('number') || h.includes('no'))) rollNumIndex = i;
-      if (h.includes('student') && h.includes('name')) studentNameIndex = i;
-    }
-
-    console.log('[BatchParser] Column indices:', { batchNoIndex, rollNumIndex, studentNameIndex });
-
-    if (batchNoIndex === -1 || rollNumIndex === -1 || studentNameIndex === -1) {
-      throw new Error(`Could not find columns. Need: Batch No., Roll Number, Student Name`);
-    }
+    const { batchNoIndex, rollNumIndex, studentNameIndex } = selectedIndices;
+    console.log(`[BatchParser] Sheet: "${selectedSheetName}", Header row: ${selectedHeaderRowIndex + 1}, Indices:`, { batchNoIndex, rollNumIndex, studentNameIndex });
 
     // Group students by batch with fill-down for merged cells
     const batchGroups = {};
     let lastBatchNo = '';
 
-    for (let i = 1; i < jsonData.length; i++) {
+    for (let i = selectedHeaderRowIndex + 1; i < jsonData.length; i++) {
       const row = jsonData[i];
 
       // Ensure row has enough columns
@@ -922,6 +945,36 @@ exports.updateBatchStatus = async (req, res) => {
   }
 };
 
+// @desc    Update batch outcome (Guide only)
+// @route   PUT /api/batches/:id/outcome
+exports.updateBatchOutcome = async (req, res) => {
+  try {
+    const { outcome } = req.body;
+    const batch = await Batch.findById(req.params.id);
+
+    if (!batch) {
+      return res.status(404).json({ success: false, message: 'Batch not found' });
+    }
+
+    // Check if guide is assigned to this batch
+    if (batch.guideId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+    }
+
+    batch.outcome = outcome;
+    await batch.save();
+
+    const updatedBatch = await Batch.findById(batch._id)
+      .populate('leaderStudentId', 'name email rollNumber branch')
+      .populate('problemId', 'title description')
+      .populate('guideId', 'name email');
+
+    res.status(200).json({ success: true, data: updatedBatch });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // @desc    Get batch details with team members
 // @route   GET /api/batches/:id
 exports.getBatch = async (req, res) => {
@@ -1225,7 +1278,7 @@ exports.importStudentBatches = async (req, res) => {
 // @access  Admin
 exports.updateBatchByAdmin = async (req, res) => {
   try {
-    const { coeId, rcId, guideId, researchArea, problemTitle } = req.body;
+    const { coeId, rcId, guideId, researchArea, thrustArea, outcome, problemTitle } = req.body;
     const batch = await require('../models/Batch').findById(req.params.id);
 
     if (!batch) {
@@ -1257,6 +1310,16 @@ exports.updateBatchByAdmin = async (req, res) => {
     // Update Research Area
     if (researchArea !== undefined) {
       batch.researchArea = researchArea;
+    }
+
+    // Update Thrust Area
+    if (thrustArea !== undefined) {
+      batch.thrustArea = thrustArea;
+    }
+
+    // Update Outcome
+    if (outcome !== undefined) {
+      batch.outcome = outcome;
     }
 
     // Update or Create Problem Statement if title is provided
@@ -1310,6 +1373,217 @@ exports.updateBatchByAdmin = async (req, res) => {
     res.status(200).json({ success: true, data: updatedBatch, message: 'Batch assignments updated successfully' });
   } catch (error) {
     console.error('Update batch by admin error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Add student/team-member details to coordinator responses without exposing
+// batches outside the database query used to fetch them.
+async function attachTeamMembers(batches) {
+  const ids = batches.map(batch => batch._id);
+  if (ids.length === 0) return batches;
+
+  const [students, teamMembers] = await Promise.all([
+    Student.find({ batchId: { $in: ids } }).select('batchId name rollNumber branch').lean(),
+    TeamMember.find({ batchId: { $in: ids } }).select('batchId name rollNo branch').lean()
+  ]);
+
+  const membersByBatch = new Map();
+  const addMember = (batchId, member, key) => {
+    const id = String(batchId);
+    if (!membersByBatch.has(id)) membersByBatch.set(id, new Map());
+    const memberMap = membersByBatch.get(id);
+    if (!memberMap.has(key)) memberMap.set(key, member);
+  };
+
+  students.forEach(student => {
+    const key = String(student.rollNumber || student._id).toLowerCase();
+    addMember(student.batchId, {
+      _id: student._id,
+      name: student.name,
+      rollNo: student.rollNumber,
+      branch: student.branch
+    }, key);
+  });
+  teamMembers.forEach(member => {
+    const key = String(member.rollNo || member._id).toLowerCase();
+    addMember(member.batchId, {
+      _id: member._id,
+      name: member.name,
+      rollNo: member.rollNo,
+      branch: member.branch
+    }, key);
+  });
+
+  return batches.map(batch => ({
+    ...batch,
+    teamMembers: Array.from(membersByBatch.get(String(batch._id))?.values() || [])
+  }));
+}
+
+async function getBatchWithCoordinatorFields(batchId) {
+  return Batch.findById(batchId)
+    .populate('leaderStudentId', 'name rollNumber email branch')
+    .populate({
+      path: 'problemId',
+      select: 'title description coeId guideId targetYear researchArea',
+      populate: { path: 'coeId', select: 'name' }
+    })
+    .populate('optedProblemId', 'title description researchArea')
+    .populate('coeId', 'name')
+    .populate('guideId', 'name email department')
+    .lean();
+}
+
+// @desc    Get all batches in the logged-in coordinator's fixed year-section
+// @route   GET /api/batches/section
+// @access  Coordinator guide only
+exports.getSectionBatches = async (req, res) => {
+  try {
+    const { year, branch, section } = req.user.coordinatorSection;
+    const batches = await Batch.find({ year, branch, section })
+      .populate('leaderStudentId', 'name rollNumber email branch')
+      .populate({
+        path: 'problemId',
+        select: 'title description coeId guideId targetYear researchArea',
+        populate: { path: 'coeId', select: 'name' }
+      })
+      .populate('optedProblemId', 'title description researchArea')
+      .populate('coeId', 'name')
+      .populate('guideId', 'name email department')
+      .lean();
+
+    const data = await attachTeamMembers(batches);
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    console.error('Get section batches error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Update a batch within the logged-in coordinator's fixed section
+// @route   PUT /api/batches/:id/coordinator-update
+// @access  Coordinator guide only
+exports.updateBatchByCoordinator = async (req, res) => {
+  try {
+    const { year, branch, section } = req.user.coordinatorSection;
+    const { teamName, coeId, rcId, guideId, researchArea, thrustArea, outcome, problemTitle } = req.body;
+    const batch = await Batch.findOne({ _id: req.params.id, year, branch, section });
+
+    if (!batch) {
+      return res.status(404).json({
+        success: false,
+        message: 'Batch not found in your assigned section'
+      });
+    }
+
+    if (typeof teamName === 'string') {
+      if (!teamName.trim()) {
+        return res.status(400).json({ success: false, message: 'Team name is required' });
+      }
+      batch.teamName = teamName.trim();
+    }
+
+    if (coeId) {
+      const coe = await COE.findById(coeId);
+      if (!coe) return res.status(400).json({ success: false, message: 'Selected COE was not found' });
+      batch.coeId = coe._id;
+      batch.coe = { name: coe.name, coeId: coe._id };
+    }
+
+    if (rcId) {
+      const rc = await RC.findById(rcId);
+      if (!rc) return res.status(400).json({ success: false, message: 'Selected RC was not found' });
+      batch.rc = { name: rc.name, rcId: rc._id };
+    }
+
+    if (guideId) {
+      const guide = await Guide.findById(guideId);
+      if (!guide) return res.status(400).json({ success: false, message: 'Selected guide was not found' });
+      batch.guideId = guide._id;
+    }
+    if (researchArea !== undefined) batch.researchArea = researchArea;
+    if (thrustArea !== undefined) batch.thrustArea = thrustArea;
+    if (outcome !== undefined) batch.outcome = outcome;
+
+    if (typeof problemTitle === 'string' && problemTitle.trim()) {
+      let problem = batch.problemId ? await ProblemStatement.findById(batch.problemId) : null;
+      const isSharedProblem = problem && await Batch.exists({
+        _id: { $ne: batch._id },
+        problemId: problem._id
+      });
+
+      // Never mutate a problem statement used by another batch. A coordinator's
+      // permissions stop at their section, so a section-specific copy is used.
+      if (!problem || isSharedProblem) {
+        if (!batch.coeId || !batch.guideId) {
+          return res.status(400).json({
+            success: false,
+            message: 'Assign a COE and guide before setting a project problem'
+          });
+        }
+        problem = await ProblemStatement.create({
+          title: problemTitle.trim(),
+          description: 'Problem statement assigned by Class Coordinator',
+          researchArea: researchArea ?? batch.researchArea ?? 'Unassigned',
+          targetYear: batch.year,
+          guideId: batch.guideId,
+          coeId: batch.coeId,
+          maxBatches: 1,
+          selectedBatchCount: 1
+        });
+        batch.problemId = problem._id;
+        batch.optedProblemId = problem._id;
+        batch.allotmentStatus = 'allotted';
+        if (batch.status === 'Not Started') batch.status = 'In Progress';
+      } else {
+        problem.title = problemTitle.trim();
+        if (researchArea !== undefined) problem.researchArea = researchArea;
+        if (guideId) problem.guideId = batch.guideId;
+        if (coeId) problem.coeId = batch.coeId;
+        await problem.save();
+      }
+    }
+
+    await batch.save();
+    const populated = await getBatchWithCoordinatorFields(batch._id);
+    const [updatedBatch] = await attachTeamMembers([populated]);
+    res.status(200).json({
+      success: true,
+      data: updatedBatch,
+      message: 'Batch assignments updated successfully'
+    });
+  } catch (error) {
+    console.error('Update batch by coordinator error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Delete a batch within the logged-in coordinator's fixed section
+// @route   DELETE /api/batches/:id/coordinator-delete
+// @access  Coordinator guide only
+exports.deleteBatchByCoordinator = async (req, res) => {
+  try {
+    const { year, branch, section } = req.user.coordinatorSection;
+    const batch = await Batch.findOne({ _id: req.params.id, year, branch, section });
+
+    if (!batch) {
+      return res.status(404).json({
+        success: false,
+        message: 'Batch not found in your assigned section'
+      });
+    }
+
+    await Student.updateMany({ batchId: batch._id }, { $set: { batchId: null } });
+    await TeamMember.deleteMany({ batchId: batch._id });
+    await Batch.deleteOne({ _id: batch._id });
+
+    res.status(200).json({
+      success: true,
+      message: 'Team deleted successfully'
+    });
+  } catch (error) {
+    console.error('Delete batch by coordinator error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };

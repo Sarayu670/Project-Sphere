@@ -1,4 +1,4 @@
-import { Outlet, useNavigate } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import './Layout.css';
@@ -6,6 +6,7 @@ import './Layout.css';
 function Layout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef(null);
 
@@ -42,6 +43,25 @@ function Layout() {
             <span className="logo-text">ProjectSphere</span>
           </div>
           <div className="user-info">
+            {user?.role === 'guide' && user?.isCoordinator && (
+              <button
+                onClick={() => navigate(location.pathname === '/coordinator' ? '/' : '/coordinator')}
+                className="home-btn"
+                style={{
+                  marginRight: '10px',
+                  padding: '6px 12px',
+                  borderRadius: '6px',
+                  border: '1px solid var(--border-color)',
+                  background: 'var(--primary)',
+                  color: 'white',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '600'
+                }}
+              >
+                {location.pathname === '/coordinator' ? 'Guide View' : '🏫 Coordinator View'}
+              </button>
+            )}
             <button onClick={() => navigate('/home')} className="home-btn" style={{
               marginRight: '15px',
               padding: '6px 12px',

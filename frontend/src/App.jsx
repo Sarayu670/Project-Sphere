@@ -11,6 +11,8 @@ import GuideDashboard from './pages/guide/GuideDashboard';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import Layout from './components/Layout';
 import AchievementCategory from './pages/AchievementCategory';
+import RegisterCoordinator from './pages/RegisterCoordinator';
+import CoordinatorDashboard from './pages/coordinator/CoordinatorDashboard';
 
 function App() {
   const { user, loading } = useAuth();
@@ -39,9 +41,10 @@ function App() {
       <Route path="/home" element={<HomePage />} />
       <Route path="/achievements/:category" element={<AchievementCategory />} />
       <Route path="/login" element={!user ? <Login /> : <Navigate to="/" />} />
-      <Route path="/register" element={<Navigate to="/register/guide" />} />
-      <Route path="/register/guide" element={!user ? <RegisterGuide /> : <Navigate to="/" />} />
+      <Route path="/register" element={<Navigate to="/register/admin" />} />
+      <Route path="/register/guide" element={<Navigate to="/register/admin" replace />} />
       <Route path="/register/admin" element={!user ? <RegisterAdmin /> : <Navigate to="/" />} />
+      <Route path="/register/coordinator" element={<Navigate to="/register/admin" replace />} />
       <Route path="/forgot-password" element={!user ? <ForgotPassword /> : <Navigate to="/" />} />
 
       <Route path="/" element={user ? <Layout /> : <Navigate to="/home" />}>
@@ -54,6 +57,12 @@ function App() {
         {user?.role === 'admin' && (
           <Route index element={<AdminDashboard />} />
         )}
+        <Route
+          path="coordinator"
+          element={user?.role === 'guide' && user?.isCoordinator
+            ? <CoordinatorDashboard />
+            : <Navigate to="/" />}
+        />
         <Route path="*" element={<Navigate to="/" />} />
       </Route>
     </Routes>

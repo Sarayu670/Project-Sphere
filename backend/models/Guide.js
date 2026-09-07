@@ -39,6 +39,33 @@ const GuideSchema = new mongoose.Schema({
   assignedBatches: {
     type: Number,
     default: 0
+  },
+  // A guide may additionally coordinate one specific class section.
+  // Keeping this on Guide preserves the existing three-role auth flow.
+  isCoordinator: {
+    type: Boolean,
+    default: false
+  },
+  coordinatorImportedByAdmin: {
+    type: Boolean,
+    default: false
+  },
+  coordinatorSection: {
+    branch: {
+      type: String,
+      enum: ['CSE', 'IT', 'ECE', 'CSM', 'EEE', 'CSD', 'ETM'],
+      default: undefined
+    },
+    section: {
+      type: String,
+      enum: ['A', 'B', 'C', 'D', 'E'],
+      default: undefined
+    },
+    year: {
+      type: String,
+      enum: ['2nd', '3rd', '4th'],
+      default: undefined
+    }
   }
 }, { timestamps: true });
 

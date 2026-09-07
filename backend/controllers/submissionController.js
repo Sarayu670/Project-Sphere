@@ -116,6 +116,29 @@ exports.createOrUpdateSubmission = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Timeline event not found' });
     }
 
+    const timelineEvents = await TimelineEvent.find({
+      isActive: true,
+      $or: [
+        { targetYear: batch.year },
+        { targetYear: 'all' }
+      ]
+    }).sort({ order: 1, deadline: 1 }).select('_id');
+    const eventIndex = timelineEvents.findIndex(item => item._id.toString() === event._id.toString());
+
+    if (eventIndex > 0) {
+      const previousSubmission = await Submission.findOne({
+        batchId,
+        timelineEventId: timelineEvents[eventIndex - 1]._id
+      }).select('status');
+
+      if (previousSubmission?.status !== 'accepted') {
+        return res.status(400).json({
+          success: false,
+          message: 'Complete and get the previous timeline milestone accepted before submitting this event.'
+        });
+      }
+    }
+
     // Check if deadline has passed
     if (new Date() > event.deadline) {
       return res.status(400).json({ success: false, message: 'Submission deadline has passed' });
@@ -192,7 +215,9 @@ exports.getSubmission = async (req, res) => {
       .populate('timelineEventId', 'title maxMarks deadline isMarksEnabled')
       .populate('comments.guideId', 'name')
       .populate('adminRemarks.adminId', 'name')
-      .populate('marksAssignedBy', 'name');
+      .populate('marksAssignedBy', 'name')
+      .populate('studentMarks.studentId', 'name rollNumber')
+      .populate('studentMarks.assignedBy', 'name');
 
     if (!submission) {
       return res.status(404).json({ success: false, message: 'Submission not found' });
@@ -204,6 +229,7 @@ exports.getSubmission = async (req, res) => {
   }
 };
 
+
 // @desc    Get all submissions for a batch
 // @route   GET /api/submissions/batch/:batchId
 exports.getBatchSubmissions = async (req, res) => {
@@ -213,11 +239,20 @@ exports.getBatchSubmissions = async (req, res) => {
       .populate('comments.guideId', 'name')
       .populate('adminRemarks.adminId', 'name');
 
-    res.status(200).json({ success: true, data: submissions });
+    // Strip per-student marks so students cannot see them
+    const sanitized = submissions.map(sub => {
+      const obj = sub.toObject();
+      delete obj.studentMarks;
+      delete obj.marks; // also hide legacy group marks
+      return obj;
+    });
+
+    res.status(200).json({ success: true, data: sanitized });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
 
 // @desc    Get submissions for guide's batches
 // @route   GET /api/submissions/guide
@@ -231,6 +266,8 @@ exports.getGuideSubmissions = async (req, res) => {
       .populate('timelineEventId', 'title maxMarks deadline isMarksEnabled')
       .populate('comments.guideId', 'name')
       .populate('adminRemarks.adminId', 'name')
+      .populate('studentMarks.studentId', 'name rollNumber')
+      .populate('studentMarks.assignedBy', 'name')
       .sort({ updatedAt: -1 });
 
     res.status(200).json({ success: true, data: submissions });
@@ -312,21 +349,17 @@ exports.addComment = async (req, res) => {
   }
 };
 
-// @desc    Assign marks (Guide)
+// @desc    Assign marks (Guide) — per student
 // @route   POST /api/submissions/:id/marks
 exports.assignMarks = async (req, res) => {
   try {
-    const { marks, status, comment } = req.body;
+    const { marks, status, comment, studentMarks } = req.body;
     const submission = await Submission.findById(req.params.id)
       .populate('timelineEventId', 'maxMarks title')
       .populate('batchId', 'teamName');
 
     if (!submission) {
       return res.status(404).json({ success: false, message: 'Submission not found' });
-    }
-
-    if (marks > submission.timelineEventId.maxMarks) {
-      return res.status(400).json({ success: false, message: `Marks cannot exceed ${submission.timelineEventId.maxMarks}` });
     }
 
     // Add comment if provided
@@ -338,18 +371,55 @@ exports.assignMarks = async (req, res) => {
       });
     }
 
-    submission.marks = marks;
-    submission.marksAssignedBy = req.user._id;
-    submission.marksAssignedAt = new Date();
+    // Handle per-student marks (new behaviour)
+    if (Array.isArray(studentMarks) && studentMarks.length > 0) {
+      for (const sm of studentMarks) {
+        if (sm.marks !== null && sm.marks !== undefined && sm.marks > submission.timelineEventId.maxMarks) {
+          return res.status(400).json({ success: false, message: `Marks cannot exceed ${submission.timelineEventId.maxMarks}` });
+        }
+      }
+
+      // Upsert: update existing entry for student or push new one
+      for (const sm of studentMarks) {
+        const existing = submission.studentMarks.find(
+          e => e.studentId.toString() === sm.studentId.toString()
+        );
+        if (existing) {
+          existing.marks = sm.marks !== '' && sm.marks !== null && sm.marks !== undefined ? parseFloat(sm.marks) : null;
+          existing.assignedBy = req.user._id;
+          existing.assignedAt = new Date();
+        } else {
+          submission.studentMarks.push({
+            studentId: sm.studentId,
+            marks: sm.marks !== '' && sm.marks !== null && sm.marks !== undefined ? parseFloat(sm.marks) : null,
+            assignedBy: req.user._id,
+            assignedAt: new Date()
+          });
+        }
+      }
+      // Keep legacy marks field as null since we now use per-student marks
+      submission.marks = null;
+    } else {
+      // Legacy single-mark fallback
+      if (marks > submission.timelineEventId.maxMarks) {
+        return res.status(400).json({ success: false, message: `Marks cannot exceed ${submission.timelineEventId.maxMarks}` });
+      }
+      submission.marks = marks;
+      submission.marksAssignedBy = req.user._id;
+      submission.marksAssignedAt = new Date();
+    }
+
     submission.status = status || 'accepted';
     await submission.save();
 
-    // Re-fetch with proper population to ensure comments are populated
+    // Re-fetch with proper population to ensure comments and studentMarks are populated
     const updated = await Submission.findById(req.params.id)
       .populate('comments.guideId', 'name')
       .populate('marksAssignedBy', 'name')
       .populate('batchId', 'teamName')
-      .populate('timelineEventId', 'title maxMarks isMarksEnabled');
+      .populate('timelineEventId', 'title maxMarks isMarksEnabled')
+      .populate('studentMarks.studentId', 'name rollNumber')
+      .populate('studentMarks.assignedBy', 'name');
 
     // Send email notification to students asynchronously
     try {
@@ -368,7 +438,7 @@ exports.assignMarks = async (req, res) => {
           timelineTitle: submission.timelineEventId.title,
           submissionType: submission.timelineEventId.title,
           feedback: comment ? comment.trim() : null,
-          marks: marks,
+          marks: null, // individual marks are private; don't send in email
           status: status || 'accepted',
           driveLink: submission.versions[submission.currentVersion - 1]?.driveLink || ''
         };
@@ -396,6 +466,7 @@ exports.assignMarks = async (req, res) => {
   }
 };
 
+
 // @desc    Get all submissions (Admin)
 // @route   GET /api/submissions
 // Query params: page (default 1), limit (default 50), eventId (optional), batchId (optional), status (optional - default 'accepted')
@@ -407,16 +478,41 @@ exports.getAllSubmissions = async (req, res) => {
     const limit = parseInt(req.query.limit) || 50;
     const eventId = req.query.eventId;
     const batchId = req.query.batchId;
-    const status = req.query.status || 'accepted'; // Default to showing only accepted submissions
+    const status = req.query.status;
+    const isCoordinatorRequest = req.user.role === 'guide' && req.user.isCoordinator && req.user.coordinatorSection;
     
     const skip = (page - 1) * limit;
 
     // Build filter object
     const filter = {};
     if (eventId) filter.timelineEventId = eventId;
-    if (batchId) filter.batchId = batchId;
-    // Only show accepted submissions by default in admin timeline view
-    filter.status = status;
+
+    if (isCoordinatorRequest) {
+      const { year, branch, section } = req.user.coordinatorSection;
+      const coordinatorBatches = await Batch.find({ year, branch, section }).select('_id');
+      const coordinatorBatchIds = coordinatorBatches.map(b => b._id);
+
+      if (coordinatorBatchIds.length === 0) {
+        return res.status(200).json({
+          success: true,
+          data: [],
+          pagination: { current: page, total: 0, limit, pages: 0 }
+        });
+      }
+
+      filter.batchId = { $in: coordinatorBatchIds };
+    }
+
+    if (batchId) {
+      const batchFilter = Array.isArray(filter.batchId) ? { $in: filter.batchId } : batchId;
+      filter.batchId = isCoordinatorRequest
+        ? { $in: Array.isArray(batchFilter.$in) ? batchFilter.$in.filter(id => id.toString() === batchId.toString()) : [batchId] }
+        : batchId;
+    }
+
+    if (status && status !== 'all') {
+      filter.status = status;
+    }
 
     const submissions = await Submission.find(filter)
       .populate('batchId', 'teamName year branch section leaderStudentId guideId problemId coeId researchArea')
@@ -424,6 +520,8 @@ exports.getAllSubmissions = async (req, res) => {
       .populate('comments.guideId', 'name')
       .populate('adminRemarks.adminId', 'name')
       .populate('marksAssignedBy', 'name')
+      .populate('studentMarks.studentId', 'name rollNumber')
+      .populate('studentMarks.assignedBy', 'name')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
@@ -462,18 +560,22 @@ exports.addAdminRemark = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Submission not found' });
     }
 
-    // Check for duplicate remark (same admin, same content, within last 60 seconds)
+    const isCoordinatorRemark = req.user.role === 'guide' && req.user.isCoordinator;
+    const remarkOwnerType = isCoordinatorRemark ? 'Guide' : 'Admin';
+
     const duplicate = submission.adminRemarks.find(r =>
       r.adminId.toString() === req.user._id.toString() &&
+      r.adminRemarkType === remarkOwnerType &&
       r.remark === remark &&
       (new Date() - new Date(r.createdAt)) < 60000
     );
 
     if (duplicate) {
-      console.log('⚠️ Duplicate admin remark detected, skipping...');
+      console.log('⚠️ Duplicate remark detected, skipping...');
     } else {
       submission.adminRemarks.push({
         adminId: req.user._id,
+        adminRemarkType: remarkOwnerType,
         remark,
         createdAt: new Date()
       });
@@ -485,6 +587,19 @@ exports.addAdminRemark = async (req, res) => {
       .populate('comments.guideId', 'name');
 
     res.status(200).json({ success: true, data: updated });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Get students in a batch (for guide to assign per-student marks)
+// @route   GET /api/submissions/batch/:batchId/students
+exports.getStudentsByBatch = async (req, res) => {
+  try {
+    const students = await Student.find({ batchId: req.params.batchId })
+      .select('_id name rollNumber')
+      .lean();
+    res.status(200).json({ success: true, data: students });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

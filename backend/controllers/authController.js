@@ -20,7 +20,33 @@ exports.registerStudent = async (req, res) => {
 // @route   POST /api/auth/register/guide
 exports.registerGuide = async (req, res) => {
   try {
-    const { name, email, password, department, specialization } = req.body;
+    const {
+      name,
+      email,
+      password,
+      department,
+      specialization,
+      isCoordinator = false,
+      coordinatorBranch,
+      coordinatorSection,
+      coordinatorYear
+    } = req.body;
+
+    const wantsCoordinatorAccess = isCoordinator === true || isCoordinator === 'true';
+    const coordinatorScope = wantsCoordinatorAccess
+      ? {
+          branch: String(coordinatorBranch || '').trim().toUpperCase(),
+          section: String(coordinatorSection || '').trim().toUpperCase(),
+          year: String(coordinatorYear || '').trim()
+        }
+      : undefined;
+
+    if (wantsCoordinatorAccess && (!coordinatorScope.branch || !coordinatorScope.section || !coordinatorScope.year)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Branch, section, and year are required for coordinator registration'
+      });
+    }
 
     // Email domain validation
     // Password complexity validation - Relaxed
@@ -31,18 +57,40 @@ exports.registerGuide = async (req, res) => {
       });
     }
 
-    const existingGuide = await Guide.findOne({ email });
+    const existingGuide = await Guide.findOne({ email: email.toLowerCase().trim() }).select('+password');
+    if (wantsCoordinatorAccess) {
+      return res.status(403).json({
+        success: false,
+        message: 'Coordinator access can only be granted by the admin through the import process.'
+      });
+    }
+
     if (existingGuide) {
       return res.status(400).json({ success: false, message: 'Email already exists' });
     }
 
-    const guide = await Guide.create({ name, email, password, department, specialization });
+    const guide = await Guide.create({
+      name,
+      email,
+      password,
+      department,
+      specialization,
+      isCoordinator: wantsCoordinatorAccess,
+      coordinatorSection: coordinatorScope
+    });
     const token = generateToken(guide._id, 'guide');
 
     res.status(201).json({
       success: true,
       token,
-      user: { id: guide._id, name: guide.name, email: guide.email, role: 'guide' }
+      user: {
+        id: guide._id,
+        name: guide.name,
+        email: guide.email,
+        role: 'guide',
+        isCoordinator: guide.isCoordinator,
+        coordinatorSection: guide.coordinatorSection
+      }
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -101,12 +149,14 @@ exports.login = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Please select a role' });
     }
 
-    if (!['student', 'guide', 'admin'].includes(role)) {
+    if (!['student', 'guide', 'admin', 'coordinator'].includes(role)) {
       return res.status(400).json({ success: false, message: 'Invalid role specified' });
     }
 
     let user;
     let userRole;
+
+    const isCoordinatorLogin = role === 'coordinator';
 
     // Search only in the specified role's collection
     if (role === 'student') {
@@ -119,18 +169,28 @@ exports.login = async (req, res) => {
         ]
       }).select('+password');
       userRole = 'student';
-    } else if (role === 'guide') {
+    } else if (role === 'guide' || role === 'coordinator') {
       const loginTerm = email.trim().toLowerCase();
       user = await Guide.findOne({ email: loginTerm }).select('+password');
       userRole = 'guide';
     } else if (role === 'admin') {
-      user = await Admin.findOne({ email }).select('+password');
+      const loginTerm = email.trim().toLowerCase();
+      user = await Admin.findOne({ email: loginTerm }).select('+password');
       userRole = 'admin';
     }
 
     if (!user) {
       console.log(`[AUTH] No ${role} account found for email: "${email}"`);
       return res.status(401).json({ success: false, message: `No ${role} account found with these credentials` });
+    }
+
+    if (isCoordinatorLogin) {
+      if (!user.isCoordinator || !user.coordinatorImportedByAdmin) {
+        return res.status(401).json({
+          success: false,
+          message: 'Only admin-imported coordinators can login with coordinator access.'
+        });
+      }
     }
 
     console.log(`[AUTH] Found user: name="${user.name}", email="${user.email}", role="${role}"`);
@@ -152,7 +212,16 @@ exports.login = async (req, res) => {
     res.status(200).json({
       success: true,
       token,
-      user: { id: user._id, name: user.name, email: user.email, role: userRole }
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: userRole,
+        ...(userRole === 'guide' ? {
+          isCoordinator: Boolean(user.isCoordinator),
+          coordinatorSection: user.coordinatorSection || null
+        } : {})
+      }
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -165,7 +234,16 @@ exports.getMe = async (req, res) => {
   try {
     res.status(200).json({
       success: true,
-      user: { id: req.user._id, name: req.user.name, email: req.user.email, role: req.user.role }
+      user: {
+        id: req.user._id,
+        name: req.user.name,
+        email: req.user.email,
+        role: req.user.role,
+        ...(req.user.role === 'guide' ? {
+          isCoordinator: Boolean(req.user.isCoordinator),
+          coordinatorSection: req.user.coordinatorSection || null
+        } : {})
+      }
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

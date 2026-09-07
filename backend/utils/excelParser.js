@@ -117,12 +117,22 @@ function normalizeCOEOrRCName(value) {
     let str = String(value).trim().replace(/\s+/g, ' ');
     if (!str) return 'N/A';
 
-    // Only strip explicit organization labels. Preserve the actual name text exactly.
-    const explicitLabelPattern = /^(?:within\s+gnits\s*[,;:.-]?\s*|gnits\s*[,;:.-]?\s*|center of excellence|centre of excellence|research center|research centre|resource center|resource centre|coe|rc)\s*[:;,-]*\s*/i;
-    const prefixed = str.replace(explicitLabelPattern, '').trim();
-    if (prefixed) str = prefixed;
+    // Remove raw leading 'for' first so values like 'for Advanced Research in AI' are cleaned
+    // before any label parsing happens.
+    str = str.replace(/^for\s+/i, '').trim();
 
-    // If the value does not start with a recognized label, keep it exactly as supplied.
+    // Strip organization prefixes and labels such as:
+    // "COE for Advanced Research in AI"
+    // "RC for Cloud Computing"
+    // "Within GNITS, CoE-Advanced Research in AI"
+    // "GNITS, RC: Data Analytics"
+    const explicitLabelPattern = /^(?:within\s+gnits\s*[,;:.-]?\s*|gnits\s*[,;:.-]?\s*)*(?:center\s+of\s+excellence|centre\s+of\s+excellence|research\s+cent(?:er|re)|resource\s+cent(?:er|re)|coe(?:\s*\/\s*rc)?|rc(?:\s*\/\s*coe)?)\b\s*[-:/,]?\s*(?:for\s+)?/i;
+
+    str = str.replace(explicitLabelPattern, '').trim();
+    str = str.replace(/^for\s+/i, '').trim();
+    str = str.replace(/^(?:within\s+gnits\s*[,;:.-]?\s*|gnits\s*[,;:.-]?\s*)/i, '').trim();
+    str = str.replace(/^for\s+/i, '').trim();
+
     return str || 'N/A';
 }
 
@@ -137,8 +147,9 @@ function extractCOENameFromText(text) {
         .replace(/^gnits\s*,\s*/i, '')
         .trim();
 
+    // Match: coe/rc/centre etc. + optional separator + optional 'for' + rest
     const labelMatch = cleaned.match(
-        /^(?:coe\s*\/\s*rc|coe|rc|research\s+cent(?:er|re)|center of excellence|centre of excellence|research center|research centre|resource center|resource centre)\b\s*[-:/,]?\s*(.+)$/i
+        /^(?:coe\s*\/\s*rc|coe|rc|research\s+cent(?:er|re)|center\s+of\s+excellence|centre\s+of\s+excellence|research\s+center|research\s+centre|resource\s+center|resource\s+centre)\b\s*[-:/,]?\s*(?:for\s+)?(.+)$/i
     );
 
     const candidate = labelMatch && labelMatch[1]

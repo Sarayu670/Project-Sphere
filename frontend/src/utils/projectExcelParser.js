@@ -145,8 +145,11 @@ const cleanCoeRcValue = (value) => {
   let text = String(value).trim().replace(/\s+/g, ' ');
   if (!text) return '';
 
-  const explicitLabelPattern = /^(?:within\s+gnits\s*[,;:.-]?\s*|gnits\s*[,;:.-]?\s*|center of excellence|centre of excellence|research center|research centre|resource center|resource centre|coe|rc)\s*[:;,-]*\s*/i;
-  const cleaned = text.replace(explicitLabelPattern, '').trim();
+  const explicitLabelPattern = /^(?:within\s+gnits\s*[,;:.-]?\s*|gnits\s*[,;:.-]?\s*)*(?:center\s+of\s+excellence|centre\s+of\s+excellence|research\s+cent(?:er|re)|resource\s+cent(?:er|re)|coe|rc)\b\s*[-:/,]?\s*(?:for\s+)?/i;
+  let cleaned = text.replace(explicitLabelPattern, '').trim();
+
+  // Strip any residual leading 'for ' left over
+  cleaned = cleaned.replace(/^for\s+/i, '').trim();
 
   return (cleaned || text).trim();
 };

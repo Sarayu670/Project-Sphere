@@ -470,10 +470,16 @@ exports.importBatchData = async (req, res) => {
           let str = String(cell).trim().replace(/\s+/g, ' ');
           if (!str) return '';
 
-          const explicitLabelPattern = /^(?:within\s+gnits\s*[,;:.-]?\s*|gnits\s*[,;:.-]?\s*|center of excellence|centre of excellence|research center|research centre|resource center|resource centre|coe|rc)\s*[:;,-]*\s*/i;
-          const cleaned = str.replace(explicitLabelPattern, '').trim();
+          str = str.replace(/^for\s+/i, '').trim();
 
-          return (cleaned || str).trim();
+          const explicitLabelPattern = /^(?:within\s+gnits\s*[,;:.-]?\s*|gnits\s*[,;:.-]?\s*)*(?:center\s+of\s+excellence|centre\s+of\s+excellence|research\s+cent(?:er|re)|resource\s+cent(?:er|re)|coe(?:\s*\/\s*rc)?|rc(?:\s*\/\s*coe)?)\b\s*[-:/,]?\s*(?:for\s+)?/i;
+          let cleaned = str.replace(explicitLabelPattern, '').trim();
+
+          cleaned = cleaned.replace(/^for\s+/i, '').trim();
+          cleaned = cleaned.replace(/^(?:within\s+gnits\s*[,;:.-]?\s*|gnits\s*[,;:.-]?\s*)/i, '').trim();
+          cleaned = cleaned.replace(/^for\s+/i, '').trim();
+
+          return (cleaned || str).replace(/^for\s+/i, '').trim();
         };
 
         // Improved content-based correction and segregation

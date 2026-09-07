@@ -18,7 +18,8 @@ const {
   importStudentBatches,
   updateBatchByAdmin,
   getSectionBatches,
-  updateBatchByCoordinator
+  updateBatchByCoordinator,
+  deleteBatchByCoordinator
 } = require('../controllers/batchController');
 const { protect, authorize, authorizeCoordinator, authorizeAdminOrCoordinator } = require('../middleware/auth');
 
@@ -60,5 +61,6 @@ router.put('/:id/status', protect, authorize('guide'), updateBatchStatus);
 router.put('/:id/outcome', protect, authorize('guide'), updateBatchOutcome);
 router.put('/:id/admin-update', protect, authorize('admin'), updateBatchByAdmin);
 router.put('/:id/coordinator-update', protect, authorizeCoordinator, updateBatchByCoordinator);
+router.delete('/:id/coordinator-delete', protect, authorizeCoordinator, deleteBatchByCoordinator);
 
 module.exports = router;

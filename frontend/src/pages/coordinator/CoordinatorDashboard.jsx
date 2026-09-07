@@ -225,6 +225,23 @@ function CoordinatorDashboard() {
     }
   };
 
+  const deleteBatch = async (batch) => {
+    const confirmed = window.confirm(`Delete team "${batch.teamName}"? This will remove the team from this section.`);
+    if (!confirmed) return;
+
+    setSaving(true);
+    try {
+      await api.deleteBatchByCoordinator(batch._id);
+      setBatches(current => current.filter(currentBatch => currentBatch._id !== batch._id));
+      if (selectedBatch?._id === batch._id) setSelectedBatch(null);
+      setError('');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Unable to delete this team.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const downloadReport = () => {
     const rows = batches.map((batch, index) => ({
       'S.No': index + 1,
@@ -435,11 +452,12 @@ function CoordinatorDashboard() {
                     <th>Problem</th>
                     <th>Outcome</th>
                     <th>Status</th>
+                    <th aria-label="Actions"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {batches.length === 0 ? (
-                    <tr><td colSpan="7">No teams have been added to this section.</td></tr>
+                    <tr><td colSpan="9">No teams have been added to this section.</td></tr>
                   ) : (
                     batches.map(batch => (
                       <tr key={batch._id}>
@@ -451,6 +469,12 @@ function CoordinatorDashboard() {
                         <td>{batch.problemId?.title || 'Not Assigned'}</td>
                         <td>{batch.outcome || 'None'}</td>
                         <td>{batch.status}</td>
+                        <td className="coordinator-actions-cell">
+                          <div className="coordinator-row-actions">
+                            <button className="coordinator-action coordinator-edit-action" title={`Edit ${batch.teamName}`} onClick={() => selectBatch(batch)}>Edit</button>
+                            <button className="coordinator-action coordinator-delete-action" title={`Delete ${batch.teamName}`} onClick={() => deleteBatch(batch)}>Delete</button>
+                          </div>
+                        </td>
                       </tr>
                     ))
                   )}

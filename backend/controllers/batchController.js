@@ -1528,3 +1528,32 @@ exports.updateBatchByCoordinator = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// @desc    Delete a batch within the logged-in coordinator's fixed section
+// @route   DELETE /api/batches/:id/coordinator-delete
+// @access  Coordinator guide only
+exports.deleteBatchByCoordinator = async (req, res) => {
+  try {
+    const { year, branch, section } = req.user.coordinatorSection;
+    const batch = await Batch.findOne({ _id: req.params.id, year, branch, section });
+
+    if (!batch) {
+      return res.status(404).json({
+        success: false,
+        message: 'Batch not found in your assigned section'
+      });
+    }
+
+    await Student.updateMany({ batchId: batch._id }, { $set: { batchId: null } });
+    await TeamMember.deleteMany({ batchId: batch._id });
+    await Batch.deleteOne({ _id: batch._id });
+
+    res.status(200).json({
+      success: true,
+      message: 'Team deleted successfully'
+    });
+  } catch (error) {
+    console.error('Delete batch by coordinator error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

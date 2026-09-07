@@ -52,6 +52,7 @@ export const rejectProblem = (batchId, problemId) => axios.post(`${API_URL}/batc
 export const updateBatchByAdmin = (id, data) => axios.put(`${API_URL}/batches/${id}/admin-update`, data);
 export const getSectionBatches = () => axios.get(`${API_URL}/batches/section`);
 export const updateBatchByCoordinator = (id, data) => axios.put(`${API_URL}/batches/${id}/coordinator-update`, data);
+export const deleteBatchByCoordinator = (id) => axios.delete(`${API_URL}/batches/${id}/coordinator-delete`);
 
 // Team Members
 export const getTeamMembers = (batchId) => axios.get(`${API_URL}/team-members/${batchId}`);

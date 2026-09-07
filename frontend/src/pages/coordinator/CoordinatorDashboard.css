@@ -391,6 +391,43 @@
   max-width: 220px;
 }
 
+.coordinator-actions-cell {
+  width: 130px;
+  max-width: 130px !important;
+}
+
+.coordinator-row-actions {
+  display: flex;
+  gap: 6px;
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+
+.coordinator-table tr:hover .coordinator-row-actions,
+.coordinator-row-actions:focus-within {
+  opacity: 1;
+}
+
+.coordinator-action {
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 4px 7px;
+}
+
+.coordinator-edit-action {
+  background: #dbeafe;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
+
+.coordinator-delete-action {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #b91c1c;
+}
+
 .coordinator-link {
   border: 0;
   background: transparent;

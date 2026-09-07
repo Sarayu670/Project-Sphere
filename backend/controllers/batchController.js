@@ -1444,7 +1444,7 @@ exports.getSectionBatches = async (req, res) => {
 exports.updateBatchByCoordinator = async (req, res) => {
   try {
     const { year, branch, section } = req.user.coordinatorSection;
-    const { coeId, rcId, guideId, researchArea, thrustArea, outcome, problemTitle } = req.body;
+    const { teamName, coeId, rcId, guideId, researchArea, thrustArea, outcome, problemTitle } = req.body;
     const batch = await Batch.findOne({ _id: req.params.id, year, branch, section });
 
     if (!batch) {
@@ -1452,6 +1452,13 @@ exports.updateBatchByCoordinator = async (req, res) => {
         success: false,
         message: 'Batch not found in your assigned section'
       });
+    }
+
+    if (typeof teamName === 'string') {
+      if (!teamName.trim()) {
+        return res.status(400).json({ success: false, message: 'Team name is required' });
+      }
+      batch.teamName = teamName.trim();
     }
 
     if (coeId) {

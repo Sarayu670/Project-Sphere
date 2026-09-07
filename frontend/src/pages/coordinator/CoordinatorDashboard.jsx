@@ -199,6 +199,7 @@ function CoordinatorDashboard() {
   const selectBatch = (batch) => {
     setSelectedBatch(batch);
     setEditForm({
+      teamName: batch.teamName || '',
       coeId: idOf(batch.coeId) || idOf(batch.problemId?.coeId) || '',
       rcId: idOf(batch.rc?.rcId) || '',
       guideId: idOf(batch.guideId) || '',
@@ -210,6 +211,10 @@ function CoordinatorDashboard() {
 
   const saveBatch = async () => {
     if (!selectedBatch) return;
+    if (!editForm.teamName?.trim()) {
+      setError('Team name is required.');
+      return;
+    }
     setSaving(true);
     try {
       const response = await api.updateBatchByCoordinator(selectedBatch._id, editForm);
@@ -429,6 +434,7 @@ function CoordinatorDashboard() {
               </div>
 
               <div className="coordinator-form-grid">
+                <label className="coordinator-full-field">Team Name<input value={editForm.teamName} onChange={event => setEditForm(current => ({ ...current, teamName: event.target.value }))} /></label>
                 <label>COE<select value={editForm.coeId} onChange={event => setEditForm(current => ({ ...current, coeId: event.target.value }))}><option value="">Not Assigned</option>{coes.map(coe => <option key={coe._id} value={coe._id}>{coe.name}</option>)}</select></label>
                 <label>RC<select value={editForm.rcId} onChange={event => setEditForm(current => ({ ...current, rcId: event.target.value }))}><option value="">Not Assigned</option>{rcs.map(rc => <option key={rc._id} value={rc._id}>{rc.name}</option>)}</select></label>
                 <label>Guide<select value={editForm.guideId} onChange={event => setEditForm(current => ({ ...current, guideId: event.target.value }))}><option value="">Not Assigned</option>{guides.map(guide => <option key={guide._id} value={guide._id}>{guide.name}</option>)}</select></label>

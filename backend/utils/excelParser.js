@@ -107,56 +107,21 @@ function findAllColumnIndices(headers, pattern) {
 }
 
 /**
- * Extract COE name from cell value or header text
- * Example: "GNITS, COE-Deep Learning in Eye Disease Prognosis" => "Deep Learning in Eye Disease Prognosis"
- * Example: "Within GNITS, CoE-Advanced Research in AI" => "Advanced Research in AI"
+ * Extract COE/RC name from cell value or header text
+ * Preserves the exact full value from the Excel field without truncation.
  */
 function normalizeCOEOrRCName(value) {
     if (value === undefined || value === null) return 'N/A';
 
     let str = String(value).trim().replace(/\s+/g, ' ');
-    if (!str) return 'N/A';
-
-    // Remove raw leading 'for' first so values like 'for Advanced Research in AI' are cleaned
-    // before any label parsing happens.
-    str = str.replace(/^for\s+/i, '').trim();
-
-    // Strip organization prefixes and labels such as:
-    // "COE for Advanced Research in AI"
-    // "RC for Cloud Computing"
-    // "Within GNITS, CoE-Advanced Research in AI"
-    // "GNITS, RC: Data Analytics"
-    const explicitLabelPattern = /^(?:within\s+gnits\s*[,;:.-]?\s*|gnits\s*[,;:.-]?\s*)*(?:center\s+of\s+excellence|centre\s+of\s+excellence|research\s+cent(?:er|re)|resource\s+cent(?:er|re)|coe(?:\s*\/\s*rc)?|rc(?:\s*\/\s*coe)?)\b\s*[-:/,]?\s*(?:for\s+)?/i;
-
-    str = str.replace(explicitLabelPattern, '').trim();
-    str = str.replace(/^for\s+/i, '').trim();
-    str = str.replace(/^(?:within\s+gnits\s*[,;:.-]?\s*|gnits\s*[,;:.-]?\s*)/i, '').trim();
-    str = str.replace(/^for\s+/i, '').trim();
-
     return str || 'N/A';
 }
 
 function extractCOENameFromText(text) {
     if (!text) return 'N/A';
 
-    let str = String(text).trim();
-    if (!str) return 'N/A';
-
-    const cleaned = str
-        .replace(/^within\s+gnits\s*,?\s*/i, '')
-        .replace(/^gnits\s*,\s*/i, '')
-        .trim();
-
-    // Match: coe/rc/centre etc. + optional separator + optional 'for' + rest
-    const labelMatch = cleaned.match(
-        /^(?:coe\s*\/\s*rc|coe|rc|research\s+cent(?:er|re)|center\s+of\s+excellence|centre\s+of\s+excellence|research\s+center|research\s+centre|resource\s+center|resource\s+centre)\b\s*[-:/,]?\s*(?:for\s+)?(.+)$/i
-    );
-
-    const candidate = labelMatch && labelMatch[1]
-        ? labelMatch[1]
-        : cleaned;
-
-    return normalizeCOEOrRCName(candidate);
+    let str = String(text).trim().replace(/\s+/g, ' ');
+    return str || 'N/A';
 }
 
 /**

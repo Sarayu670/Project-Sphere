@@ -220,7 +220,12 @@ exports.importExcelFiles = async (req, res) => {
                         batch.status = 'In Progress';
                     }
                     if (problem) batch.problemId = problem._id;
-                    if (coe) batch.coeId = coe._id;
+                    if (coe) {
+                        batch.coeId = coe._id;
+                        batch.coe = { name: record.coe, coeId: coe._id };
+                    } else if (record.coe && record.coe !== 'N/A') {
+                        batch.coe = { name: record.coe, coeId: null };
+                    }
                     if (studentIds.length > 0) batch.leaderStudentId = studentIds[0];
                     if (record.year) batch.year = record.year;
                     if (record.branch) batch.branch = record.branch;
@@ -242,6 +247,7 @@ exports.importExcelFiles = async (req, res) => {
                         status: guide ? 'In Progress' : 'Not Started',
                         problemId: problem ? problem._id : null,
                         coeId: coe ? coe._id : null,
+                        coe: record.coe && record.coe !== 'N/A' ? { name: record.coe, coeId: coe ? coe._id : null } : undefined,
                         year: record.year || '4th',
                         branch: record.branch || 'CSE',
                         section: record.section || 'A',

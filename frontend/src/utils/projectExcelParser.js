@@ -141,53 +141,19 @@ export const parseProjectsFromExcel = (jsonData) => {
 
 const cleanCoeRcValue = (value) => {
   if (!value) return '';
-
-  let text = String(value).trim().replace(/\s+/g, ' ');
-  if (!text) return '';
-
-  const explicitLabelPattern = /^(?:within\s+gnits\s*[,;:.-]?\s*|gnits\s*[,;:.-]?\s*)*(?:center\s+of\s+excellence|centre\s+of\s+excellence|research\s+cent(?:er|re)|resource\s+cent(?:er|re)|coe|rc)\b\s*[-:/,]?\s*(?:for\s+)?/i;
-  let cleaned = text.replace(explicitLabelPattern, '').trim();
-
-  // Strip any residual leading 'for ' left over
-  cleaned = cleaned.replace(/^for\s+/i, '').trim();
-
-  return (cleaned || text).trim();
+  return String(value).trim().replace(/\s+/g, ' ');
 };
 
-// Extract COE name from "GNITS, CoE-Deep Learning in Eye Disease Prognosis" format.
-// Preserve the exact value after only removing explicit label prefixes.
+// Extract COE name from raw column string without truncating
 export const extractCOE = (coeRcString) => {
   if (!coeRcString) return '';
-
-  const raw = String(coeRcString).trim();
-  const match = raw.match(/^(?:center of excellence|centre of excellence|coe)\s*[:;,-]*\s*(.+)$/i) ||
-    raw.match(/^(?:research center|research centre|resource center|resource centre)\s*[:;,-]*\s*(.+)$/i);
-  if (match && match[1]) return cleanCoeRcValue(match[1]);
-
-  const segments = raw
-    .split(/[;,]/)
-    .map(part => cleanCoeRcValue(part))
-    .filter(Boolean);
-
-  if (segments.length === 0) return '';
-  return segments[0];
+  return cleanCoeRcValue(coeRcString);
 };
 
-// Extract RC name from "GNITS, CoE-Deep Learning in Eye Disease Prognosis" format.
+// Extract RC name from raw column string without truncating
 export const extractRC = (coeRcString) => {
   if (!coeRcString) return '';
-
-  const raw = String(coeRcString).trim();
-  const match = raw.match(/^(?:rc|research center|research centre|resource center|resource centre)\s*[:;,-]*\s*(.+)$/i);
-  if (match && match[1]) return cleanCoeRcValue(match[1]);
-
-  const segments = raw
-    .split(/[;,]/)
-    .map(part => cleanCoeRcValue(part))
-    .filter(Boolean);
-
-  if (segments.length <= 1) return '';
-  return segments[segments.length - 1];
+  return cleanCoeRcValue(coeRcString);
 };
 
 // Extract year from batch string or project ID

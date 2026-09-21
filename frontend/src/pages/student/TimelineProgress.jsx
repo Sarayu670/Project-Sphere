@@ -244,7 +244,7 @@ function TimelineProgress({ batchId }) {
 
             {submission?.adminRemarks?.length > 0 && (
               <div className="card" style={{ background: '#f0f9ff', borderColor: '#bae6fd' }}>
-                <h3 style={{ color: '#0369a1' }}>🛡️ Admin Feedback</h3>
+                <h3 style={{ color: '#0369a1' }}>💬 Coordinator Feedback</h3>
                 <div style={{ maxHeight: '150px', overflowY: 'auto' }}>
                   {submission.adminRemarks
                     .filter((r, idx, self) =>
@@ -254,8 +254,7 @@ function TimelineProgress({ batchId }) {
                     )
                     .map((r, idx) => (
                       <div key={idx} style={{ padding: '10px', borderBottom: idx !== submission.adminRemarks.length - 1 ? '1px solid #e0f2fe' : 'none' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
-                          <strong style={{ color: '#0c4a6e' }}>🛡️ {r.adminId?.name || 'Admin'}</strong>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '5px' }}>
                           <small style={{ color: '#64748b' }}>{new Date(r.createdAt).toLocaleString()}</small>
                         </div>
                         <p style={{ margin: '0', color: '#0c4a6e', fontSize: '14px', whiteSpace: 'pre-wrap' }}>{r.remark}</p>

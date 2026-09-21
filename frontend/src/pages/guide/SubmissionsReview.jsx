@@ -196,27 +196,50 @@ function SubmissionsReview() {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <div className="card" style={{ maxWidth: '100%', minWidth: '0', overflow: 'hidden' }}>
-              <h3>💬 Comments & Feedback</h3>
-              <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                {selectedSubmission.comments?.length === 0 ? (
-                  <p style={{ color: '#888' }}>No comments yet</p>
-                ) : (
-                  selectedSubmission.comments?.map((c, idx) => (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <h3 style={{ margin: 0 }}>💬 Guide Feedback</h3>
+                {selectedSubmission.comments?.length > 0 && (
+                  <span style={{ fontSize: '12px', color: '#16a34a', fontWeight: '600' }}>✅ Feedback Provided</span>
+                )}
+              </div>
+              {!selectedSubmission.comments?.length ? (
+                <p style={{ color: '#888', marginBottom: '10px' }}>No feedback given yet. You must submit feedback before entering marks.</p>
+              ) : (
+                <div style={{ maxHeight: '180px', overflowY: 'auto', marginBottom: '10px' }}>
+                  {selectedSubmission.comments.map((c, idx) => (
                     <div key={idx} style={{ padding: '10px', background: '#f8fafc', borderRadius: '8px', marginBottom: '10px', maxWidth: '100%', minWidth: '0', wordWrap: 'break-word', overflowWrap: 'break-word', overflow: 'hidden', wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px', minWidth: '0' }}>
-                        <strong style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.guideId?.name}</strong>
+                        <strong style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.guideId?.name || 'Guide'}</strong>
                         <small style={{ whiteSpace: 'nowrap', marginLeft: '10px' }}>{new Date(c.createdAt).toLocaleString()}</small>
                       </div>
                       <p style={{ margin: '0', color: '#333', maxWidth: '100%', wordWrap: 'break-word', overflowWrap: 'break-word', whiteSpace: 'pre-wrap', wordBreak: 'break-word', minWidth: '0' }}>{c.comment}</p>
                     </div>
-                  ))
-                )}
+                  ))}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                <textarea
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  rows={2}
+                  placeholder="Type your feedback here..."
+                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+                />
+                <button
+                  className="btn btn-primary btn-sm"
+                  style={{ alignSelf: 'flex-end', whiteSpace: 'nowrap', padding: '8px 14px' }}
+                  onClick={handleAddComment}
+                  disabled={!comment.trim()}
+                >
+                  Submit Feedback
+                </button>
               </div>
             </div>
 
             {selectedSubmission.adminRemarks?.length > 0 && (
               <div className="card" style={{ background: '#f0f9ff', borderColor: '#bae6fd' }}>
-                <h3 style={{ color: '#0369a1' }}>🛡️ Admin Feedback</h3>
+                <h3 style={{ color: '#0369a1' }}>💬 Coordinator Feedback</h3>
                 <div style={{ maxHeight: '150px', overflowY: 'auto' }}>
                   {selectedSubmission.adminRemarks
                     .filter((r, idx, self) =>
@@ -226,8 +249,7 @@ function SubmissionsReview() {
                     )
                     .map((r, idx) => (
                       <div key={idx} style={{ padding: '10px', borderBottom: idx !== selectedSubmission.adminRemarks.length - 1 ? '1px solid #e0f2fe' : 'none' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
-                          <strong style={{ color: '#0c4a6e' }}>{r.adminId?.name || 'Admin'}</strong>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '5px' }}>
                           <small style={{ color: '#64748b' }}>{new Date(r.createdAt).toLocaleString()}</small>
                         </div>
                         <p style={{ margin: '0', color: '#0c4a6e', fontSize: '14px', whiteSpace: 'pre-wrap' }}>{r.remark}</p>
@@ -269,8 +291,21 @@ function SubmissionsReview() {
             <h3>🎯 {isMarksEnabled ? 'Assign Individual Marks' : 'Review Decision'}</h3>
 
             {isMarksEnabled && (
-              <>
-                <p style={{ color: '#666', marginBottom: '15px' }}>Max Marks: {selectedSubmission.timelineEventId?.maxMarks} — Enter marks for each student individually.</p>
+              <div style={{ marginBottom: '15px' }}>
+                {!selectedSubmission.comments?.length ? (
+                  <div style={{ padding: '12px 16px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '6px', marginBottom: '15px', color: '#991b1b', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ fontSize: '20px' }}>🔒</span>
+                    <div>
+                      <strong>Marks Locked</strong>
+                      <div style={{ fontSize: '13px' }}>Please submit your Guide Feedback above first. Once feedback is provided, marks entry and acceptance will be unlocked.</div>
+                    </div>
+                  </div>
+                ) : (
+                  <p style={{ color: '#666', marginBottom: '12px' }}>
+                    Max Marks: <strong>{selectedSubmission.timelineEventId?.maxMarks}</strong> — Enter marks for each student individually. All students must have marks before accepting.
+                  </p>
+                )}
+
                 {loadingStudents ? (
                   <p style={{ color: '#888' }}>Loading students...</p>
                 ) : batchStudents.length === 0 ? (
@@ -296,8 +331,13 @@ function SubmissionsReview() {
                               max={selectedSubmission.timelineEventId?.maxMarks}
                               value={studentMarkInputs[student._id] ?? ''}
                               onChange={e => setStudentMarkInputs(prev => ({ ...prev, [student._id]: e.target.value }))}
-                              placeholder="Enter marks"
-                              style={{ width: '110px' }}
+                              placeholder={!selectedSubmission.comments?.length ? "Locked" : "Enter marks"}
+                              disabled={!selectedSubmission.comments?.length}
+                              style={{
+                                width: '110px',
+                                background: !selectedSubmission.comments?.length ? '#f1f5f9' : 'white',
+                                cursor: !selectedSubmission.comments?.length ? 'not-allowed' : 'text'
+                              }}
                             />
                           </td>
                         </tr>
@@ -305,18 +345,21 @@ function SubmissionsReview() {
                     </tbody>
                   </table>
                 )}
-              </>
+              </div>
             )}
 
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end', marginBottom: '15px' }}>
-              <button className="btn btn-primary" onClick={() => handleAssignMarks('accepted')}>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '15px' }}>
+              <button
+                className="btn btn-primary"
+                disabled={
+                  !selectedSubmission.comments?.length ||
+                  (isMarksEnabled && batchStudents.length > 0 && batchStudents.some(s => studentMarkInputs[s._id] === '' || studentMarkInputs[s._id] === undefined || studentMarkInputs[s._id] === null))
+                }
+                onClick={() => handleAssignMarks('accepted')}
+              >
                 {isMarksEnabled ? '✅ Accept & Assign' : '✅ Accept Submission'}
               </button>
               <button className="btn btn-warning" onClick={() => handleAssignMarks('needs_revision')}>🔄 Request Revision</button>
-            </div>
-            <div className="form-group">
-              <label style={{ marginBottom: '8px', display: 'block' }}>Add Feedback (Optional):</label>
-              <textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={3} placeholder="Add feedback or revision comments..." style={{ width: '100%' }} />
             </div>
           </div>
         )}

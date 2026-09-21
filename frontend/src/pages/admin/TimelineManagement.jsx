@@ -15,7 +15,7 @@ const ALL_COLUMNS = [
   { key: "marks", label: "Guide Marks" },
   { key: "prcMarks", label: "PRC Marks" },
   { key: "guidesFeedback", label: "Guide's Feedback", width: "120px" },
-  { key: "adminRemarks", label: "Remarks", width: "120px" },
+  { key: "adminRemarks", label: "Coordinator Feedback", width: "120px" },
 ];
 
 const getColumnsForScope = (scope) => {
@@ -866,13 +866,17 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
                   <th>Guide Marks</th>
                   <th>PRC Marks</th>
                   <th style={{ width: "120px", maxWidth: "120px", overflow: "hidden", textOverflow: "ellipsis" }}>Guide's Feedback</th>
-                  <th style={{ width: "120px", maxWidth: "120px", overflow: "hidden", textOverflow: "ellipsis" }}>{scope ? "PRC Remarks" : "Remarks"}</th>
+                  <th style={{ width: "120px", maxWidth: "120px", overflow: "hidden", textOverflow: "ellipsis" }}>{scope ? "PRC Remarks" : "Coordinator Feedback"}</th>
                   <th style={{ width: "60px" }}>File</th>
                 </tr>
               </thead>
               <tbody>
                 {submissions
                   .filter((sub) => {
+                    // When in coordinator scope, only show accepted/completed submissions
+                    if (scope && sub.status !== 'accepted' && sub.status !== 'completed') {
+                      return false;
+                    }
                     // Handle both string and object formats for timelineEventId
                     const subEventId =
                       typeof sub.timelineEventId === "string"
@@ -1115,7 +1119,6 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
                                 }
                                 title="Click to expand"
                               >
-                                <strong>{scope ? "PRC:" : "Admin:"}</strong>{" "}
                                 {latestAdminRemark.remark.substring(0, 50)}...
                                 <br />
                                 <small style={{ color: "#999" }}>
@@ -1138,7 +1141,7 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
                                     setShowRemarkModal(true);
                                   }}
                                 >
-                                  {scope ? "+ Add PRC Remark" : "+ Add Remark"}
+                                  {scope ? "+ Add PRC Remark" : "+ Add Feedback"}
                                 </button>
                               ) : (
                                 <span style={{ color: '#999', fontSize: '12px', display: 'block', textAlign: 'center' }}>
@@ -1732,7 +1735,7 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
             }}
           >
             <div className="card" style={{ width: "90%", maxWidth: "500px" }}>
-              <h3>{scope ? "Add PRC Remark" : "Add Admin Remark"}</h3>
+              <h3>{scope ? "Add PRC Remark" : "Add Coordinator Feedback"}</h3>
               <div
                 style={{
                   marginBottom: "15px",
@@ -1755,7 +1758,7 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
               <textarea
                 value={remarkText}
                 onChange={(e) => setRemarkText(e.target.value)}
-                placeholder="Enter your remark here..."
+                placeholder="Enter your feedback here..."
                 rows={5}
                 style={{
                   width: "100%",
@@ -1771,7 +1774,7 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
                   onClick={async () => {
                     try {
                       if (!remarkText.trim()) {
-                        alert("Please enter a remark");
+                        alert("Please enter feedback");
                         return;
                       }
                       await api.addAdminRemark(
@@ -1787,7 +1790,7 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
                     }
                   }}
                 >
-                  {scope ? "Save PRC Remark" : "Save Remark"}
+                  {scope ? "Save PRC Remark" : "Save Feedback"}
                 </button>
                 <button
                   className="btn btn-secondary"

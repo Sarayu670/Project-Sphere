@@ -383,11 +383,16 @@ function GuideTimeline() {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <div className="card" style={{ maxWidth: '100%', minWidth: '0', overflow: 'hidden' }}>
-              <h3>💬 Guide Feedback</h3>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <h3 style={{ margin: 0 }}>💬 Guide Feedback</h3>
+                {submission.comments?.length > 0 && (
+                  <span style={{ fontSize: '12px', color: '#16a34a', fontWeight: '600' }}>✅ Feedback Provided</span>
+                )}
+              </div>
               {!submission.comments?.length ? (
-                <p style={{ color: '#888' }}>No feedback yet</p>
+                <p style={{ color: '#888', marginBottom: '10px' }}>No feedback given yet. You must submit feedback before entering marks.</p>
               ) : (
-                <div style={{ maxHeight: '180px', overflowY: 'auto' }}>
+                <div style={{ maxHeight: '180px', overflowY: 'auto', marginBottom: '10px' }}>
                   {submission.comments.map((c, idx) => (
                     <div key={idx} style={{ padding: '10px', background: '#fef3c7', borderRadius: '8px', marginBottom: '10px', maxWidth: '100%', minWidth: '0', wordWrap: 'break-word', overflowWrap: 'break-word', overflow: 'hidden', wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px', minWidth: '0' }}>
@@ -399,11 +404,29 @@ function GuideTimeline() {
                   ))}
                 </div>
               )}
+
+              <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                <textarea
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  rows={2}
+                  placeholder="Type your feedback here..."
+                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+                />
+                <button
+                  className="btn btn-primary btn-sm"
+                  style={{ alignSelf: 'flex-end', whiteSpace: 'nowrap', padding: '8px 14px' }}
+                  onClick={handleAddComment}
+                  disabled={!comment.trim()}
+                >
+                  Submit Feedback
+                </button>
+              </div>
             </div>
 
             {submission.adminRemarks?.length > 0 && (
               <div className="card" style={{ background: '#f0f9ff', borderColor: '#bae6fd' }}>
-                <h3 style={{ color: '#0369a1' }}>🛡️ Admin Feedback</h3>
+                <h3 style={{ color: '#0369a1' }}>💬 Coordinator Feedback</h3>
                 <div style={{ maxHeight: '150px', overflowY: 'auto' }}>
                   {submission.adminRemarks
                     .filter((r, idx, self) =>
@@ -413,8 +436,7 @@ function GuideTimeline() {
                     )
                     .map((r, idx) => (
                       <div key={idx} style={{ padding: '10px', borderBottom: idx !== submission.adminRemarks.length - 1 ? '1px solid #e0f2fe' : 'none' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
-                          <strong style={{ color: '#0c4a6e' }}>🛡️ {r.adminId?.name || 'Admin'}</strong>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '5px' }}>
                           <small style={{ color: '#64748b' }}>{new Date(r.createdAt).toLocaleString()}</small>
                         </div>
                         <p style={{ margin: '0', color: '#0c4a6e', fontSize: '14px', whiteSpace: 'pre-wrap' }}>{r.remark}</p>
@@ -432,9 +454,19 @@ function GuideTimeline() {
             
             {isMarksEnabled && (
               <div style={{ marginBottom: '15px' }}>
-                <p style={{ color: '#666', marginBottom: '12px' }}>
-                  Max Marks: <strong>{selectedEvent.maxMarks}</strong> — Enter marks for each student individually.
-                </p>
+                {!submission.comments?.length ? (
+                  <div style={{ padding: '12px 16px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '6px', marginBottom: '15px', color: '#991b1b', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ fontSize: '20px' }}>🔒</span>
+                    <div>
+                      <strong>Marks Locked</strong>
+                      <div style={{ fontSize: '13px' }}>Please submit your Guide Feedback above first. Once feedback is provided, marks entry and acceptance will be unlocked.</div>
+                    </div>
+                  </div>
+                ) : (
+                  <p style={{ color: '#666', marginBottom: '12px' }}>
+                    Max Marks: <strong>{selectedEvent.maxMarks}</strong> — Enter marks for each student individually. All students must have marks before accepting.
+                  </p>
+                )}
 
                 {loadingStudents ? (
                   <p style={{ color: '#888' }}>Loading students...</p>
@@ -462,8 +494,13 @@ function GuideTimeline() {
                                 max={selectedEvent.maxMarks}
                                 value={studentMarkInputs[student._id] ?? ''}
                                 onChange={e => setStudentMarkInputs(prev => ({ ...prev, [student._id]: e.target.value }))}
-                                placeholder="Enter marks"
-                                style={{ width: '110px' }}
+                                placeholder={!submission.comments?.length ? "Locked" : "Enter marks"}
+                                disabled={!submission.comments?.length}
+                                style={{
+                                  width: '110px',
+                                  background: !submission.comments?.length ? '#f1f5f9' : 'white',
+                                  cursor: !submission.comments?.length ? 'not-allowed' : 'text'
+                                }}
                               />
                             </td>
                           </tr>
@@ -476,7 +513,14 @@ function GuideTimeline() {
             )}
 
             <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '15px' }}>
-              <button className="btn btn-primary" onClick={() => handleAssignMarks('accepted')}>
+              <button
+                className="btn btn-primary"
+                disabled={
+                  !submission.comments?.length ||
+                  (isMarksEnabled && batchStudents.length > 0 && batchStudents.some(s => studentMarkInputs[s._id] === '' || studentMarkInputs[s._id] === undefined || studentMarkInputs[s._id] === null))
+                }
+                onClick={() => handleAssignMarks('accepted')}
+              >
                 {isMarksEnabled ? (hasStudentMarks || isEditingMarks ? '✅ Update Marks' : '✅ Accept & Assign Marks') : '✅ Accept Submission'}
               </button>
               {hasStudentMarks && isEditingMarks && (
@@ -499,17 +543,6 @@ function GuideTimeline() {
               <button className="btn btn-warning" onClick={() => handleAssignMarks('needs_revision')}>
                 🔄 Request Revision
               </button>
-            </div>
-
-            <div className="form-group">
-              <label style={{ marginBottom: '8px', display: 'block' }}>Add Feedback (Optional):</label>
-              <textarea
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                rows={3}
-                placeholder="Add feedback or revision comments..."
-                style={{ width: '100%' }}
-              />
             </div>
           </div>
         )}

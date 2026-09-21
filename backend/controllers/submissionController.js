@@ -505,6 +505,16 @@ exports.getAllSubmissions = async (req, res) => {
       }
 
       filter.batchId = { $in: coordinatorBatchIds };
+      // Coordinators can only see submissions accepted/completed by the guide
+      if (!status || status === 'all') {
+        filter.status = { $in: ['accepted', 'completed'] };
+      } else if (status !== 'accepted' && status !== 'completed') {
+        return res.status(200).json({
+          success: true,
+          data: [],
+          pagination: { current: page, total: 0, limit, pages: 0 }
+        });
+      }
     }
 
     if (batchId) {
@@ -514,7 +524,7 @@ exports.getAllSubmissions = async (req, res) => {
         : batchId;
     }
 
-    if (status && status !== 'all') {
+    if (!isCoordinatorRequest && status && status !== 'all') {
       filter.status = status;
     }
 

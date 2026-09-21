@@ -120,15 +120,33 @@ function buildMarksReport(batches = [], timelineEvents = [], submissions = []) {
       const row = {
         teamName: batch.teamName || 'Unknown Team',
         projectTitle: batch.problemId?.title || batch.problemTitle || batch.title || 'Not Assigned',
+        guideName: batch.guideId?.name || (typeof batch.guideId === 'string' ? batch.guideId : 'Not Assigned'),
         memberName: member.name,
         rollNumber: member.rollNo || '—'
       };
       let total = 0;
       let outOf = 0;
+      const guideFeedbacks = [];
+      const prcFeedbacks = [];
 
       for (const event of relevantEvents) {
         const submission = submissionsByKey.get(`${batchId}::${String(event._id)}`);
         
+        if (submission) {
+          if (submission.comments?.length > 0) {
+            const commentsText = submission.comments.map(c => c.comment).filter(Boolean).join('; ');
+            if (commentsText) {
+              guideFeedbacks.push(relevantEvents.length > 1 ? `${event.title}: ${commentsText}` : commentsText);
+            }
+          }
+          if (submission.adminRemarks?.length > 0) {
+            const remarksText = submission.adminRemarks.map(r => r.remark).filter(Boolean).join('; ');
+            if (remarksText) {
+              prcFeedbacks.push(relevantEvents.length > 1 ? `${event.title}: ${remarksText}` : remarksText);
+            }
+          }
+        }
+
         // Guide marks
         let guideScore = 0;
         if (submission && (submission.status === 'accepted' || submission.status === 'completed')) {
@@ -166,6 +184,8 @@ function buildMarksReport(batches = [], timelineEvents = [], submissions = []) {
         outOf += 25;
       }
 
+      row.guideFeedback = guideFeedbacks.length > 0 ? guideFeedbacks.join(' | ') : 'N/A';
+      row.prcFeedback = prcFeedbacks.length > 0 ? prcFeedbacks.join(' | ') : 'N/A';
       row.total = total;
       row.outOf = outOf;
       row.percentage = outOf ? Math.round((total / outOf) * 100) : 0;
@@ -219,7 +239,8 @@ function CoordinatorDashboard() {
       setMarksReport(buildMarksReport(nextBatches, timelineRes.data.data || [], submissionsRes.data.data || []));
       setError('');
     } catch (err) {
-      setError(err.response?.data?.message || 'Unable to load the coordinator dashboard.');
+      console.error('Error loading coordinator dashboard:', err);
+      setError(err.response?.data?.message || err.message || 'Unable to load the coordinator dashboard.');
     } finally {
       setLoading(false);
     }
@@ -344,14 +365,16 @@ function CoordinatorDashboard() {
       const record = {
         Team: row.teamName,
         'Project Title': row.projectTitle || 'Not Assigned',
+        Guide: row.guideName || 'Not Assigned',
         Student: row.memberName,
         'Roll Number': row.rollNumber
       };
       marksReport.columns.forEach(column => {
-        record[`${column.label} (/${column.max})`] = row[column.key] ?? 0;
+        const val = row[column.key];
+        record[column.label] = val !== null && val !== undefined && val !== '' ? Number(val) : 0;
       });
-      record['Total'] = row.total;
-      record['Out of'] = row.outOf;
+      record['Total'] = Number(row.total || 0);
+      record['Out of'] = Number(row.outOf || 0);
       record['Average'] = marksReport.columns.length > 0
         ? Number((row.total / marksReport.columns.length).toFixed(2))
         : 0;
@@ -361,8 +384,8 @@ function CoordinatorDashboard() {
     const workbook = XLSX.utils.book_new();
     const worksheet = XLSX.utils.json_to_sheet(rows);
     worksheet['!cols'] = [
-      { wch: 18 }, { wch: 35 }, { wch: 22 }, { wch: 16 },
-      ...marksReport.columns.map(() => ({ wch: 24 })),
+      { wch: 18 }, { wch: 35 }, { wch: 22 }, { wch: 22 }, { wch: 16 },
+      ...marksReport.columns.map(() => ({ wch: 18 })),
       { wch: 12 }, { wch: 12 }, { wch: 12 }
     ];
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Marks Report');

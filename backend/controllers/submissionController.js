@@ -299,14 +299,23 @@ exports.addComment = async (req, res) => {
       createdAt: new Date()
     });
 
-    // Only update status to needs_revision if it's not already accepted or rejected
-    if (submission.status !== 'accepted' && submission.status !== 'rejected') {
-      submission.status = 'needs_revision';
+    // If status is submitted, update to under_review when guide leaves comments
+    if (submission.status === 'submitted') {
+      submission.status = 'under_review';
     }
 
     await submission.save();
 
-    const updated = await Submission.findById(req.params.id).populate('comments.guideId', 'name');
+    const updated = await Submission.findById(req.params.id)
+      .populate('batchId', 'teamName year branch section')
+      .populate('timelineEventId', 'title maxMarks deadline isMarksEnabled')
+      .populate('comments.guideId', 'name')
+      .populate('adminRemarks.adminId', 'name')
+      .populate('marksAssignedBy', 'name')
+      .populate('studentMarks.studentId', 'name rollNumber')
+      .populate('studentMarks.assignedBy', 'name')
+      .populate('prcStudentMarks.studentId', 'name rollNumber')
+      .populate('prcStudentMarks.assignedBy', 'name');
     
     // Send email notification to students asynchronously
     try {

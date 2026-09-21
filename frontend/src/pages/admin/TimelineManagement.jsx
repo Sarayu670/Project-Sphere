@@ -1921,11 +1921,11 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
               const sroll = typeof entry.studentId === 'object' ? entry.studentId?.rollNumber : null;
               return (sid && String(sid) === String(m._id)) || (sroll && sroll === m.rollNo);
             });
-            if (sm && sm.marks !== null && sm.marks !== undefined) {
-              guideMark = `${sm.marks}/${selectedEvent.maxMarks}`;
+            if (sm && sm.marks !== null && sm.marks !== undefined && sm.marks !== '') {
+              guideMark = Number(sm.marks);
             }
-          } else if (sub.marks !== null && sub.marks !== undefined) {
-            guideMark = `${sub.marks}/${selectedEvent.maxMarks}`;
+          } else if (sub.marks !== null && sub.marks !== undefined && sub.marks !== '') {
+            guideMark = Number(sub.marks);
           }
         }
 
@@ -1936,11 +1936,11 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
             const sroll = typeof entry.studentId === 'object' ? entry.studentId?.rollNumber : null;
             return (sid && String(sid) === String(m._id)) || (sroll && sroll === m.rollNo);
           });
-          if (pm && pm.marks !== null && pm.marks !== undefined) {
-            prcMark = `${pm.marks}/25`;
+          if (pm && pm.marks !== null && pm.marks !== undefined && pm.marks !== '') {
+            prcMark = Number(pm.marks);
           }
-        } else if (sub.prcMarks !== null && sub.prcMarks !== undefined) {
-          prcMark = `${sub.prcMarks}/25`;
+        } else if (sub.prcMarks !== null && sub.prcMarks !== undefined && sub.prcMarks !== '') {
+          prcMark = Number(sub.prcMarks);
         }
 
         const memberDisplay = m.name && m.rollNo && m.name !== m.rollNo
@@ -1956,8 +1956,8 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
           coe: `"${coe.replace(/"/g, '""')}"`,
           domain: `"${(batch?.domain || "N/A").replace(/"/g, '""')}"`,
           guide: `"${guide.replace(/"/g, '""')}"`,
-          marks: guideMark !== "N/A" ? `="""${guideMark}"""` : `"N/A"`,
-          prcMarks: prcMark !== "N/A" ? `="""${prcMark}"""` : `"N/A"`,
+          marks: guideMark !== "N/A" ? guideMark : `"N/A"`,
+          prcMarks: prcMark !== "N/A" ? prcMark : `"N/A"`,
           guidesFeedback: `"${guideFeedbackText}"`,
           adminRemarks: `"${adminRemarksText}"`,
         };

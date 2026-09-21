@@ -149,12 +149,13 @@ function GuideTimeline() {
     try {
       await api.addSubmissionComment(selectedSubmission._id, comment);
       const res = await api.getSubmission(selectedSubmission._id);
-      setSelectedSubmission(res.data.data);
+      setSelectedSubmission(res.data.data || res.data);
       setComment('');
-      showDialog('Success', 'Comment added successfully', 'success');
+      fetchData();
+      showDialog('Success', 'Feedback submitted successfully', 'success');
     } catch (error) {
       console.error('Error adding comment:', error);
-      showDialog('Error', error.response?.data?.message || 'Failed to add comment', 'danger');
+      showDialog('Error', error.response?.data?.message || 'Failed to submit feedback', 'danger');
     }
   };
 

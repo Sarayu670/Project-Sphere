@@ -10,11 +10,22 @@ const StudentMarkSchema = new mongoose.Schema({
     type: Number,
     default: null
   },
+  prcMarks: {
+    type: Number,
+    default: null
+  },
   assignedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Guide'
   },
   assignedAt: {
+    type: Date
+  },
+  prcAssignedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Guide'
+  },
+  prcAssignedAt: {
     type: Date
   }
 });

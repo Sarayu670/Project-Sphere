@@ -224,7 +224,6 @@ exports.getSubmission = async (req, res) => {
     if (!submission) {
       return res.status(404).json({ success: false, message: 'Submission not found' });
     }
-
     res.status(200).json({ success: true, data: submission });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -375,6 +374,8 @@ exports.assignMarks = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Submission not found' });
     }
 
+    const maximumMarks = Number(submission.timelineEventId?.maxMarks || 25);
+
     // Add comment if provided
     if (comment && comment.trim()) {
       submission.comments.push({
@@ -387,8 +388,8 @@ exports.assignMarks = async (req, res) => {
     // Handle per-student marks (new behaviour)
     if (Array.isArray(studentMarks) && studentMarks.length > 0) {
       for (const sm of studentMarks) {
-        if (sm.marks !== null && sm.marks !== undefined && sm.marks > submission.timelineEventId.maxMarks) {
-          return res.status(400).json({ success: false, message: `Marks cannot exceed ${submission.timelineEventId.maxMarks}` });
+        if (sm.marks !== null && sm.marks !== undefined && (sm.marks < 0 || sm.marks > maximumMarks)) {
+          return res.status(400).json({ success: false, message: `Marks must be between 0 and ${maximumMarks}` });
         }
       }
 
@@ -414,8 +415,8 @@ exports.assignMarks = async (req, res) => {
       submission.marks = null;
     } else {
       // Legacy single-mark fallback
-      if (marks > submission.timelineEventId.maxMarks) {
-        return res.status(400).json({ success: false, message: `Marks cannot exceed ${submission.timelineEventId.maxMarks}` });
+      if (marks < 0 || marks > maximumMarks) {
+        return res.status(400).json({ success: false, message: `Marks must be between 0 and ${maximumMarks}` });
       }
       submission.marks = marks;
       submission.marksAssignedBy = req.user._id;
@@ -432,7 +433,8 @@ exports.assignMarks = async (req, res) => {
       .populate('batchId', 'teamName')
       .populate('timelineEventId', 'title maxMarks isMarksEnabled')
       .populate('studentMarks.studentId', 'name rollNumber')
-      .populate('studentMarks.assignedBy', 'name');
+      .populate('studentMarks.assignedBy', 'name')
+      .populate('studentMarks.prcAssignedBy', 'name');
 
     // Send email notification to students asynchronously
     try {
@@ -472,6 +474,95 @@ exports.assignMarks = async (req, res) => {
     } catch (emailError) {
       console.error('[Notification] Error in marks assignment email trigger logic:', emailError);
     }
+
+    res.status(200).json({ success: true, data: updated });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Assign PRC marks (Coordinator / Admin) — per student
+// @route   POST /api/submissions/prc-marks or POST /api/submissions/:id/prc-marks
+exports.assignPrcMarks = async (req, res) => {
+  try {
+    const { submissionId, batchId, timelineEventId, studentMarks, studentId, marks } = req.body;
+    const targetId = req.params.id || submissionId;
+
+    let submission = null;
+    const mongoose = require('mongoose');
+
+    if (targetId && mongoose.Types.ObjectId.isValid(targetId)) {
+      submission = await Submission.findById(targetId)
+        .populate('timelineEventId', 'maxMarks title')
+        .populate('batchId', 'teamName');
+    }
+
+    if (!submission && batchId && timelineEventId) {
+      submission = await Submission.findOne({ batchId, timelineEventId })
+        .populate('timelineEventId', 'maxMarks title')
+        .populate('batchId', 'teamName');
+
+      if (!submission) {
+        submission = new Submission({
+          batchId,
+          timelineEventId,
+          status: 'accepted',
+          studentMarks: []
+        });
+      }
+    }
+
+    if (!submission) {
+      return res.status(404).json({ success: false, message: 'Submission not found or milestone not identified.' });
+    }
+
+    const marksToAssign = Array.isArray(studentMarks) && studentMarks.length > 0
+      ? studentMarks
+      : studentId !== undefined ? [{ studentId, marks }] : [];
+
+    if (marksToAssign.length === 0) {
+      return res.status(400).json({ success: false, message: 'No student marks provided.' });
+    }
+
+    const maxPrcMarks = 25;
+
+    for (const sm of marksToAssign) {
+      const val = sm.marks !== '' && sm.marks !== null && sm.marks !== undefined ? parseFloat(sm.marks) : null;
+      if (val !== null && (isNaN(val) || val < 0 || val > maxPrcMarks)) {
+        return res.status(400).json({ success: false, message: `PRC marks must be between 0 and ${maxPrcMarks}.` });
+      }
+    }
+
+    for (const sm of marksToAssign) {
+      const val = sm.marks !== '' && sm.marks !== null && sm.marks !== undefined ? parseFloat(sm.marks) : null;
+      const existing = submission.studentMarks.find(
+        e => e.studentId.toString() === sm.studentId.toString()
+      );
+      if (existing) {
+        existing.prcMarks = val;
+        existing.prcAssignedBy = req.user._id;
+        existing.prcAssignedAt = new Date();
+      } else {
+        submission.studentMarks.push({
+          studentId: sm.studentId,
+          marks: null,
+          prcMarks: val,
+          prcAssignedBy: req.user._id,
+          prcAssignedAt: new Date()
+        });
+      }
+    }
+
+    await submission.save();
+
+    const updated = await Submission.findById(submission._id)
+      .populate('comments.guideId', 'name')
+      .populate('marksAssignedBy', 'name')
+      .populate('batchId', 'teamName')
+      .populate('timelineEventId', 'title maxMarks isMarksEnabled')
+      .populate('studentMarks.studentId', 'name rollNumber')
+      .populate('studentMarks.assignedBy', 'name')
+      .populate('studentMarks.prcAssignedBy', 'name');
 
     res.status(200).json({ success: true, data: updated });
   } catch (error) {
@@ -547,6 +638,7 @@ exports.getAllSubmissions = async (req, res) => {
       .populate('studentMarks.assignedBy', 'name')
       .populate('prcStudentMarks.studentId', 'name rollNumber')
       .populate('prcStudentMarks.assignedBy', 'name')
+      .populate('studentMarks.prcAssignedBy', 'name')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)

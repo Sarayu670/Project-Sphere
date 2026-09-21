@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
 import { useAuth } from '../../context/AuthContext';
 import * as api from '../../services/api';
@@ -15,8 +15,11 @@ const TRACKED_MARK_EVENTS = [
   { key: 'prc1', label: 'PRC-1', aliases: ['prc-1', 'prc 1', 'prc1'] },
   { key: 'prc2', label: 'PRC-2', aliases: ['prc-2', 'prc 2', 'prc2'] },
   { key: 'prc3', label: 'PRC-3', aliases: ['prc-3', 'prc 3', 'prc3'] },
-  { key: 'thesis', label: 'Thesis', aliases: ['thesis'] }
+  { key: 'thesis', label: 'Document Submission', aliases: ['thesis', 'document submission', 'document-submission'] }
 ];
+const MARK_COMPONENT_MAX = 25;
+const MARK_GROUP_MAX = MARK_COMPONENT_MAX * 2;
+const MARKS_REPORT_MAX = TRACKED_MARK_EVENTS.length * MARK_GROUP_MAX;
 
 const normalizeEventTitle = (value = '') => String(value).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 
@@ -25,37 +28,28 @@ function idOf(value) {
 }
 
 function buildMarksReport(batches = [], timelineEvents = [], submissions = []) {
-  const relevantEvents = (timelineEvents || [])
-    .map(event => {
+  const markGroups = TRACKED_MARK_EVENTS.map(config => {
+    const events = (timelineEvents || []).filter(event => {
       const normalized = normalizeEventTitle(event?.title || '');
-      const match = TRACKED_MARK_EVENTS.find(config => config.aliases.some(alias => normalized.includes(alias)));
-      return match
-        ? { ...event, markKey: match.key, markLabel: match.label, order: TRACKED_MARK_EVENTS.findIndex(item => item.key === match.key) }
-        : { ...event, markKey: `event_${event._id}`, markLabel: event.title, order: 100 + (event.order || 0) };
-    })
-    .filter(Boolean)
-    .sort((a, b) => a.order - b.order);
+      return config.aliases.some(alias => normalized.includes(alias));
+    });
+    const guideEvent = events.find(event => normalizeEventTitle(event.title).includes('guide')) || events[0];
+    const prcEvent = events.find(event => normalizeEventTitle(event.title).includes('prc') && event._id !== guideEvent?._id)
+      || events.find(event => event._id !== guideEvent?._id);
+    return {
+      key: config.key,
+      label: config.label,
+      guideEvent,
+      prcEvent,
+      max: MARK_GROUP_MAX,
+      guideMax: MARK_COMPONENT_MAX,
+      prcMax: MARK_COMPONENT_MAX
+    };
+  });
 
-  if (!relevantEvents.length) {
+  if (!markGroups.some(group => group.guideEvent || group.prcEvent)) {
     return { columns: [], rows: [] };
   }
-
-  // Build columns: for each event, add Guide Marks column and PRC Marks column
-  const columns = [];
-  relevantEvents.forEach(event => {
-    columns.push({
-      key: `${event.markKey}_guide`,
-      label: `${event.markLabel} (Guide)`,
-      max: Number(event.maxMarks || 25),
-      eventId: event._id
-    });
-    columns.push({
-      key: `${event.markKey}_prc`,
-      label: `${event.markLabel} (PRC)`,
-      max: 25,
-      eventId: event._id
-    });
-  });
 
   const submissionsByKey = new Map();
   for (const submission of submissions) {
@@ -118,6 +112,8 @@ function buildMarksReport(batches = [], timelineEvents = [], submissions = []) {
 
     for (const member of memberList) {
       const row = {
+        studentId: member._id,
+        teamKey: batchId,
         teamName: batch.teamName || 'Unknown Team',
         projectTitle: batch.problemId?.title || batch.problemTitle || batch.title || 'Not Assigned',
         guideName: batch.guideId?.name || (typeof batch.guideId === 'string' ? batch.guideId : 'Not Assigned'),
@@ -125,78 +121,69 @@ function buildMarksReport(batches = [], timelineEvents = [], submissions = []) {
         rollNumber: member.rollNo || '—'
       };
       let total = 0;
-      let outOf = 0;
       const guideFeedbacks = [];
       const prcFeedbacks = [];
 
-      for (const event of relevantEvents) {
-        const submission = submissionsByKey.get(`${batchId}::${String(event._id)}`);
-        
-        if (submission) {
-          if (submission.comments?.length > 0) {
-            const commentsText = submission.comments.map(c => c.comment).filter(Boolean).join('; ');
-            if (commentsText) {
-              guideFeedbacks.push(relevantEvents.length > 1 ? `${event.title}: ${commentsText}` : commentsText);
-            }
-          }
-          if (submission.adminRemarks?.length > 0) {
-            const remarksText = submission.adminRemarks.map(r => r.remark).filter(Boolean).join('; ');
-            if (remarksText) {
-              prcFeedbacks.push(relevantEvents.length > 1 ? `${event.title}: ${remarksText}` : remarksText);
-            }
-          }
-        }
+      for (const group of markGroups) {
+        const guideSubmission = group.guideEvent && submissionsByKey.get(`${batchId}::${String(group.guideEvent._id)}`);
+        const prcSubmission = group.prcEvent && submissionsByKey.get(`${batchId}::${String(group.prcEvent._id)}`);
+        const submission = guideSubmission || prcSubmission;
+        const scoreEntry = (guideSubmission?.studentMarks || []).find(markEntry => {
+          const studentId = markEntry?.studentId && typeof markEntry.studentId === 'object' ? markEntry.studentId._id : markEntry.studentId;
+          return String(studentId) === String(member._id);
+        });
 
-        // Guide marks
-        let guideScore = 0;
-        if (submission && (submission.status === 'accepted' || submission.status === 'completed')) {
-          const guideEntry = (submission.studentMarks || []).find(markEntry => {
-            const studentId = markEntry?.studentId && typeof markEntry.studentId === 'object' ? markEntry.studentId._id : markEntry.studentId;
-            const sroll = markEntry?.studentId && typeof markEntry.studentId === 'object' ? markEntry.studentId.rollNumber : null;
-            return (studentId && String(studentId) === String(member._id)) || (sroll && sroll === member.rollNo);
-          });
-          if (guideEntry && guideEntry.marks !== null && guideEntry.marks !== undefined) {
-            guideScore = Number(guideEntry.marks);
-          } else if (submission.marks !== null && submission.marks !== undefined) {
-            guideScore = Number(submission.marks);
-          }
-        }
-        row[`${event.markKey}_guide`] = guideScore;
-        total += guideScore;
-        outOf += Number(event.maxMarks || 25);
+        const guideMarks = scoreEntry && scoreEntry.marks !== null && scoreEntry.marks !== undefined ? Number(scoreEntry.marks) : 0;
+        const prcEntry = (prcSubmission?.prcStudentMarks || []).find(markEntry => {
+          const sid = markEntry?.studentId && typeof markEntry.studentId === 'object' ? markEntry.studentId._id : markEntry.studentId;
+          return String(sid) === String(member._id);
+        });
+        const legacyPrcEntry = (prcSubmission?.studentMarks || []).find(markEntry => {
+          const sid = markEntry?.studentId && typeof markEntry.studentId === 'object' ? markEntry.studentId._id : markEntry.studentId;
+          return String(sid) === String(member._id);
+        });
+        const prcMarks = prcEntry?.marks ?? legacyPrcEntry?.prcMarks ?? 0;
 
-        // PRC marks
-        let prcScore = 0;
-        if (submission) {
-          const prcEntry = (submission.prcStudentMarks || []).find(markEntry => {
-            const studentId = markEntry?.studentId && typeof markEntry.studentId === 'object' ? markEntry.studentId._id : markEntry.studentId;
-            const sroll = markEntry?.studentId && typeof markEntry.studentId === 'object' ? markEntry.studentId.rollNumber : null;
-            return (studentId && String(studentId) === String(member._id)) || (sroll && sroll === member.rollNo);
-          });
-          if (prcEntry && prcEntry.marks !== null && prcEntry.marks !== undefined) {
-            prcScore = Number(prcEntry.marks);
-          } else if (submission.prcMarks !== null && submission.prcMarks !== undefined) {
-            prcScore = Number(submission.prcMarks);
-          }
-        }
-        row[`${event.markKey}_prc`] = prcScore;
-        total += prcScore;
-        outOf += 25;
+        if (guideSubmission?.comments?.length) guideFeedbacks.push(...guideSubmission.comments.map(comment => comment.comment).filter(Boolean));
+        if (prcSubmission?.adminRemarks?.length) prcFeedbacks.push(...prcSubmission.adminRemarks.map(remark => remark.remark).filter(Boolean));
+
+        row[`${group.key}Guide`] = guideMarks;
+        row[`${group.key}Prc`] = prcMarks;
+        row[`${group.key}Total`] = guideMarks + prcMarks;
+        row[`${group.key}SubmissionId`] = prcSubmission?._id || submission?._id || '';
+        row[`${group.key}TimelineEventId`] = group.prcEvent?._id || group.guideEvent?._id || '';
+        row[`${group.key}BatchId`] = batchId;
+
+        total += (guideMarks + prcMarks);
       }
 
       row.guideFeedback = guideFeedbacks.length > 0 ? guideFeedbacks.join(' | ') : 'N/A';
       row.prcFeedback = prcFeedbacks.length > 0 ? prcFeedbacks.join(' | ') : 'N/A';
       row.total = total;
-      row.outOf = outOf;
-      row.percentage = outOf ? Math.round((total / outOf) * 100) : 0;
+      row.outOf = MARKS_REPORT_MAX;
+      row.percentage = Math.round((total / MARKS_REPORT_MAX) * 100);
       rows.push(row);
     }
   }
 
   return {
-    columns,
+    columns: markGroups.map(group => ({
+      key: group.key,
+      label: group.label,
+      guideKey: `${group.key}Guide`,
+      prcKey: `${group.key}Prc`,
+      totalKey: `${group.key}Total`,
+      guideMax: group.guideMax,
+      prcMax: group.prcMax,
+      max: group.max
+    })),
     rows
   };
+}
+
+function getTeamRowSpan(rows, index) {
+  const nextTeamIndex = rows.slice(index).findIndex(row => row.teamKey !== rows[index].teamKey);
+  return nextTeamIndex === -1 ? rows.length - index : nextTeamIndex;
 }
 
 function CoordinatorDashboard() {
@@ -216,6 +203,9 @@ function CoordinatorDashboard() {
   const [saving, setSaving] = useState(false);
   const [editForm, setEditForm] = useState({});
   const [marksReport, setMarksReport] = useState({ columns: [], rows: [] });
+  const [markDrafts, setMarkDrafts] = useState({});
+  const [editingMarkKey, setEditingMarkKey] = useState('');
+  const [savingMarkKey, setSavingMarkKey] = useState('');
   const [marksPage, setMarksPage] = useState(1);
   const MARKS_PAGE_SIZE = 10;
   const [teamsPage, setTeamsPage] = useState(1);
@@ -370,8 +360,9 @@ function CoordinatorDashboard() {
         'Roll Number': row.rollNumber
       };
       marksReport.columns.forEach(column => {
-        const val = row[column.key];
-        record[column.label] = val !== null && val !== undefined && val !== '' ? Number(val) : 0;
+        record[`${column.label} (Guide)`] = row[column.guideKey];
+        record[`${column.label} (PRC)`] = row[column.prcKey];
+        record[`${column.label} Total`] = row[column.totalKey];
       });
       record['Total'] = Number(row.total || 0);
       record['Out of'] = Number(row.outOf || 0);
@@ -390,6 +381,60 @@ function CoordinatorDashboard() {
     ];
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Marks Report');
     XLSX.writeFile(workbook, `Project_Sphere_${scope?.year}_${scope?.branch}_${scope?.section}_Marks_Report.xlsx`);
+  };
+
+  const saveCoordinatorPrcMark = async (row, column) => {
+    const markKey = `${row.teamKey}-${row.studentId}-${column.key}`;
+    const value = markDrafts[markKey];
+    const marks = Number(value);
+    if (!Number.isFinite(marks) || marks < 0 || marks > MARK_COMPONENT_MAX) {
+      setError(`PRC marks must be between 0 and ${MARK_COMPONENT_MAX}.`);
+      return;
+    }
+
+    setSavingMarkKey(markKey);
+    try {
+      const submissionId = row[`${column.key}SubmissionId`];
+      const timelineEventId = row[`${column.key}TimelineEventId`];
+      const batchId = row.teamKey;
+
+      await api.assignPrcMarks({
+        submissionId: submissionId || undefined,
+        batchId,
+        timelineEventId,
+        studentId: row.studentId,
+        marks
+      });
+
+      // Optimistically update the table rows so changes are immediately visible
+      setMarksReport(current => ({
+        ...current,
+        rows: current.rows.map(r => {
+          if (r.studentId === row.studentId && r.teamKey === row.teamKey) {
+            const updated = { ...r };
+            updated[column.prcKey] = marks;
+            updated[column.totalKey] = (updated[column.guideKey] || 0) + marks;
+            let sum = 0;
+            current.columns.forEach(col => {
+              sum += (updated[col.totalKey] || 0);
+            });
+            updated.total = sum;
+            updated.percentage = Math.round((sum / MARKS_REPORT_MAX) * 100);
+            return updated;
+          }
+          return r;
+        })
+      }));
+
+      setMarkDrafts(current => ({ ...current, [markKey]: '' }));
+      setEditingMarkKey('');
+      setError('');
+      await fetchData();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Unable to save PRC marks.');
+    } finally {
+      setSavingMarkKey('');
+    }
   };
 
   const marksTotalPages = Math.max(1, Math.ceil((marksReport.rows?.length || 0) / MARKS_PAGE_SIZE));
@@ -658,28 +703,88 @@ function CoordinatorDashboard() {
                 <table className="data-table coordinator-marks-table">
                   <thead>
                     <tr>
-                      <th>Team</th>
-                      <th>Student</th>
-                      <th>Roll No</th>
+                      <th rowSpan="2">Team</th>
+                      <th rowSpan="2">Student</th>
+                      <th rowSpan="2">Roll No</th>
                       {marksReport.columns.map(column => (
-                        <th key={column.key}>{column.label}<br /><span className="marks-subtext">/{column.max}</span></th>
+                        <th key={column.key} colSpan="3">{column.label}<br /><span className="marks-subtext">/{column.max}</span></th>
                       ))}
-                      <th>Total<br /><span className="marks-subtext">/{marksReport.columns.reduce((sum, c) => sum + (c.max || 0), 0)}</span></th>
+                      <th rowSpan="2">Total<br /><span className="marks-subtext">/{marksReport.rows[0]?.outOf || 0}</span></th>
+                    </tr>
+                    <tr>
+                      {marksReport.columns.map(column => (
+                        <Fragment key={`${column.key}-subheaders`}>
+                          <th>Guide<br /><span className="marks-subtext">/{column.guideMax}</span></th>
+                          <th>PRC<br /><span className="marks-subtext">/{column.prcMax}</span></th>
+                          <th>Total<br /><span className="marks-subtext">/{column.max}</span></th>
+                        </Fragment>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
                     {paginatedMarksRows.length === 0 ? (
-                      <tr><td colSpan={5 + marksReport.columns.length}>No team data found.</td></tr>
+                      <tr><td colSpan={4 + (marksReport.columns.length * 3)}>No team data found.</td></tr>
                     ) : (
                       paginatedMarksRows.map((row, index) => (
-                        <tr key={`${row.teamName}-${row.memberName}-${index}`}>
-                          <td>{row.teamName}</td>
+                        <tr key={`${row.teamKey}-${row.memberName}-${index}`}>
+                          {(index === 0 || paginatedMarksRows[index - 1].teamKey !== row.teamKey) && (
+                            <td rowSpan={getTeamRowSpan(paginatedMarksRows, index)}>{row.teamName}</td>
+                          )}
                           <td>{row.memberName}</td>
                           <td>{row.rollNumber}</td>
                           {marksReport.columns.map(column => (
-                            <td key={`${row.teamName}-${row.memberName}-${column.key}`} className="marks-cell">
-                              <span className={row[column.key] > 0 ? 'marks-positive' : 'marks-neutral'}>{row[column.key] ?? 0}</span>
-                            </td>
+                            <Fragment key={`${row.teamKey}-${row.memberName}-${column.key}`}>
+                              <td className="marks-cell"><span className={row[column.guideKey] > 0 ? 'marks-positive' : 'marks-neutral'}>{row[column.guideKey] ?? 0}</span></td>
+                              <td className="marks-cell marks-prc-edit-cell">
+                                {editingMarkKey === `${row.teamKey}-${row.studentId}-${column.key}` ? (
+                                  <form
+                                    className="marks-inline-editor"
+                                    onSubmit={event => {
+                                      event.preventDefault();
+                                      saveCoordinatorPrcMark(row, column);
+                                    }}
+                                  >
+                                    <input
+                                      autoFocus
+                                      aria-label={`${column.label} PRC marks for ${row.memberName}`}
+                                      type="number"
+                                      min="0"
+                                      max={MARK_COMPONENT_MAX}
+                                      value={markDrafts[`${row.teamKey}-${row.studentId}-${column.key}`] ?? row[column.prcKey] ?? 0}
+                                      onChange={event => setMarkDrafts(current => ({
+                                        ...current,
+                                        [`${row.teamKey}-${row.studentId}-${column.key}`]: event.target.value
+                                      }))}
+                                      onKeyDown={event => {
+                                        if (event.key === 'Escape') setEditingMarkKey('');
+                                      }}
+                                    />
+                                    <button
+                                      className="marks-save-button"
+                                      type="submit"
+                                      aria-label="Save PRC marks"
+                                      disabled={savingMarkKey === `${row.teamKey}-${row.studentId}-${column.key}`}
+                                    >
+                                      {savingMarkKey === `${row.teamKey}-${row.studentId}-${column.key}` ? '...' : '✓'}
+                                    </button>
+                                  </form>
+                                ) : (
+                                  <button
+                                    className={row[column.prcKey] > 0 ? 'marks-positive marks-edit-trigger' : 'marks-neutral marks-edit-trigger'}
+                                    type="button"
+                                    aria-label={`Edit ${column.label} PRC marks for ${row.memberName}`}
+                                    onClick={() => {
+                                      const markKey = `${row.teamKey}-${row.studentId}-${column.key}`;
+                                      setMarkDrafts(current => ({ ...current, [markKey]: row[column.prcKey] ?? 0 }));
+                                      setEditingMarkKey(markKey);
+                                    }}
+                                  >
+                                    {row[column.prcKey] ?? 0}
+                                  </button>
+                                )}
+                              </td>
+                              <td className="marks-cell"><span className={row[column.totalKey] > 0 ? 'marks-positive' : 'marks-neutral'}>{row[column.totalKey] ?? 0}</span></td>
+                            </Fragment>
                           ))}
                           <td className="marks-total-cell">
                             <strong>{row.total}</strong>

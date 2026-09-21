@@ -122,6 +122,49 @@ const SubmissionSchema = new mongoose.Schema({
   },
   marksAssignedAt: {
     type: Date
+  },
+  prcMarks: {
+    type: Number,
+    min: 0,
+    max: 25,
+    default: null
+  },
+  prcStudentMarks: [{
+    studentId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Student',
+      required: true
+    },
+    marks: {
+      type: Number,
+      min: 0,
+      max: 25,
+      default: null
+    },
+    assignedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      refPath: 'prcStudentMarks.assignedByType'
+    },
+    assignedByType: {
+      type: String,
+      enum: ['Admin', 'Guide'],
+      default: 'Guide'
+    },
+    assignedAt: {
+      type: Date
+    }
+  }],
+  prcMarksAssignedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    refPath: 'prcMarksAssignedByType'
+  },
+  prcMarksAssignedByType: {
+    type: String,
+    enum: ['Admin', 'Guide'],
+    default: 'Guide'
+  },
+  prcMarksAssignedAt: {
+    type: Date
   }
 }, { timestamps: true });
 

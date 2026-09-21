@@ -334,6 +334,8 @@ exports.getTimelineForBatch = async (req, res) => {
         sanitizedSubmission = submission.toObject();
         delete sanitizedSubmission.marks;
         delete sanitizedSubmission.studentMarks;
+        delete sanitizedSubmission.prcMarks;
+        delete sanitizedSubmission.prcStudentMarks;
       }
 
       return {

@@ -9,13 +9,30 @@ const ALL_COLUMNS = [
   { key: "year", label: "Year" },
   { key: "branch", label: "Branch" },
   { key: "section", label: "Section" },
-  { key: "coe", label: "COE", width: "100px" },
+  { key: "coe", label: "COE/RC", width: "100px" },
   { key: "domain", label: "Domain", width: "100px" },
   { key: "guide", label: "Guide", width: "100px" },
-  { key: "marks", label: "Marks" },
+  { key: "marks", label: "Guide Marks" },
+  { key: "prcMarks", label: "PRC Marks" },
   { key: "guidesFeedback", label: "Guide's Feedback", width: "120px" },
-  { key: "adminRemarks", label: "Admin Remarks", width: "120px" },
+  { key: "adminRemarks", label: "Remarks", width: "120px" },
 ];
+
+const getColumnsForScope = (scope) => {
+  if (scope) {
+    return [
+      { key: "teamName", label: "Team Name" },
+      { key: "teamMembers", label: "Team Members" },
+      { key: "coe", label: "COE/RC", width: "100px" },
+      { key: "guide", label: "Guide", width: "100px" },
+      { key: "marks", label: "Guide Marks" },
+      { key: "prcMarks", label: "PRC Marks" },
+      { key: "guidesFeedback", label: "Guide's Feedback", width: "120px" },
+      { key: "adminRemarks", label: "PRC Remarks", width: "120px" },
+    ];
+  }
+  return ALL_COLUMNS;
+};
 
 function TimelineReadOnly({ scope }) {
   const [events, setEvents] = useState([]);
@@ -125,10 +142,103 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
     useState(null);
   const [expandedFeedbackSubmission, setExpandedFeedbackSubmission] =
     useState(null);
-  const [selectedColumns, setSelectedColumns] = useState(
-    ALL_COLUMNS.map((col) => col.key)
+  const activeColumns = useMemo(() => getColumnsForScope(scope), [scope]);
+  const [selectedColumns, setSelectedColumns] = useState(() =>
+    getColumnsForScope(scope).map((col) => col.key)
   );
   const [showColumnDropdown, setShowColumnDropdown] = useState(false);
+
+  // PRC Marks state
+  const [showPRCMarksModal, setShowPRCMarksModal] = useState(false);
+  const [selectedSubmissionForPRC, setSelectedSubmissionForPRC] = useState(null);
+  const [selectedBatchForPRC, setSelectedBatchForPRC] = useState(null);
+  const [prcStudentMarkInputs, setPrcStudentMarkInputs] = useState({});
+  const [prcBatchStudents, setPrcBatchStudents] = useState([]);
+  const [loadingPRCStudents, setLoadingPRCStudents] = useState(false);
+  const [savingPRCMarks, setSavingPRCMarks] = useState(false);
+  const [prcError, setPrcError] = useState("");
+
+  useEffect(() => {
+    setSelectedColumns(getColumnsForScope(scope).map((col) => col.key));
+  }, [scope]);
+
+  const openPRCMarksModal = useCallback(async (sub, batch) => {
+    setSelectedSubmissionForPRC(sub);
+    setSelectedBatchForPRC(batch);
+    setShowPRCMarksModal(true);
+    setPrcError("");
+    setLoadingPRCStudents(true);
+
+    const batchId = typeof sub.batchId === "string" ? sub.batchId : sub.batchId?._id;
+    try {
+      const res = await api.getBatchStudents(batchId);
+      const students = res.data?.data || [];
+      setPrcBatchStudents(students);
+
+      const existing = {};
+      if (Array.isArray(sub.prcStudentMarks)) {
+        sub.prcStudentMarks.forEach((sm) => {
+          const sid = typeof sm.studentId === "object" ? sm.studentId?._id : sm.studentId;
+          if (sid) {
+            existing[sid] = sm.marks !== null && sm.marks !== undefined ? String(sm.marks) : "";
+          }
+        });
+      }
+      students.forEach((s) => {
+        if (!(s._id in existing)) existing[s._id] = "";
+      });
+      setPrcStudentMarkInputs(existing);
+    } catch (err) {
+      console.error("Failed to load students for PRC marks:", err);
+      setPrcError("Could not fetch students for this batch.");
+    } finally {
+      setLoadingPRCStudents(false);
+    }
+  }, []);
+
+  const handleSavePRCMarks = async () => {
+    if (!selectedSubmissionForPRC) return;
+    setPrcError("");
+
+    for (const s of prcBatchStudents) {
+      const valStr = prcStudentMarkInputs[s._id];
+      if (valStr !== "" && valStr !== undefined && valStr !== null) {
+        const val = parseFloat(valStr);
+        if (isNaN(val) || val < 0 || val > 25) {
+          setPrcError(`Marks for ${s.name || s.rollNumber} must be between 0 and 25.`);
+          return;
+        }
+      }
+    }
+
+    setSavingPRCMarks(true);
+    try {
+      const prcStudentMarks = prcBatchStudents.map((s) => ({
+        studentId: s._id,
+        marks: prcStudentMarkInputs[s._id] !== "" && prcStudentMarkInputs[s._id] !== undefined
+          ? parseFloat(prcStudentMarkInputs[s._id])
+          : null,
+      }));
+
+      const res = await api.assignPRCMarks(selectedSubmissionForPRC._id, { prcStudentMarks });
+      const updatedSub = res.data?.data;
+
+      if (updatedSub) {
+        setSubmissions((prev) =>
+          prev.map((s) => (s._id === updatedSub._id ? updatedSub : s))
+        );
+      }
+
+      setShowPRCMarksModal(false);
+      setSelectedSubmissionForPRC(null);
+      setSelectedBatchForPRC(null);
+    } catch (err) {
+      console.error("Error saving PRC marks:", err);
+      setPrcError(err.response?.data?.message || "Failed to save PRC marks.");
+    } finally {
+      setSavingPRCMarks(false);
+    }
+  };
 
   const fetchEvents = useCallback(async () => {
     try {
@@ -687,7 +797,7 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
                       overflowY: "auto"
                     }}
                   >
-                    {ALL_COLUMNS.map((col) => (
+                    {activeColumns.map((col) => (
                       <label
                         key={col.key}
                         style={{
@@ -749,13 +859,14 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
                 <tr>
                   <th>Team</th>
                   <th>Team Members</th>
-                  <th>Class</th>
+                  {!scope && <th>Class</th>}
                   <th style={{ width: "100px", maxWidth: "100px" }}>COE/RC</th>
-                  <th style={{ width: "100px", maxWidth: "100px" }}>Domain</th>
+                  {!scope && <th style={{ width: "100px", maxWidth: "100px" }}>Domain</th>}
                   <th style={{ width: "100px", maxWidth: "100px" }}>Guide</th>
-                  <th>Marks</th>
+                  <th>Guide Marks</th>
+                  <th>PRC Marks</th>
                   <th style={{ width: "120px", maxWidth: "120px", overflow: "hidden", textOverflow: "ellipsis" }}>Guide's Feedback</th>
-                  <th style={{ width: "120px", maxWidth: "120px", overflow: "hidden", textOverflow: "ellipsis" }}>Remarks</th>
+                  <th style={{ width: "120px", maxWidth: "120px", overflow: "hidden", textOverflow: "ellipsis" }}>{scope ? "PRC Remarks" : "Remarks"}</th>
                   <th style={{ width: "60px" }}>File</th>
                 </tr>
               </thead>
@@ -837,11 +948,13 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
                             ))}
                           </div>
                         </td>
-                        <td>
-                          {batch?.year} {batch?.branch}-{batch?.section}
-                        </td>
+                        {!scope && (
+                          <td>
+                            {batch?.year} {batch?.branch}-{batch?.section}
+                          </td>
+                        )}
                         <td>{batch?.problemId?.coeId?.name || batch?.coeId?.name || batch?.coe?.name || "Not Assigned"}</td>
-                        <td>{batch?.domain || "Not Assigned"}</td>
+                        {!scope && <td>{batch?.domain || "Not Assigned"}</td>}
                         <td>
                           {batch?.guideId?.name ? (
                             <span
@@ -880,6 +993,48 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
                           ) : (
                             <span style={{ color: '#aaa', fontSize: '13px' }}>—</span>
                           )}
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            {Array.isArray(sub.prcStudentMarks) && sub.prcStudentMarks.length > 0 ? (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                {sub.prcStudentMarks.map((sm, idx) => (
+                                  <div key={idx} style={{ fontSize: '12px', display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                    <span style={{ color: '#4a5568', fontWeight: '500' }}>
+                                      {sm.studentId?.rollNumber || '—'}
+                                    </span>
+                                    <span style={{ color: sm.marks !== null && sm.marks !== undefined ? '#2563eb' : '#aaa', fontWeight: '600' }}>
+                                      {sm.marks !== null && sm.marks !== undefined ? `${sm.marks}/25` : '—'}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : sub.prcMarks !== null && sub.prcMarks !== undefined ? (
+                              <span style={{ fontSize: '13px', fontWeight: '600', color: '#2563eb' }}>{`${sub.prcMarks}/25`}</span>
+                            ) : (
+                              <span style={{ color: '#aaa', fontSize: '12px' }}>Not Assigned</span>
+                            )}
+
+                            {canAddRemarks && (
+                              <button
+                                className="btn btn-secondary"
+                                style={{
+                                  fontSize: "11px",
+                                  padding: "3px 8px",
+                                  marginTop: "4px",
+                                  alignSelf: "flex-start",
+                                  background: "#eff6ff",
+                                  color: "#1d4ed8",
+                                  border: "1px solid #bfdbfe"
+                                }}
+                                onClick={() => openPRCMarksModal(sub, batch)}
+                              >
+                                {sub.prcStudentMarks?.length > 0 || (sub.prcMarks !== null && sub.prcMarks !== undefined)
+                                  ? "✏️ Edit PRC Marks"
+                                  : "+ Add PRC Marks"}
+                              </button>
+                            )}
+                          </div>
                         </td>
                         <td>
                           <div
@@ -960,7 +1115,7 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
                                 }
                                 title="Click to expand"
                               >
-                                <strong>Admin:</strong>{" "}
+                                <strong>{scope ? "PRC:" : "Admin:"}</strong>{" "}
                                 {latestAdminRemark.remark.substring(0, 50)}...
                                 <br />
                                 <small style={{ color: "#999" }}>
@@ -983,7 +1138,7 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
                                     setShowRemarkModal(true);
                                   }}
                                 >
-                                  + Add Remark
+                                  {scope ? "+ Add PRC Remark" : "+ Add Remark"}
                                 </button>
                               ) : (
                                 <span style={{ color: '#999', fontSize: '12px', display: 'block', textAlign: 'center' }}>
@@ -1433,7 +1588,133 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
         )
       }
 
-      {/* Admin Remark Modal */}
+      {/* PRC Marks Modal */}
+      {showPRCMarksModal && selectedSubmissionForPRC && selectedBatchForPRC && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div className="card" style={{ width: "90%", maxWidth: "520px", maxHeight: "90vh", overflowY: "auto" }}>
+            <h3 style={{ marginBottom: "6px" }}>Assign PRC Marks (out of 25)</h3>
+            <p style={{ color: "#64748b", fontSize: "13px", marginTop: 0, marginBottom: "14px" }}>
+              Enter individual marks out of 25 for each student in this team.
+            </p>
+
+            <div
+              style={{
+                marginBottom: "16px",
+                padding: "10px 14px",
+                background: "#f1f5f9",
+                borderRadius: "6px",
+                fontSize: "13px",
+              }}
+            >
+              <strong>Team:</strong> {selectedBatchForPRC.teamName} &nbsp;|&nbsp; <strong>Class:</strong> {selectedBatchForPRC.year} {selectedBatchForPRC.branch}-{selectedBatchForPRC.section}
+            </div>
+
+            {prcError && (
+              <div style={{ padding: "8px 12px", background: "#fee2e2", color: "#b91c1c", borderRadius: "5px", marginBottom: "14px", fontSize: "13px" }}>
+                {prcError}
+              </div>
+            )}
+
+            {loadingPRCStudents ? (
+              <div style={{ textAlign: "center", padding: "20px", color: "#666" }}>Loading student details...</div>
+            ) : prcBatchStudents.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "20px", color: "#999" }}>No students found for this batch.</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "20px" }}>
+                {prcBatchStudents.map((student) => (
+                  <div
+                    key={student._id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "10px 12px",
+                      background: "#f8fafc",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: "6px",
+                      gap: "10px",
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontWeight: "600", fontSize: "13px", color: "#1e293b" }}>
+                        {student.name}
+                      </div>
+                      <div style={{ fontSize: "12px", color: "#64748b" }}>
+                        Roll No: {student.rollNumber || student.rollNo || "N/A"}
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <input
+                        type="number"
+                        min="0"
+                        max="25"
+                        step="any"
+                        placeholder="Marks"
+                        value={prcStudentMarkInputs[student._id] ?? ""}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setPrcStudentMarkInputs((prev) => ({
+                            ...prev,
+                            [student._id]: val,
+                          }));
+                        }}
+                        style={{
+                          width: "90px",
+                          padding: "6px 10px",
+                          borderRadius: "4px",
+                          border: "1px solid #cbd5e1",
+                          fontSize: "13px",
+                          textAlign: "right",
+                        }}
+                      />
+                      <span style={{ fontSize: "13px", color: "#64748b", fontWeight: "500" }}>/ 25</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: "10px" }}>
+              <button
+                className="btn btn-primary"
+                onClick={handleSavePRCMarks}
+                disabled={savingPRCMarks || loadingPRCStudents}
+                style={{ flex: 1 }}
+              >
+                {savingPRCMarks ? "Saving..." : "Save PRC Marks"}
+              </button>
+              <button
+                className="btn btn-secondary"
+                onClick={() => {
+                  setShowPRCMarksModal(false);
+                  setSelectedSubmissionForPRC(null);
+                  setSelectedBatchForPRC(null);
+                  setPrcError("");
+                }}
+                disabled={savingPRCMarks}
+                style={{ flex: 1 }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Admin / PRC Remark Modal */}
       {
         showRemarkModal && selectedSubmissionForRemark && (
           <div
@@ -1451,7 +1732,7 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
             }}
           >
             <div className="card" style={{ width: "90%", maxWidth: "500px" }}>
-              <h3>Add Admin Remark</h3>
+              <h3>{scope ? "Add PRC Remark" : "Add Admin Remark"}</h3>
               <div
                 style={{
                   marginBottom: "15px",
@@ -1506,7 +1787,7 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
                     }
                   }}
                 >
-                  Save Remark
+                  {scope ? "Save PRC Remark" : "Save Remark"}
                 </button>
                 <button
                   className="btn btn-secondary"
@@ -1557,12 +1838,12 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
     csvContent += `Max Marks: ${selectedEvent.maxMarks}\n\n`;
 
     // Header row
-    const headers = ALL_COLUMNS.filter((col) =>
+    const headers = activeColumns.filter((col) =>
       selectedColumns.includes(col.key)
     ).map((h) => `"${h.label}"`);
     csvContent += headers.join(",") + "\n";
 
-    // Data rows
+    // Data rows - each student on their own row
     eventSubmissions.forEach((sub) => {
       const batchId =
         typeof sub.batchId === "string" ? sub.batchId : sub.batchId?._id;
@@ -1575,40 +1856,113 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
         sub.comments?.length > 0
           ? sub.comments.map(c => c.comment.replace(/"/g, '""')).join("; ")
           : "N/A";
-      const leaderRollNo = batch?.leaderStudentId?.rollNumber || "N/A";
-      const otherMembers =
-        batch?.teamMembers?.length > 0
-          ? batch.teamMembers.map((m) => m.rollNo).join("; ")
-          : "";
-      const allMembers = otherMembers
-        ? `${leaderRollNo}; ${otherMembers}`
-        : leaderRollNo;
       const coe = batch?.problemId?.coeId?.name || batch?.coeId?.name || "N/A";
       const guide = batch?.guideId?.name || "Not Assigned";
-      const rowData = {
-        teamName: batch?.teamName || "Unknown",
-        teamMembers: allMembers,
-        year: batch?.year || "N/A",
-        branch: batch?.branch || "N/A",
-        section: batch?.section || "N/A",
-        coe,
-        domain: batch?.domain || "N/A",
-        guide,
-        marks:
-          (sub.status === 'accepted' || sub.status === 'completed')
-            ? (Array.isArray(sub.studentMarks) && sub.studentMarks.length > 0
-                ? sub.studentMarks.map(sm =>
-                    `${sm.studentId?.rollNumber || '?'}:${sm.marks !== null ? sm.marks : 'N/A'}`
-                  ).join('; ')
-                : sub.marks !== null ? `${sub.marks}/${selectedEvent.maxMarks}` : "N/A")
-            : "N/A",
-        guidesFeedback: `"${guideFeedbackText}"`,
-        adminRemarks: `"${adminRemarksText}"`,
-      };
-      const row = ALL_COLUMNS.filter((col) =>
-        selectedColumns.includes(col.key)
-      ).map((col) => rowData[col.key]);
-      csvContent += row.join(",") + "\n";
+
+      // Collect all student members for this batch
+      const studentList = [];
+      if (batch?.leaderStudentId && typeof batch.leaderStudentId === 'object') {
+        studentList.push({
+          _id: String(batch.leaderStudentId._id || ''),
+          rollNo: batch.leaderStudentId.rollNumber || batch.leaderStudentId.rollNo || '',
+          name: batch.leaderStudentId.name || ''
+        });
+      }
+      (batch?.teamMembers || []).forEach((m) => {
+        const roll = m.rollNo || m.rollNumber || '';
+        if (!studentList.some((existing) => (existing._id && existing._id === String(m._id)) || (roll && existing.rollNo === roll))) {
+          studentList.push({
+            _id: String(m._id || ''),
+            rollNo: roll,
+            name: m.name || ''
+          });
+        }
+      });
+      (sub.studentMarks || []).forEach((sm) => {
+        const s = sm.studentId;
+        if (s && typeof s === 'object') {
+          const roll = s.rollNumber || s.rollNo || '';
+          if (!studentList.some((existing) => (existing._id && existing._id === String(s._id)) || (roll && existing.rollNo === roll))) {
+            studentList.push({
+              _id: String(s._id || ''),
+              rollNo: roll,
+              name: s.name || ''
+            });
+          }
+        }
+      });
+      (sub.prcStudentMarks || []).forEach((sm) => {
+        const s = sm.studentId;
+        if (s && typeof s === 'object') {
+          const roll = s.rollNumber || s.rollNo || '';
+          if (!studentList.some((existing) => (existing._id && existing._id === String(s._id)) || (roll && existing.rollNo === roll))) {
+            studentList.push({
+              _id: String(s._id || ''),
+              rollNo: roll,
+              name: s.name || ''
+            });
+          }
+        }
+      });
+
+      if (studentList.length === 0) {
+        studentList.push({ _id: '', rollNo: 'N/A', name: 'N/A' });
+      }
+
+      studentList.forEach((m) => {
+        let guideMark = "N/A";
+        if (sub.status === 'accepted' || sub.status === 'completed') {
+          if (Array.isArray(sub.studentMarks) && sub.studentMarks.length > 0) {
+            const sm = sub.studentMarks.find((entry) => {
+              const sid = typeof entry.studentId === 'object' ? entry.studentId?._id : entry.studentId;
+              const sroll = typeof entry.studentId === 'object' ? entry.studentId?.rollNumber : null;
+              return (sid && String(sid) === String(m._id)) || (sroll && sroll === m.rollNo);
+            });
+            if (sm && sm.marks !== null && sm.marks !== undefined) {
+              guideMark = `${sm.marks}/${selectedEvent.maxMarks}`;
+            }
+          } else if (sub.marks !== null && sub.marks !== undefined) {
+            guideMark = `${sub.marks}/${selectedEvent.maxMarks}`;
+          }
+        }
+
+        let prcMark = "N/A";
+        if (Array.isArray(sub.prcStudentMarks) && sub.prcStudentMarks.length > 0) {
+          const pm = sub.prcStudentMarks.find((entry) => {
+            const sid = typeof entry.studentId === 'object' ? entry.studentId?._id : entry.studentId;
+            const sroll = typeof entry.studentId === 'object' ? entry.studentId?.rollNumber : null;
+            return (sid && String(sid) === String(m._id)) || (sroll && sroll === m.rollNo);
+          });
+          if (pm && pm.marks !== null && pm.marks !== undefined) {
+            prcMark = `${pm.marks}/25`;
+          }
+        } else if (sub.prcMarks !== null && sub.prcMarks !== undefined) {
+          prcMark = `${sub.prcMarks}/25`;
+        }
+
+        const memberDisplay = m.name && m.rollNo && m.name !== m.rollNo
+          ? `${m.name} (${m.rollNo})`
+          : m.rollNo || m.name || "N/A";
+
+        const rowData = {
+          teamName: `"${(batch?.teamName || "Unknown").replace(/"/g, '""')}"`,
+          teamMembers: `"${memberDisplay.replace(/"/g, '""')}"`,
+          year: `"${batch?.year || "N/A"}"`,
+          branch: `"${batch?.branch || "N/A"}"`,
+          section: `"${batch?.section || "N/A"}"`,
+          coe: `"${coe.replace(/"/g, '""')}"`,
+          domain: `"${(batch?.domain || "N/A").replace(/"/g, '""')}"`,
+          guide: `"${guide.replace(/"/g, '""')}"`,
+          marks: guideMark !== "N/A" ? `="""${guideMark}"""` : `"N/A"`,
+          prcMarks: prcMark !== "N/A" ? `="""${prcMark}"""` : `"N/A"`,
+          guidesFeedback: `"${guideFeedbackText}"`,
+          adminRemarks: `"${adminRemarksText}"`,
+        };
+        const row = activeColumns.filter((col) =>
+          selectedColumns.includes(col.key)
+        ).map((col) => rowData[col.key]);
+        csvContent += row.join(",") + "\n";
+      });
     });
 
     // Create download link

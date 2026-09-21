@@ -29,7 +29,9 @@ function buildMarksReport(batches = [], timelineEvents = [], submissions = []) {
     .map(event => {
       const normalized = normalizeEventTitle(event?.title || '');
       const match = TRACKED_MARK_EVENTS.find(config => config.aliases.some(alias => normalized.includes(alias)));
-      return match ? { ...event, markKey: match.key, markLabel: match.label, order: TRACKED_MARK_EVENTS.findIndex(item => item.key === match.key) } : null;
+      return match
+        ? { ...event, markKey: match.key, markLabel: match.label, order: TRACKED_MARK_EVENTS.findIndex(item => item.key === match.key) }
+        : { ...event, markKey: `event_${event._id}`, markLabel: event.title, order: 100 + (event.order || 0) };
     })
     .filter(Boolean)
     .sort((a, b) => a.order - b.order);
@@ -37,6 +39,23 @@ function buildMarksReport(batches = [], timelineEvents = [], submissions = []) {
   if (!relevantEvents.length) {
     return { columns: [], rows: [] };
   }
+
+  // Build columns: for each event, add Guide Marks column and PRC Marks column
+  const columns = [];
+  relevantEvents.forEach(event => {
+    columns.push({
+      key: `${event.markKey}_guide`,
+      label: `${event.markLabel} (Guide)`,
+      max: Number(event.maxMarks || 25),
+      eventId: event._id
+    });
+    columns.push({
+      key: `${event.markKey}_prc`,
+      label: `${event.markLabel} (PRC)`,
+      max: 25,
+      eventId: event._id
+    });
+  });
 
   const submissionsByKey = new Map();
   for (const submission of submissions) {
@@ -64,12 +83,25 @@ function buildMarksReport(batches = [], timelineEvents = [], submissions = []) {
       }
     };
 
+    if (batch.leaderStudentId && typeof batch.leaderStudentId === 'object') {
+      addMember(batch.leaderStudentId);
+    }
     (batch.teamMembers || []).forEach(addMember);
 
     for (const submission of submissions) {
       const currentBatchId = submission?.batchId && typeof submission.batchId === 'object' ? submission.batchId._id : submission.batchId;
       if (String(currentBatchId) !== batchId) continue;
       (submission.studentMarks || []).forEach(markEntry => {
+        const student = markEntry?.studentId && typeof markEntry.studentId === 'object' ? markEntry.studentId : null;
+        if (!student) return;
+        addMember({
+          _id: student._id,
+          name: student.name,
+          rollNumber: student.rollNumber,
+          rollNo: student.rollNumber
+        });
+      });
+      (submission.prcStudentMarks || []).forEach(markEntry => {
         const student = markEntry?.studentId && typeof markEntry.studentId === 'object' ? markEntry.studentId : null;
         if (!student) return;
         addMember({
@@ -87,6 +119,7 @@ function buildMarksReport(batches = [], timelineEvents = [], submissions = []) {
     for (const member of memberList) {
       const row = {
         teamName: batch.teamName || 'Unknown Team',
+        projectTitle: batch.problemId?.title || batch.problemTitle || batch.title || 'Not Assigned',
         memberName: member.name,
         rollNumber: member.rollNo || '—'
       };
@@ -95,14 +128,42 @@ function buildMarksReport(batches = [], timelineEvents = [], submissions = []) {
 
       for (const event of relevantEvents) {
         const submission = submissionsByKey.get(`${batchId}::${String(event._id)}`);
-        const scoreEntry = (submission?.studentMarks || []).find(markEntry => {
-          const studentId = markEntry?.studentId && typeof markEntry.studentId === 'object' ? markEntry.studentId._id : markEntry.studentId;
-          return String(studentId) === String(member._id);
-        });
-        const score = scoreEntry && scoreEntry.marks !== null && scoreEntry.marks !== undefined ? Number(scoreEntry.marks) : 0;
-        row[event.markKey] = score;
-        total += score;
-        outOf += Number(event.maxMarks || 0);
+        
+        // Guide marks
+        let guideScore = 0;
+        if (submission && (submission.status === 'accepted' || submission.status === 'completed')) {
+          const guideEntry = (submission.studentMarks || []).find(markEntry => {
+            const studentId = markEntry?.studentId && typeof markEntry.studentId === 'object' ? markEntry.studentId._id : markEntry.studentId;
+            const sroll = markEntry?.studentId && typeof markEntry.studentId === 'object' ? markEntry.studentId.rollNumber : null;
+            return (studentId && String(studentId) === String(member._id)) || (sroll && sroll === member.rollNo);
+          });
+          if (guideEntry && guideEntry.marks !== null && guideEntry.marks !== undefined) {
+            guideScore = Number(guideEntry.marks);
+          } else if (submission.marks !== null && submission.marks !== undefined) {
+            guideScore = Number(submission.marks);
+          }
+        }
+        row[`${event.markKey}_guide`] = guideScore;
+        total += guideScore;
+        outOf += Number(event.maxMarks || 25);
+
+        // PRC marks
+        let prcScore = 0;
+        if (submission) {
+          const prcEntry = (submission.prcStudentMarks || []).find(markEntry => {
+            const studentId = markEntry?.studentId && typeof markEntry.studentId === 'object' ? markEntry.studentId._id : markEntry.studentId;
+            const sroll = markEntry?.studentId && typeof markEntry.studentId === 'object' ? markEntry.studentId.rollNumber : null;
+            return (studentId && String(studentId) === String(member._id)) || (sroll && sroll === member.rollNo);
+          });
+          if (prcEntry && prcEntry.marks !== null && prcEntry.marks !== undefined) {
+            prcScore = Number(prcEntry.marks);
+          } else if (submission.prcMarks !== null && submission.prcMarks !== undefined) {
+            prcScore = Number(submission.prcMarks);
+          }
+        }
+        row[`${event.markKey}_prc`] = prcScore;
+        total += prcScore;
+        outOf += 25;
       }
 
       row.total = total;
@@ -113,7 +174,7 @@ function buildMarksReport(batches = [], timelineEvents = [], submissions = []) {
   }
 
   return {
-    columns: relevantEvents.map(event => ({ key: event.markKey, label: event.markLabel, max: Number(event.maxMarks || 0) })),
+    columns,
     rows
   };
 }
@@ -282,24 +343,27 @@ function CoordinatorDashboard() {
     const rows = marksReport.rows.map(row => {
       const record = {
         Team: row.teamName,
+        'Project Title': row.projectTitle || 'Not Assigned',
         Student: row.memberName,
         'Roll Number': row.rollNumber
       };
       marksReport.columns.forEach(column => {
-        record[column.label] = row[column.key];
+        record[`${column.label} (/${column.max})`] = row[column.key] ?? 0;
       });
       record['Total'] = row.total;
       record['Out of'] = row.outOf;
-      record['%'] = row.percentage;
+      record['Average'] = marksReport.columns.length > 0
+        ? Number((row.total / marksReport.columns.length).toFixed(2))
+        : 0;
       return record;
     });
 
     const workbook = XLSX.utils.book_new();
     const worksheet = XLSX.utils.json_to_sheet(rows);
     worksheet['!cols'] = [
-      { wch: 20 }, { wch: 22 }, { wch: 15 },
-      ...marksReport.columns.map(() => ({ wch: 15 })),
-      { wch: 12 }, { wch: 12 }, { wch: 10 }
+      { wch: 18 }, { wch: 35 }, { wch: 22 }, { wch: 16 },
+      ...marksReport.columns.map(() => ({ wch: 24 })),
+      { wch: 12 }, { wch: 12 }, { wch: 12 }
     ];
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Marks Report');
     XLSX.writeFile(workbook, `Project_Sphere_${scope?.year}_${scope?.branch}_${scope?.section}_Marks_Report.xlsx`);
@@ -577,7 +641,7 @@ function CoordinatorDashboard() {
                       {marksReport.columns.map(column => (
                         <th key={column.key}>{column.label}<br /><span className="marks-subtext">/{column.max}</span></th>
                       ))}
-                      <th>Total<br /><span className="marks-subtext">/25</span></th>
+                      <th>Total<br /><span className="marks-subtext">/{marksReport.columns.reduce((sum, c) => sum + (c.max || 0), 0)}</span></th>
                     </tr>
                   </thead>
                   <tbody>

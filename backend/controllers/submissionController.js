@@ -217,7 +217,9 @@ exports.getSubmission = async (req, res) => {
       .populate('adminRemarks.adminId', 'name')
       .populate('marksAssignedBy', 'name')
       .populate('studentMarks.studentId', 'name rollNumber')
-      .populate('studentMarks.assignedBy', 'name');
+      .populate('studentMarks.assignedBy', 'name')
+      .populate('prcStudentMarks.studentId', 'name rollNumber')
+      .populate('prcStudentMarks.assignedBy', 'name');
 
     if (!submission) {
       return res.status(404).json({ success: false, message: 'Submission not found' });
@@ -239,11 +241,13 @@ exports.getBatchSubmissions = async (req, res) => {
       .populate('comments.guideId', 'name')
       .populate('adminRemarks.adminId', 'name');
 
-    // Strip per-student marks so students cannot see them
+    // Strip per-student marks and PRC marks so students cannot see them
     const sanitized = submissions.map(sub => {
       const obj = sub.toObject();
       delete obj.studentMarks;
       delete obj.marks; // also hide legacy group marks
+      delete obj.prcStudentMarks;
+      delete obj.prcMarks;
       return obj;
     });
 
@@ -522,6 +526,8 @@ exports.getAllSubmissions = async (req, res) => {
       .populate('marksAssignedBy', 'name')
       .populate('studentMarks.studentId', 'name rollNumber')
       .populate('studentMarks.assignedBy', 'name')
+      .populate('prcStudentMarks.studentId', 'name rollNumber')
+      .populate('prcStudentMarks.assignedBy', 'name')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
@@ -588,6 +594,79 @@ exports.addAdminRemark = async (req, res) => {
 
     res.status(200).json({ success: true, data: updated });
   } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Assign PRC marks (Coordinator / Admin) out of 25
+// @route   POST /api/submissions/:id/prc-marks
+exports.assignPRCMarks = async (req, res) => {
+  try {
+    const { prcMarks, prcStudentMarks } = req.body;
+    const submission = await Submission.findById(req.params.id);
+
+    if (!submission) {
+      return res.status(404).json({ success: false, message: 'Submission not found' });
+    }
+
+    const isCoordinator = req.user.role === 'guide' && req.user.isCoordinator;
+    const assignedByType = isCoordinator ? 'Guide' : 'Admin';
+
+    if (Array.isArray(prcStudentMarks) && prcStudentMarks.length > 0) {
+      submission.prcStudentMarks = submission.prcStudentMarks || [];
+      for (const item of prcStudentMarks) {
+        if (!item.studentId) continue;
+        const sid = item.studentId.toString();
+        const rawMarks = item.marks !== null && item.marks !== undefined && item.marks !== ''
+          ? parseFloat(item.marks)
+          : null;
+        const validatedMarks = rawMarks !== null ? Math.max(0, Math.min(25, rawMarks)) : null;
+
+        const existingIdx = submission.prcStudentMarks.findIndex(
+          sm => sm.studentId && sm.studentId.toString() === sid
+        );
+
+        if (existingIdx >= 0) {
+          submission.prcStudentMarks[existingIdx].marks = validatedMarks;
+          submission.prcStudentMarks[existingIdx].assignedBy = req.user._id;
+          submission.prcStudentMarks[existingIdx].assignedByType = assignedByType;
+          submission.prcStudentMarks[existingIdx].assignedAt = new Date();
+        } else {
+          submission.prcStudentMarks.push({
+            studentId: item.studentId,
+            marks: validatedMarks,
+            assignedBy: req.user._id,
+            assignedByType: assignedByType,
+            assignedAt: new Date()
+          });
+        }
+      }
+    }
+
+    if (prcMarks !== undefined && prcMarks !== '') {
+      submission.prcMarks = prcMarks !== null ? Math.max(0, Math.min(25, parseFloat(prcMarks))) : null;
+    }
+
+    submission.prcMarksAssignedBy = req.user._id;
+    submission.prcMarksAssignedByType = assignedByType;
+    submission.prcMarksAssignedAt = new Date();
+
+    await submission.save();
+
+    const updated = await Submission.findById(req.params.id)
+      .populate('batchId', 'teamName year branch section leaderStudentId guideId')
+      .populate('timelineEventId', 'title maxMarks')
+      .populate('comments.guideId', 'name')
+      .populate('adminRemarks.adminId', 'name')
+      .populate('marksAssignedBy', 'name')
+      .populate('studentMarks.studentId', 'name rollNumber')
+      .populate('studentMarks.assignedBy', 'name')
+      .populate('prcStudentMarks.studentId', 'name rollNumber')
+      .populate('prcStudentMarks.assignedBy', 'name');
+
+    res.status(200).json({ success: true, data: updated });
+  } catch (error) {
+    console.error('❌ Error assigning PRC marks:', error.message);
     res.status(500).json({ success: false, message: error.message });
   }
 };

@@ -13,7 +13,8 @@ const {
   assignMarks,
   getAllSubmissions,
   addAdminRemark,
-  getStudentsByBatch
+  getStudentsByBatch,
+  assignPRCMarks
 } = require('../controllers/submissionController');
 
 // Configure multer for file uploads
@@ -35,7 +36,10 @@ const upload = multer({ storage: storage });
 // Student routes
 router.post('/', protect, authorize('student'), createOrUpdateSubmission);
 router.get('/batch/:batchId', protect, getBatchSubmissions);
-router.get('/batch/:batchId/students', protect, authorize('guide'), getStudentsByBatch);
+router.get('/batch/:batchId/students', protect, (req, res, next) => {
+  if (req.user.role === 'admin' || req.user.role === 'guide') return next();
+  return res.status(403).json({ success: false, message: 'Not authorized' });
+}, getStudentsByBatch);
 
 // Guide routes
 router.get('/guide', protect, authorize('guide'), getGuideSubmissions);
@@ -48,6 +52,12 @@ router.post('/:id/admin-remark', protect, (req, res, next) => {
   if (req.user.role === 'guide' && req.user.isCoordinator) return next();
   return res.status(403).json({ success: false, message: 'Only admins and section coordinators can add remarks.' });
 }, addAdminRemark);
+
+router.post('/:id/prc-marks', protect, (req, res, next) => {
+  if (req.user.role === 'admin') return next();
+  if (req.user.role === 'guide' && req.user.isCoordinator) return next();
+  return res.status(403).json({ success: false, message: 'Only admins and section coordinators can assign PRC marks.' });
+}, assignPRCMarks);
 
 // General
 router.get('/', protect, (req, res, next) => {

@@ -128,21 +128,27 @@ function buildMarksReport(batches = [], timelineEvents = [], submissions = []) {
         const guideSubmission = group.guideEvent && submissionsByKey.get(`${batchId}::${String(group.guideEvent._id)}`);
         const prcSubmission = group.prcEvent && submissionsByKey.get(`${batchId}::${String(group.prcEvent._id)}`);
         const submission = guideSubmission || prcSubmission;
-        const scoreEntry = (guideSubmission?.studentMarks || []).find(markEntry => {
+        const findStudentMark = (source, predicate) => (source?.studentMarks || []).find(markEntry => {
           const studentId = markEntry?.studentId && typeof markEntry.studentId === 'object' ? markEntry.studentId._id : markEntry.studentId;
-          return String(studentId) === String(member._id);
+          return String(studentId) === String(member._id) && predicate(markEntry);
         });
 
-        const guideMarks = scoreEntry && scoreEntry.marks !== null && scoreEntry.marks !== undefined ? Number(scoreEntry.marks) : 0;
+        const guideEntry = findStudentMark(guideSubmission || submission, markEntry => (
+          markEntry.marks !== null && markEntry.marks !== undefined
+        ));
+        const guideMarks = guideEntry ? Number(guideEntry.marks) : 0;
         const prcEntry = (prcSubmission?.prcStudentMarks || []).find(markEntry => {
           const sid = markEntry?.studentId && typeof markEntry.studentId === 'object' ? markEntry.studentId._id : markEntry.studentId;
           return String(sid) === String(member._id);
         });
-        const legacyPrcEntry = (prcSubmission?.studentMarks || []).find(markEntry => {
-          const sid = markEntry?.studentId && typeof markEntry.studentId === 'object' ? markEntry.studentId._id : markEntry.studentId;
-          return String(sid) === String(member._id);
-        });
-        const prcMarks = prcEntry?.marks ?? legacyPrcEntry?.prcMarks ?? 0;
+        const nestedPrcEntry = findStudentMark(prcSubmission || submission, markEntry => (
+          markEntry.prcMarks !== null && markEntry.prcMarks !== undefined
+        ));
+        const guideNestedPrcEntry = guideSubmission && findStudentMark(guideSubmission, markEntry => (
+          markEntry.prcMarks !== null && markEntry.prcMarks !== undefined
+        ));
+        const prcMarks = prcEntry?.marks ?? nestedPrcEntry?.prcMarks ?? guideNestedPrcEntry?.prcMarks
+          ?? prcSubmission?.prcMarks ?? guideSubmission?.prcMarks ?? 0;
 
         if (guideSubmission?.comments?.length) guideFeedbacks.push(...guideSubmission.comments.map(comment => comment.comment).filter(Boolean));
         if (prcSubmission?.adminRemarks?.length) prcFeedbacks.push(...prcSubmission.adminRemarks.map(remark => remark.remark).filter(Boolean));

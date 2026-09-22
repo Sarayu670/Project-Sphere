@@ -568,7 +568,7 @@ exports.importBatchData = async (req, res) => {
               guide = await Guide.create({
                 name: guideName,
                 email: newGuideEmail,
-                password: 'defaultPassword123',
+                password: 'gnits@123',
                 role: 'guide'
               });
             }

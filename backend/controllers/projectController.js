@@ -95,11 +95,10 @@ exports.importExcelFiles = async (req, res) => {
                             }
                             await guide.save();
                         } else {
-                            const hashedGuidePassword = await bcrypt.hash('gnits@123', 10);
                             guide = await Guide.create({
                                 name: record.guideName,
                                 email: guideEmail,
-                                password: hashedGuidePassword,
+                                password: 'gnits@123',
                                 role: 'guide'
                             });
                         }

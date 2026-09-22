@@ -685,6 +685,13 @@ exports.addAdminRemark = async (req, res) => {
     const isCoordinatorRemark = req.user.role === 'guide' && req.user.isCoordinator;
     const remarkOwnerType = isCoordinatorRemark ? 'Guide' : 'Admin';
 
+    if (isCoordinatorRemark && submission.status !== 'accepted' && submission.status !== 'completed') {
+      return res.status(400).json({
+        success: false,
+        message: 'PRC remarks can only be added to accepted submissions.'
+      });
+    }
+
     const duplicate = submission.adminRemarks.find(r =>
       r.adminId.toString() === req.user._id.toString() &&
       r.adminRemarkType === remarkOwnerType &&
@@ -727,6 +734,13 @@ exports.assignPRCMarks = async (req, res) => {
 
     const isCoordinator = req.user.role === 'guide' && req.user.isCoordinator;
     const assignedByType = isCoordinator ? 'Guide' : 'Admin';
+
+    if (isCoordinator && submission.status !== 'accepted' && submission.status !== 'completed') {
+      return res.status(400).json({
+        success: false,
+        message: 'PRC marks can only be assigned to accepted submissions.'
+      });
+    }
 
     if (Array.isArray(prcStudentMarks) && prcStudentMarks.length > 0) {
       submission.prcStudentMarks = submission.prcStudentMarks || [];

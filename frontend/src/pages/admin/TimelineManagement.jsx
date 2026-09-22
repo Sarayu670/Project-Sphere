@@ -178,6 +178,10 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
   }, [scope]);
 
   const openPRCMarksModal = useCallback(async (sub, batch) => {
+    if (scope && !isGuideApproved(sub)) {
+      alert("PRC marks can only be given for accepted batches.");
+      return;
+    }
     setSelectedSubmissionForPRC(sub);
     setSelectedBatchForPRC(batch);
     setShowPRCMarksModal(true);
@@ -209,10 +213,14 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
     } finally {
       setLoadingPRCStudents(false);
     }
-  }, []);
+  }, [scope]);
 
   const handleSavePRCMarks = async () => {
     if (!selectedSubmissionForPRC) return;
+    if (scope && !isGuideApproved(selectedSubmissionForPRC)) {
+      setPrcError("PRC marks can only be given for accepted batches.");
+      return;
+    }
     setPrcError("");
 
     for (const s of prcBatchStudents) {
@@ -1136,43 +1144,49 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
                         </td>
                         <td>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                            {Array.isArray(sub.prcStudentMarks) && sub.prcStudentMarks.length > 0 ? (
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                                {sub.prcStudentMarks.map((sm, idx) => (
-                                  <div key={idx} style={{ fontSize: '12px', display: 'flex', gap: '6px', alignItems: 'center' }}>
-                                    <span style={{ color: '#4a5568', fontWeight: '500' }}>
-                                      {sm.studentId?.rollNumber || '—'}
-                                    </span>
-                                    <span style={{ color: sm.marks !== null && sm.marks !== undefined ? '#2563eb' : '#aaa', fontWeight: '600' }}>
-                                      {sm.marks !== null && sm.marks !== undefined ? `${sm.marks}/25` : '—'}
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
-                            ) : sub.prcMarks !== null && sub.prcMarks !== undefined ? (
-                              <span style={{ fontSize: '13px', fontWeight: '600', color: '#2563eb' }}>{`${sub.prcMarks}/25`}</span>
+                            {scope && !isGuideApproved(sub) ? (
+                              <span style={{ color: '#aaa', fontSize: '13px' }}>—</span>
                             ) : (
-                              <span style={{ color: '#aaa', fontSize: '12px' }}>Not Assigned</span>
-                            )}
+                              <>
+                                {Array.isArray(sub.prcStudentMarks) && sub.prcStudentMarks.length > 0 ? (
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                    {sub.prcStudentMarks.map((sm, idx) => (
+                                      <div key={idx} style={{ fontSize: '12px', display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                        <span style={{ color: '#4a5568', fontWeight: '500' }}>
+                                          {sm.studentId?.rollNumber || '—'}
+                                        </span>
+                                        <span style={{ color: sm.marks !== null && sm.marks !== undefined ? '#2563eb' : '#aaa', fontWeight: '600' }}>
+                                          {sm.marks !== null && sm.marks !== undefined ? `${sm.marks}/25` : '—'}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : sub.prcMarks !== null && sub.prcMarks !== undefined ? (
+                                  <span style={{ fontSize: '13px', fontWeight: '600', color: '#2563eb' }}>{`${sub.prcMarks}/25`}</span>
+                                ) : (
+                                  <span style={{ color: '#aaa', fontSize: '12px' }}>Not Assigned</span>
+                                )}
 
-                            {canAddRemarks && (
-                              <button
-                                className="btn btn-secondary"
-                                style={{
-                                  fontSize: "11px",
-                                  padding: "3px 8px",
-                                  marginTop: "4px",
-                                  alignSelf: "flex-start",
-                                  background: "#eff6ff",
-                                  color: "#1d4ed8",
-                                  border: "1px solid #bfdbfe"
-                                }}
-                                onClick={() => openPRCMarksModal(sub, batch)}
-                              >
-                                {sub.prcStudentMarks?.length > 0 || (sub.prcMarks !== null && sub.prcMarks !== undefined)
-                                  ? "✏️ Edit PRC Marks"
-                                  : "+ Add PRC Marks"}
-                              </button>
+                                {canAddRemarks && (
+                                  <button
+                                    className="btn btn-secondary"
+                                    style={{
+                                      fontSize: "11px",
+                                      padding: "3px 8px",
+                                      marginTop: "4px",
+                                      alignSelf: "flex-start",
+                                      background: "#eff6ff",
+                                      color: "#1d4ed8",
+                                      border: "1px solid #bfdbfe"
+                                    }}
+                                    onClick={() => openPRCMarksModal(sub, batch)}
+                                  >
+                                    {sub.prcStudentMarks?.length > 0 || (sub.prcMarks !== null && sub.prcMarks !== undefined)
+                                      ? "✏️ Edit PRC Marks"
+                                      : "+ Add PRC Marks"}
+                                  </button>
+                                )}
+                              </>
                             )}
                           </div>
                         </td>
@@ -1263,6 +1277,10 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
                                   ).toLocaleDateString("en-IN")}
                                 </small>
                               </div>
+                            ) : scope && !isGuideApproved(sub) ? (
+                              <span style={{ color: '#aaa', fontSize: '13px', display: 'block', textAlign: 'center', width: '100%' }}>
+                                —
+                              </span>
                             ) : (
                               canAddRemarks ? (
                                 <button
@@ -1785,7 +1803,7 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
                 );
               })()}
               <div style={{ display: "flex", gap: "10px" }}>
-                {canAddRemarks && (
+                {canAddRemarks && (!scope || isGuideApproved(submissions.find(s => s._id === expandedRemarkSubmission))) && (
                   <button
                     className="btn btn-primary"
                     onClick={() => {
@@ -1998,6 +2016,10 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
                     try {
                       if (!remarkText.trim()) {
                         alert("Please enter feedback");
+                        return;
+                      }
+                      if (scope && !isGuideApproved(selectedSubmissionForRemark)) {
+                        alert("PRC remarks can only be given for accepted batches.");
                         return;
                       }
                       await api.addAdminRemark(

@@ -370,8 +370,6 @@ function CoordinatorDashboard() {
         record[`${column.label} (PRC)`] = row[column.prcKey];
         record[`${column.label} Total`] = row[column.totalKey];
       });
-      record['Total'] = Number(row.total || 0);
-      record['Out of'] = Number(row.outOf || 0);
       record['Average'] = marksReport.columns.length > 0
         ? Number((row.total / marksReport.columns.length).toFixed(2))
         : 0;
@@ -707,20 +705,33 @@ function CoordinatorDashboard() {
             ) : (
               <div className="table-container marks-table-container">
                 <table className="data-table coordinator-marks-table">
+                  <colgroup>
+                    <col className="marks-team-column" />
+                    <col className="marks-student-column" />
+                    <col className="marks-roll-column" />
+                    {marksReport.columns.map(column => (
+                      <Fragment key={`${column.key}-widths`}>
+                        <col className="marks-score-column" />
+                        <col className="marks-score-column" />
+                        <col className="marks-score-column" />
+                      </Fragment>
+                    ))}
+                    <col className="marks-total-column" />
+                  </colgroup>
                   <thead>
                     <tr>
                       <th rowSpan="2">Team</th>
                       <th rowSpan="2">Student</th>
                       <th rowSpan="2">Roll No</th>
                       {marksReport.columns.map(column => (
-                        <th key={column.key} colSpan="3">{column.label}<br /><span className="marks-subtext">/{column.max}</span></th>
+                        <th className={`marks-group-header marks-group-${column.key}`} key={column.key} colSpan="3">{column.label}<br /><span className="marks-subtext">/{column.max}</span></th>
                       ))}
-                      <th rowSpan="2">Total<br /><span className="marks-subtext">/{marksReport.rows[0]?.outOf || 0}</span></th>
+                      <th className="marks-grand-total-header" rowSpan="2">Average<br /><span className="marks-subtext">/50</span></th>
                     </tr>
                     <tr>
                       {marksReport.columns.map(column => (
                         <Fragment key={`${column.key}-subheaders`}>
-                          <th>Guide<br /><span className="marks-subtext">/{column.guideMax}</span></th>
+                          <th className="marks-group-start">Guide<br /><span className="marks-subtext">/{column.guideMax}</span></th>
                           <th>PRC<br /><span className="marks-subtext">/{column.prcMax}</span></th>
                           <th>Total<br /><span className="marks-subtext">/{column.max}</span></th>
                         </Fragment>
@@ -732,15 +743,15 @@ function CoordinatorDashboard() {
                       <tr><td colSpan={4 + (marksReport.columns.length * 3)}>No team data found.</td></tr>
                     ) : (
                       paginatedMarksRows.map((row, index) => (
-                        <tr key={`${row.teamKey}-${row.memberName}-${index}`}>
+                        <tr className={index === 0 || paginatedMarksRows[index - 1].teamKey !== row.teamKey ? 'marks-team-start' : ''} key={`${row.teamKey}-${row.memberName}-${index}`}>
                           {(index === 0 || paginatedMarksRows[index - 1].teamKey !== row.teamKey) && (
-                            <td rowSpan={getTeamRowSpan(paginatedMarksRows, index)}>{row.teamName}</td>
+                            <td className="marks-team-cell" rowSpan={getTeamRowSpan(paginatedMarksRows, index)}><span>{row.teamName}</span></td>
                           )}
                           <td>{row.memberName}</td>
                           <td>{row.rollNumber}</td>
                           {marksReport.columns.map(column => (
                             <Fragment key={`${row.teamKey}-${row.memberName}-${column.key}`}>
-                              <td className="marks-cell"><span className={row[column.guideKey] > 0 ? 'marks-positive' : 'marks-neutral'}>{row[column.guideKey] ?? 0}</span></td>
+                              <td className="marks-cell marks-group-start"><span className={`marks-value marks-value-${column.key} ${row[column.guideKey] > 0 ? 'marks-positive' : 'marks-neutral'}`}>{row[column.guideKey] ?? 0}</span></td>
                               <td className="marks-cell marks-prc-edit-cell">
                                 {editingMarkKey === `${row.teamKey}-${row.studentId}-${column.key}` ? (
                                   <form
@@ -776,7 +787,7 @@ function CoordinatorDashboard() {
                                   </form>
                                 ) : (
                                   <button
-                                    className={row[column.prcKey] > 0 ? 'marks-positive marks-edit-trigger' : 'marks-neutral marks-edit-trigger'}
+                                    className={`marks-value marks-value-${column.key} ${row[column.prcKey] > 0 ? 'marks-positive' : 'marks-neutral'} marks-edit-trigger`}
                                     type="button"
                                     aria-label={`Edit ${column.label} PRC marks for ${row.memberName}`}
                                     onClick={() => {
@@ -789,11 +800,11 @@ function CoordinatorDashboard() {
                                   </button>
                                 )}
                               </td>
-                              <td className="marks-cell"><span className={row[column.totalKey] > 0 ? 'marks-positive' : 'marks-neutral'}>{row[column.totalKey] ?? 0}</span></td>
+                              <td className="marks-cell"><span className={`marks-value marks-value-${column.key} ${row[column.totalKey] > 0 ? 'marks-positive' : 'marks-neutral'}`}>{row[column.totalKey] ?? 0}</span></td>
                             </Fragment>
                           ))}
                           <td className="marks-total-cell">
-                            <strong>{row.total}</strong>
+                            <strong>{Number((row.total / marksReport.columns.length).toFixed(2))}</strong>
                           </td>
                         </tr>
                       ))

@@ -44,30 +44,91 @@ function GuideSearch() {
     }
   };
 
+  // Helper to clean COE/RC value by stripping 'for', 'CoE for', 'RC for', etc.
+  const cleanCoeRcValue = (value) => {
+    if (!value || value === 'N/A' || value === '--') return '';
+    let str = String(value).trim().replace(/\s+/g, ' ');
+    const explicitLabelPattern = /^(?:within\s+gnits\s*[,;:.-]?\s*|gnits\s*[,;:.-]?\s*)*(?:center\s+of\s+excellence|centre\s+of\s+excellence|research\s+cent(?:er|re)|resource\s+cent(?:er|re)|coe|rc)\b\s*[-:/,]?\s*(?:for\s+)?/i;
+    let cleaned = str.replace(explicitLabelPattern, '').trim();
+    cleaned = cleaned.replace(/^for\s+/i, '').trim();
+    return cleaned || str;
+  };
+
+  // Helper to normalize team identifiers for matching (e.g., "CSE C7" -> "c7", "C7" -> "c7")
+  const normalizeIdentifier = (str) => {
+    if (!str || str === 'N/A') return '';
+    return String(str)
+      .trim()
+      .toLowerCase()
+      .replace(/^(?:cse|it|ece|csm|eee|csd|etm)\s+/i, '')
+      .replace(/[^a-z0-9]/g, '');
+  };
+
+  // Extract set of roll numbers from a student list
+  const getRollSet = (students) => {
+    const set = new Set();
+    if (Array.isArray(students)) {
+      students.forEach(s => {
+        const roll = (typeof s === 'string' ? '' : (s.rollNumber || s.rollNo || '')).trim().toLowerCase();
+        if (roll && roll !== 'n/a' && roll !== '-') {
+          set.add(roll);
+        }
+      });
+    }
+    return set;
+  };
+
+  // Check if two team items represent the same physical team
+  const isSameTeam = (a, b) => {
+    // 1. Roll numbers match check
+    const rollsA = getRollSet(a.students);
+    const rollsB = getRollSet(b.students);
+    if (rollsA.size > 0 && rollsB.size > 0) {
+      let matches = 0;
+      rollsA.forEach(r => { if (rollsB.has(r)) matches++; });
+      if (matches >= 2 || (matches > 0 && matches === Math.min(rollsA.size, rollsB.size))) {
+        return true;
+      }
+    }
+
+    // 2. Normalized batchId match check
+    const bIdA = normalizeIdentifier(a.batchId);
+    const bIdB = normalizeIdentifier(b.batchId);
+    if (bIdA && bIdB && bIdA === bIdB) return true;
+
+    // 3. Normalized teamName match check
+    const tNameA = normalizeIdentifier(a.teamName);
+    const tNameB = normalizeIdentifier(b.teamName);
+    if (tNameA && tNameB && tNameA === tNameB) return true;
+
+    // 4. Cross match batchId and teamName
+    if (bIdA && tNameB && bIdA === tNameB) return true;
+    if (bIdB && tNameA && bIdB === tNameA) return true;
+
+    return false;
+  };
+
   // Helper to deduplicate and merge batches and projects
   const getUnifiedTeams = () => {
-    if (!results) return [];
+    if (!results && (!projects || projects.length === 0)) return [];
 
-    const teamMap = new Map();
+    const rawList = [];
 
-    // First, add all batches from results
-    if (results.batches) {
+    // Collect all batches
+    if (results?.batches) {
       results.batches.forEach(batch => {
-        // Use a unique key combining BatchID and TeamName to avoid collisions
-        const key = `${batch.batchId || 'N/A'}-${batch.teamName.toLowerCase()}`;
-        // Display both COE and RC if available
-        const coeDisplay = batch.coe && batch.coe !== 'N/A' ? batch.coe : '';
-        const rcDisplay = batch.rc && batch.rc !== 'N/A' ? batch.rc : '';
+        const coeDisplay = cleanCoeRcValue(batch.coe);
+        const rcDisplay = cleanCoeRcValue(batch.rc);
         const coeRc = (coeDisplay && rcDisplay) ? `${coeDisplay}, ${rcDisplay}` : (coeDisplay || rcDisplay || 'N/A');
-        teamMap.set(key, {
+
+        rawList.push({
           _id: batch._id,
           batchId: batch.batchId || 'N/A',
-          teamName: batch.teamName,
-          students: batch.students,
-          studentCount: batch.studentCount,
+          teamName: batch.teamName || 'N/A',
+          students: (batch.students || []).map(s => typeof s === 'string' ? { name: s, rollNumber: 'N/A' } : s),
+          studentCount: batch.studentCount || (batch.students ? batch.students.length : 0),
           leaderStudent: batch.leaderStudent,
-          // Use the populated guide name if available, otherwise fallback
-          guideName: batch.guideName || results.guide.name,
+          guideName: batch.guideName || results.guide?.name || 'N/A',
           projectTitle: batch.projectTitle || 'N/A',
           researchArea: batch.researchArea || 'N/A',
           coe: coeRc,
@@ -76,57 +137,84 @@ function GuideSearch() {
       });
     }
 
-    // Then, merge or add projects
-    projects.forEach(project => {
-      // Try to find matching team in the existing map
-      const key = `${project.batchId || 'N/A'}-${project.teamName.toLowerCase()}`;
-      const existing = teamMap.get(key) || teamMap.get(project.teamName.toLowerCase());
+    // Collect all projects
+    if (Array.isArray(projects)) {
+      projects.forEach(project => {
+        const pStudents = (project.students || []).map((s, idx) => ({
+          name: typeof s === 'string' ? s : s.name,
+          rollNumber: project.rollNumbers?.[idx] || (typeof s === 'object' ? (s.rollNumber || s.rollNo || 'N/A') : 'N/A')
+        }));
+        const coeDisplay = cleanCoeRcValue(project.coe);
+        const rcDisplay = cleanCoeRcValue(project.rc);
+        const projectCoeRc = (coeDisplay && rcDisplay) ? `${coeDisplay}, ${rcDisplay}` : (coeDisplay || rcDisplay || 'N/A');
 
-      if (existing) {
-        // Project exists, update metadata
-        existing.batchId = project.batchId || existing.batchId;
-        existing.projectTitle = project.projectTitle;
-        existing.researchArea = project.researchArea || 'N/A';
-        // Combine COE and RC if available
-        const projectCoeRc = project.coe && project.coe !== 'N/A'
-          ? (project.rc && project.rc !== 'N/A' ? `${project.coe}, ${project.rc}` : project.coe)
-          : (project.rc || 'N/A');
-        existing.coe = projectCoeRc;
-        existing.guideName = project.guideName || existing.guideName;
-        existing.isProject = true;
-
-        // Use project's student list if it looks more authoritative (longer)
-        if (project.students && project.students.length > (existing.students?.length || 0)) {
-          existing.students = project.students.map((s, idx) => ({
-            name: s,
-            rollNumber: project.rollNumbers?.[idx] || 'N/A'
-          }));
-          existing.studentCount = project.students.length;
-        }
-      } else {
-        // Combine COE and RC for new project entries
-        const projectCoeRc = project.coe && project.coe !== 'N/A'
-          ? (project.rc && project.rc !== 'N/A' ? `${project.coe}, ${project.rc}` : project.coe)
-          : (project.rc || 'N/A');
-        teamMap.set(key, {
+        rawList.push({
           _id: project._id,
           batchId: project.batchId || 'N/A',
-          teamName: project.teamName,
-          students: project.students.map((s, idx) => ({
-            name: s,
-            rollNumber: project.rollNumbers?.[idx] || 'N/A'
-          })),
-          studentCount: project.students.length,
-          guideName: project.guideName,
-          projectTitle: project.projectTitle,
+          teamName: project.teamName || 'N/A',
+          students: pStudents,
+          studentCount: pStudents.length,
+          leaderStudent: null,
+          guideName: project.guideName || 'N/A',
+          projectTitle: project.projectTitle || 'N/A',
           researchArea: project.researchArea || 'N/A',
           coe: projectCoeRc,
           isProject: true
         });
+      });
+    }
+
+    // Merge duplicate items in rawList
+    const merged = [];
+
+    rawList.forEach(item => {
+      const existing = merged.find(target => isSameTeam(target, item));
+
+      if (!existing) {
+        merged.push({ ...item });
+      } else {
+        // Merge item into existing
+        if (item.teamName && item.teamName !== 'N/A') {
+          if (!existing.teamName || existing.teamName === 'N/A' || (item.teamName.length < existing.teamName.length && !item.teamName.toLowerCase().startsWith('cse '))) {
+            existing.teamName = item.teamName;
+          }
+        }
+        if (item.batchId && item.batchId !== 'N/A' && (existing.batchId === 'N/A' || item.batchId.length < existing.batchId.length)) {
+          existing.batchId = item.batchId;
+        }
+
+        if (item.isProject) existing.isProject = true;
+        if (item.projectTitle && item.projectTitle !== 'N/A') existing.projectTitle = item.projectTitle;
+        if (item.researchArea && item.researchArea !== 'N/A') existing.researchArea = item.researchArea;
+        if (item.guideName && item.guideName !== 'N/A') existing.guideName = item.guideName;
+
+        // Merge COE/RC strings
+        const coeSet = new Set();
+        [existing.coe, item.coe].forEach(cStr => {
+          if (cStr && cStr !== 'N/A') {
+            cStr.split(',').forEach(part => {
+              const cleaned = cleanCoeRcValue(part);
+              if (cleaned) coeSet.add(cleaned);
+            });
+          }
+        });
+        existing.coe = Array.from(coeSet).join(', ') || 'N/A';
+
+        // Merge students (dedup by roll number if available, else by student name)
+        const studentMap = new Map();
+        [...(existing.students || []), ...(item.students || [])].forEach(s => {
+          const roll = (s.rollNumber || s.rollNo || '').trim().toUpperCase();
+          const key = (roll && roll !== 'N/A') ? roll : s.name?.trim().toLowerCase();
+          if (key && !studentMap.has(key)) {
+            studentMap.set(key, s);
+          }
+        });
+        existing.students = Array.from(studentMap.values());
+        existing.studentCount = existing.students.length;
       }
     });
 
-    return Array.from(teamMap.values());
+    return merged;
   };
 
   const unifiedTeams = getUnifiedTeams();

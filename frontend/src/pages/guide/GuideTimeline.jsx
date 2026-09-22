@@ -18,7 +18,13 @@ function GuideTimeline() {
   const [dialog, setDialog] = useState({ isOpen: false, title: '', message: '', type: 'info', onConfirm: null });
   const [lastUpdated, setLastUpdated] = useState(null);
   const [submissionAlerts, setSubmissionAlerts] = useState([]);
+  const [submissionFilter, setSubmissionFilter] = useState('all'); // 'all' | 'submitted' | 'not_submitted'
   const lastSeenSubmissionIds = useRef(new Set());
+
+  // Reset submission filter when switching events
+  useEffect(() => {
+    setSubmissionFilter('all');
+  }, [selectedEvent?._id]);
 
   const fetchData = useCallback(async () => {
     try {
@@ -367,14 +373,19 @@ function GuideTimeline() {
               <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
                 {submission.versions.map((v, idx) => (
                   <div key={idx} style={{ padding: '10px', borderBottom: '1px solid #eee' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <strong>Submission {v.version}</strong>
-                      <small>{new Date(v.submittedAt).toLocaleString()}</small>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <strong>Submission {v.version} {idx === submission.versions.length - 1 ? '(Latest)' : ''}</strong>
+                      <small style={{ color: '#64748b' }}>{new Date(v.submittedAt).toLocaleString()}</small>
                     </div>
+                    {v.submittedByName && (
+                      <div style={{ fontSize: '13px', color: '#2563eb', fontWeight: '500', marginTop: '4px' }}>
+                        👤 {v.version === 1 ? 'Submitted by' : 'Updated by'}: <strong>{v.submittedByName}</strong>
+                      </div>
+                    )}
                     {v.description && <p style={{ color: '#666', fontSize: '14px', margin: '5px 0' }}>{v.description}</p>}
                     <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
-                      {v.driveLink && <a href={v.driveLink} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm">📁 View</a>}
-                      {v.fileUrl && <a href={v.fileUrl} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm">📁 View</a>}
+                      {v.driveLink && <a href={v.driveLink} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm">📁 View Drive Link</a>}
+                      {v.fileUrl && <a href={v.fileUrl} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm">📁 View File</a>}
                     </div>
                   </div>
                 ))}
@@ -560,48 +571,142 @@ function GuideTimeline() {
         <button className="btn btn-secondary" onClick={() => setSelectedEvent(null)} style={{ marginBottom: '20px' }}>← Back to Timeline</button>
 
         <div className="card" style={{ marginBottom: '20px', borderLeft: '4px solid #667eea' }}>
-          <h2>{selectedEvent.title}</h2>
-          <p style={{ color: '#666' }}>{selectedEvent.description}</p>
-          <div style={{ display: 'flex', gap: '20px', marginTop: '15px' }}>
-            <span><strong>📅 Deadline:</strong> {new Date(selectedEvent.deadline).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-            {selectedEvent.isMarksEnabled !== false && <span><strong>🎯 Max Marks:</strong> {selectedEvent.maxMarks}</span>}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+            <div style={{ flex: 1 }}>
+              <h2 style={{ margin: '0 0 4px 0' }}>{selectedEvent.title}</h2>
+              <p style={{ color: '#666', margin: '0 0 12px 0' }}>{selectedEvent.description}</p>
+              <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+                <span><strong>📅 Deadline:</strong> {new Date(selectedEvent.deadline).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                {selectedEvent.isMarksEnabled !== false && <span><strong>🎯 Max Marks:</strong> {selectedEvent.maxMarks}</span>}
+              </div>
+            </div>
+            {(() => {
+              const submittedCount = eventSubmissions.length;
+              const totalBatchesCount = batches.length;
+              const notSubmittedCount = Math.max(0, totalBatchesCount - submittedCount);
+              return (
+                <div style={{ display: "flex", gap: "10px", flexShrink: 0, alignItems: "center" }}>
+                  <div style={{ textAlign: "center", padding: "10px 16px", background: "#dcfce7", borderRadius: "10px", border: "1px solid #86efac" }}>
+                    <div style={{ fontSize: "22px", fontWeight: "700", color: "#16a34a" }}>{submittedCount}</div>
+                    <div style={{ fontSize: "11px", color: "#15803d", fontWeight: "600" }}>✅ Submitted</div>
+                  </div>
+                  <div style={{ textAlign: "center", padding: "10px 16px", background: "#fee2e2", borderRadius: "10px", border: "1px solid #fca5a5" }}>
+                    <div style={{ fontSize: "22px", fontWeight: "700", color: "#dc2626" }}>{notSubmittedCount}</div>
+                    <div style={{ fontSize: "11px", color: "#b91c1c", fontWeight: "600" }}>❌ Not Submitted</div>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
 
-        <h3>Team Submissions</h3>
-        {eventSubmissions.length === 0 ? (
-          <div className="card empty-state"><h3>No Submissions</h3><p>No teams have submitted for this event yet</p></div>
-        ) : (
-          <div className="grid grid-2">
-            {eventSubmissions.map(sub => {
-              const batch = batchMap[sub.batchId._id];
-              if (!batch) return null;
-              return (
-                <div key={sub._id} className="card" style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '8px' }} onClick={() => setSelectedSubmission(sub)}>
-                  <div className="batch-icon">📄</div>
-                  <h3 style={{ margin: '0 0 2px 0', fontSize: '16px' }}>{batch.teamName}</h3>
-                  <p style={{ margin: '0 0 6px 0', fontSize: '12px', color: '#666', lineHeight: '1.4' }}>{batch.year} Year • {batch.branch} • Section {batch.section}</p>
-                  <p style={{ margin: '4px 0', fontSize: '14px', lineHeight: '1.6', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <strong>Status:</strong>
-                    {getStatusBadge(sub.status)}
-                  </p>
-                  {(selectedEvent.isMarksEnabled !== false && selectedEvent.isMarksEnabled !== 'false') && (
-                    <p style={{ margin: '4px 0', fontSize: '14px', lineHeight: '1.6', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <strong>Marks:</strong>{' '}
-                      <span>
-                        {Array.isArray(sub.studentMarks) && sub.studentMarks.length > 0
-                          ? `Individual (${sub.studentMarks.length} students)`
-                          : sub.marks !== null ? `${sub.marks}/${selectedEvent.maxMarks}` : '-'}
-                      </span>
-                    </p>
-                  )}
-                  <p style={{ margin: '4px 0', fontSize: '14px', lineHeight: '1.6', display: 'flex', alignItems: 'center', gap: '12px' }}><strong>Submission:</strong> <span>{sub.currentVersion}</span></p>
-                  <div className="batch-action" style={{ marginTop: '6px', fontSize: '14px', color: '#667eea', fontWeight: '700' }}>Review Submission →</div>
-                </div>
-              );
-            })}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
+          <h3 style={{ margin: 0 }}>Team Submissions</h3>
+          {/* Submitted / Not Submitted toggle */}
+          <div style={{ display: 'flex', background: '#f1f5f9', borderRadius: '8px', padding: '3px', gap: '2px' }}>
+            {[
+              { value: 'all', label: 'All Teams' },
+              { value: 'submitted', label: '✅ Submitted' },
+              { value: 'not_submitted', label: '❌ Not Submitted' },
+            ].map(opt => (
+              <button
+                key={opt.value}
+                onClick={() => setSubmissionFilter(opt.value)}
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: '600',
+                  transition: 'all 0.15s',
+                  background: submissionFilter === opt.value ? '#667eea' : 'transparent',
+                  color: submissionFilter === opt.value ? 'white' : '#64748b',
+                }}
+              >
+                {opt.label}
+              </button>
+            ))}
           </div>
-        )}
+        </div>
+
+        {(() => {
+          const submittedBatchIds = new Set(eventSubmissions.map(s => typeof s.batchId === 'object' ? s.batchId?._id : s.batchId));
+          
+          let displayItems = [];
+          if (submissionFilter !== 'not_submitted') {
+            eventSubmissions.forEach(sub => {
+              const batch = batchMap[sub.batchId?._id || sub.batchId];
+              if (batch) {
+                displayItems.push({ type: 'submitted', sub, batch });
+              }
+            });
+          }
+          if (submissionFilter !== 'submitted') {
+            batches.forEach(batch => {
+              if (!submittedBatchIds.has(batch._id)) {
+                displayItems.push({ type: 'not_submitted', batch });
+              }
+            });
+          }
+
+          if (displayItems.length === 0) {
+            return (
+              <div className="card empty-state">
+                <h3>No Teams Found</h3>
+                <p>No teams match the selected filter ({submissionFilter}).</p>
+              </div>
+            );
+          }
+
+          return (
+            <div className="grid grid-2">
+              {displayItems.map(item => {
+                if (item.type === 'submitted') {
+                  const { sub, batch } = item;
+                  return (
+                    <div key={sub._id} className="card" style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '8px' }} onClick={() => setSelectedSubmission(sub)}>
+                      <div className="batch-icon">📄</div>
+                      <h3 style={{ margin: '0 0 2px 0', fontSize: '16px' }}>{batch.teamName}</h3>
+                      <p style={{ margin: '0 0 6px 0', fontSize: '12px', color: '#666', lineHeight: '1.4' }}>{batch.year} Year • {batch.branch} • Section {batch.section}</p>
+                      <p style={{ margin: '4px 0', fontSize: '14px', lineHeight: '1.6', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <strong>Status:</strong>
+                        {getStatusBadge(sub.status)}
+                      </p>
+                      {(selectedEvent.isMarksEnabled !== false && selectedEvent.isMarksEnabled !== 'false') && (
+                        <p style={{ margin: '4px 0', fontSize: '14px', lineHeight: '1.6', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <strong>Marks:</strong>{' '}
+                          <span>
+                            {Array.isArray(sub.studentMarks) && sub.studentMarks.length > 0
+                              ? `Individual (${sub.studentMarks.length} students)`
+                              : sub.marks !== null ? `${sub.marks}/${selectedEvent.maxMarks}` : '-'}
+                          </span>
+                        </p>
+                      )}
+                      <p style={{ margin: '4px 0', fontSize: '14px', lineHeight: '1.6', display: 'flex', alignItems: 'center', gap: '12px' }}><strong>Submission:</strong> <span>v{sub.currentVersion}</span></p>
+                      <div className="batch-action" style={{ marginTop: '6px', fontSize: '14px', color: '#667eea', fontWeight: '700' }}>Review Submission →</div>
+                    </div>
+                  );
+                } else {
+                  const { batch } = item;
+                  return (
+                    <div key={`ns-${batch._id}`} className="card" style={{ background: '#fff8f8', border: '1px solid #fee2e2', opacity: 0.9, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div className="batch-icon">⏳</div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <h3 style={{ margin: '0 0 2px 0', fontSize: '16px' }}>{batch.teamName}</h3>
+                        <span style={{ fontSize: '11px', color: '#dc2626', fontWeight: '600', background: '#fee2e2', padding: '2px 8px', borderRadius: '12px' }}>
+                          ❌ Not Submitted
+                        </span>
+                      </div>
+                      <p style={{ margin: '0 0 6px 0', fontSize: '12px', color: '#666', lineHeight: '1.4' }}>{batch.year} Year • {batch.branch} • Section {batch.section}</p>
+                      <p style={{ margin: '4px 0', fontSize: '13px', color: '#94a3b8', fontStyle: 'italic' }}>Awaiting submission from team members</p>
+                    </div>
+                  );
+                }
+              })}
+            </div>
+          );
+        })()}
       </div>
     );
   }
@@ -662,9 +767,20 @@ function GuideTimeline() {
                   </div>
                 </div>
 
-                <div className="timeline-card__meta">
-                  <span className="timeline-card__meta-label">{!unlocked ? 'Unlock after previous acceptance' : 'Submissions'}</span>
-                  <span className="timeline-card__meta-value">{!unlocked ? '—' : `${acceptedCount}/${totalSubs} accepted`}</span>
+                <div className="timeline-card__meta" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span className="timeline-card__meta-label">{!unlocked ? 'Unlock after previous acceptance' : 'Teams Submissions'}</span>
+                  <span className="timeline-card__meta-value">
+                    {!unlocked ? '—' : (
+                      <div style={{ display: 'flex', gap: '6px', fontSize: '12px' }}>
+                        <span style={{ color: '#16a34a', fontWeight: '600', background: '#dcfce7', padding: '2px 8px', borderRadius: '12px' }}>
+                          ✅ {totalSubs} Submitted
+                        </span>
+                        <span style={{ color: '#dc2626', fontWeight: '600', background: '#fee2e2', padding: '2px 8px', borderRadius: '12px' }}>
+                          ❌ {Math.max(0, batches.length - totalSubs)} Pending
+                        </span>
+                      </div>
+                    )}
+                  </span>
                 </div>
 
                 {!unlocked ? (

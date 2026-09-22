@@ -93,6 +93,14 @@ const VersionSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  submittedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Student'
+  },
+  submittedByName: {
+    type: String,
+    trim: true
+  },
   submittedAt: {
     type: Date,
     default: Date.now

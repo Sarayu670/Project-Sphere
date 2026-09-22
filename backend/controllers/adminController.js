@@ -896,6 +896,24 @@ exports.searchBatchesByGuide = async (req, res) => {
         }
       });
       batches = Array.from(batchMap.values());
+
+      // Also deduplicate by normalized batchId or teamName (keep the newest by createdAt)
+      // Strips branch prefix (e.g., CSE C7 -> c7) to avoid duplicate entries from different sheet imports
+      const byNormalizedKey = new Map();
+      batches.forEach(batch => {
+        const rawKey = batch.batchId || batch.teamName || batch._id.toString();
+        const normKey = String(rawKey)
+          .trim()
+          .toLowerCase()
+          .replace(/^(?:cse|it|ece|csm|eee|csd|etm)\s+/i, '')
+          .replace(/[^a-z0-9]/g, '') || batch._id.toString();
+
+        const existing = byNormalizedKey.get(normKey);
+        if (!existing || (batch.createdAt && (!existing.createdAt || batch.createdAt > existing.createdAt))) {
+          byNormalizedKey.set(normKey, batch);
+        }
+      });
+      batches = Array.from(byNormalizedKey.values());
     }
 
     console.log(`[Search] Batches found after dedup: ${batches.length}`);

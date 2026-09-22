@@ -357,6 +357,10 @@ function GuideDashboard() {
   const problemStartIndex = (safeProblemPage - 1) * problemItemsPerPage;
   const paginatedProblems = filteredProblems.slice(problemStartIndex, problemStartIndex + problemItemsPerPage);
 
+  const pendingSubmissionsCount = (submissions || []).filter(sub =>
+    sub.status === 'submitted' || sub.status === 'under_review' || sub.status === 'needs_revision'
+  ).length;
+
   return (
     <div className="guide-dashboard">
       <div className="dashboard-header">
@@ -386,13 +390,68 @@ function GuideDashboard() {
         <div className="stat-card"><div className="stat-icon">✅</div><div className="stat-value">{(batches || []).filter(b => b?.status === 'Completed').length}</div><div className="stat-label">Completed</div></div>
       </div>
 
+      {/* Banner notification for new team submissions */}
+      {pendingSubmissionsCount > 0 && activeTab !== 'submissions' && (
+        <div
+          style={{
+            background: 'linear-gradient(90deg, #eff6ff 0%, #dbeafe 100%)',
+            border: '1px solid #bfdbfe',
+            borderRadius: '10px',
+            padding: '12px 18px',
+            marginBottom: '20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            boxShadow: '0 2px 6px rgba(37, 99, 235, 0.1)'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span style={{ fontSize: '22px' }}>🔔</span>
+            <div>
+              <strong style={{ color: '#1e40af', fontSize: '14px', display: 'block' }}>
+                {pendingSubmissionsCount} New Team Submission{pendingSubmissionsCount > 1 ? 's' : ''} Awaiting Review!
+              </strong>
+              <span style={{ color: '#3b82f6', fontSize: '12px' }}>
+                Your allotted teams have uploaded timeline submissions that require feedback/grading.
+              </span>
+            </div>
+          </div>
+          <button
+            className="btn btn-primary btn-sm"
+            onClick={() => handleTabChange('submissions')}
+            style={{ background: '#2563eb', border: 'none', padding: '7px 16px', fontWeight: '600', fontSize: '13px', cursor: 'pointer' }}
+          >
+            Review Timeline →
+          </button>
+        </div>
+      )}
+
       <div className="tabs">
         <button className={`tab ${activeTab === 'problems' ? 'active' : ''}`} onClick={() => handleTabChange('problems')}>📋 My Problem Statements</button>
         <button className={`tab ${activeTab === 'requests' ? 'active' : ''}`} onClick={() => handleTabChange('requests')}>
           ⏳ Pending Requests ({optedTeams.length})
         </button>
         <button className={`tab ${activeTab === 'teams' ? 'active' : ''}`} onClick={() => handleTabChange('teams')}>👥 My Teams</button>
-        <button className={`tab ${activeTab === 'submissions' ? 'active' : ''}`} onClick={() => handleTabChange('submissions')}>📅 Timeline</button>
+        <button className={`tab ${activeTab === 'submissions' ? 'active' : ''}`} onClick={() => handleTabChange('submissions')} style={{ position: 'relative' }}>
+          📅 Timeline
+          {pendingSubmissionsCount > 0 && (
+            <span
+              style={{
+                background: '#ef4444',
+                color: 'white',
+                fontSize: '11px',
+                fontWeight: '700',
+                padding: '2px 7px',
+                borderRadius: '10px',
+                marginLeft: '6px',
+                verticalAlign: 'middle',
+                display: 'inline-block'
+              }}
+            >
+              {pendingSubmissionsCount} NEW
+            </span>
+          )}
+        </button>
         <button className={`tab ${activeTab === 'meetings' ? 'active' : ''}`} onClick={() => handleTabChange('meetings')}>🤝 Meetings</button>
         <button className={`tab ${activeTab === 'ai-hub' ? 'active' : ''}`} onClick={() => handleTabChange('ai-hub')}>🤖 AI Problem Hub</button>
         <button className={`tab ${activeTab === 'guide-search' ? 'active' : ''}`} onClick={() => handleTabChange('guide-search')}>🔍 Search Batches</button>

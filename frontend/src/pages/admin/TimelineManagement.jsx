@@ -34,6 +34,14 @@ const getColumnsForScope = (scope) => {
   return ALL_COLUMNS;
 };
 
+const isGuideApproved = (submission) => (
+  submission?.status === 'accepted' || submission?.status === 'completed'
+);
+
+const hasUploadedVersion = (submission) => (
+  Array.isArray(submission?.versions) && submission.versions.length > 0
+);
+
 function TimelineReadOnly({ scope }) {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -147,6 +155,13 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
     getColumnsForScope(scope).map((col) => col.key)
   );
   const [showColumnDropdown, setShowColumnDropdown] = useState(false);
+
+  // Submission stats per event (shown on event cards): { [eventId]: { submitted, total } }
+  const [eventStats, setEventStats] = useState({});
+
+  // Toggle for submitted / not submitted filter in event detail view
+  const [submissionFilter, setSubmissionFilter] = useState('all'); // 'all' | 'submitted' | 'not_submitted'
+
 
   // PRC Marks state
   const [showPRCMarksModal, setShowPRCMarksModal] = useState(false);
@@ -280,6 +295,55 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
     }
   }, [scope]);
 
+  // Fetch lightweight submission counts per event for stats on event cards
+  const fetchEventStats = useCallback(async (eventsData) => {
+    if (!eventsData || eventsData.length === 0) return;
+    try {
+      // Fetch all batches for total count
+      const batchesRes = scope ? await api.getSectionBatches() : await api.getAllBatches();
+      const batchesData = batchesRes.data?.data || batchesRes.data || [];
+      const scopedBatches = scope
+        ? batchesData.filter(b => b.year === scope.year && b.branch === scope.branch && b.section === scope.section)
+        : batchesData;
+      const filteredBatches = scopedBatches.filter(batch => (
+        (!filterYear || batch.year === filterYear) &&
+        (!filterBranch || batch.branch === filterBranch) &&
+        (!filterSection || batch.section === filterSection)
+      ));
+      const totalBatches = filteredBatches.length;
+
+      // Fetch all submissions for this scope with status='all'
+      const subsRes = await api.getAllSubmissions({ status: 'all', limit: 1000 });
+      const subsData = subsRes.data?.data || subsRes.data || [];
+      const scopedBatchIds = new Set(filteredBatches.map(b => b._id.toString()));
+      const statsMap = {};
+      eventsData.forEach(event => {
+        const approvedBatchIds = new Set();
+        const submittedBatchIds = new Set();
+        subsData.forEach(sub => {
+          const subEventId = typeof sub.timelineEventId === 'string' ? sub.timelineEventId : sub.timelineEventId?._id;
+          const subBatchId = typeof sub.batchId === 'string' ? sub.batchId : sub.batchId?._id;
+          if (subEventId === event._id && hasUploadedVersion(sub) && subBatchId && scopedBatchIds.has(subBatchId.toString())) {
+            if (isGuideApproved(sub)) {
+              approvedBatchIds.add(subBatchId.toString());
+            } else {
+              submittedBatchIds.add(subBatchId.toString());
+            }
+          }
+        });
+        statsMap[event._id] = {
+          approved: approvedBatchIds.size,
+          submitted: submittedBatchIds.size,
+          notSubmitted: Math.max(0, totalBatches - approvedBatchIds.size - submittedBatchIds.size),
+          total: totalBatches
+        };
+      });
+      setEventStats(statsMap);
+    } catch (err) {
+      console.error("Event stats fetch error:", err.message);
+    }
+  }, [scope, filterYear, filterBranch, filterSection]);
+
   // Fetch submissions for selected event with pagination
   const fetchSubmissionsForEvent = useCallback(async (eventId, page = 1) => {
     try {
@@ -295,7 +359,7 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
         eventId,
         page,
         limit: 50,
-        status: canAddRemarks ? 'all' : 'accepted'
+        status: 'all'
       });
 
       const newSubmissions = submissionsRes.data?.data || submissionsRes.data || [];
@@ -325,6 +389,18 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
   useEffect(() => {
     fetchEvents();
   }, [fetchEvents]);
+
+  // Load stats for event cards after events are available
+  useEffect(() => {
+    if (events.length > 0) {
+      fetchEventStats(events);
+    }
+  }, [events, fetchEventStats]);
+
+  // Reset submission filter when switching events
+  useEffect(() => {
+    setSubmissionFilter('all');
+  }, [selectedEvent?._id]);
 
   useEffect(() => {
     if (!scope) return;
@@ -653,20 +729,48 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
             className="card"
             style={{ marginBottom: "20px", borderLeft: "4px solid #667eea" }}
           >
-            <h2>{selectedEvent.title}</h2>
-            <p style={{ color: "#666" }}>{selectedEvent.description}</p>
-            <div style={{ display: "flex", gap: "20px", marginTop: "15px" }}>
-              <span>
-                <strong>📅 Deadline:</strong>{" "}
-                {new Date(selectedEvent.deadline).toLocaleDateString("en-IN", {
-                  day: "numeric",
-                  month: "short",
-                  year: "numeric",
-                })}
-              </span>
-              <span>
-                <strong>🎯 Max Marks:</strong> {selectedEvent.maxMarks}
-              </span>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "12px" }}>
+              <div style={{ flex: 1 }}>
+                <h2 style={{ margin: "0 0 4px 0" }}>{selectedEvent.title}</h2>
+                <p style={{ color: "#666", margin: "0 0 12px 0" }}>{selectedEvent.description}</p>
+                <div style={{ display: "flex", gap: "20px", flexWrap: "wrap" }}>
+                  <span>
+                    <strong>📅 Deadline:</strong>{" "}
+                    {new Date(selectedEvent.deadline).toLocaleDateString("en-IN", {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    })}
+                  </span>
+                  <span>
+                    <strong>🎯 Max Marks:</strong> {selectedEvent.maxMarks}
+                  </span>
+                </div>
+              </div>
+              {/* Stats beside heading */}
+              {(() => {
+                const stats = eventStats[selectedEvent._id] || { approved: 0, submitted: 0, notSubmitted: 0 };
+                const approvedCount = stats.approved;
+                const submittedCount = stats.submitted;
+                const notSubmittedCount = stats.notSubmitted;
+
+                return (
+                  <div style={{ display: "flex", gap: "10px", flexShrink: 0, alignItems: "center" }}>
+                    <div style={{ textAlign: "center", padding: "10px 16px", background: "#dbeafe", borderRadius: "10px", border: "1px solid #93c5fd" }}>
+                      <div style={{ fontSize: "22px", fontWeight: "700", color: "#1d4ed8" }}>{approvedCount}</div>
+                      <div style={{ fontSize: "11px", color: "#1d4ed8", fontWeight: "600" }}>✅ Guide Approved</div>
+                    </div>
+                    <div style={{ textAlign: "center", padding: "10px 16px", background: "#dcfce7", borderRadius: "10px", border: "1px solid #86efac" }}>
+                      <div style={{ fontSize: "22px", fontWeight: "700", color: "#15803d" }}>{submittedCount}</div>
+                      <div style={{ fontSize: "11px", color: "#15803d", fontWeight: "600" }}>📤 Submitted</div>
+                    </div>
+                    <div style={{ textAlign: "center", padding: "10px 16px", background: "#fee2e2", borderRadius: "10px", border: "1px solid #fca5a5" }}>
+                      <div style={{ fontSize: "22px", fontWeight: "700", color: "#dc2626" }}>{notSubmittedCount}</div>
+                      <div style={{ fontSize: "11px", color: "#b91c1c", fontWeight: "600" }}>❌ Not Submitted</div>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </div>
 
@@ -680,7 +784,36 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
                 marginBottom: "15px",
               }}
             >
-              <h3>🔍 Filters</h3>
+              <div style={{ display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap" }}>
+                <h3 style={{ margin: 0 }}>🔍 Filters</h3>
+                {/* Submitted / Not Submitted toggle */}
+                <div style={{ display: "flex", background: "#f1f5f9", borderRadius: "8px", padding: "3px", gap: "2px" }}>
+                  {[
+                    { value: 'all', label: 'All Teams' },
+                    { value: 'approved', label: '✅ Guide Approved' },
+                    { value: 'submitted', label: '📤 Submitted' },
+                    { value: 'not_submitted', label: '❌ Not Submitted' },
+                  ].map(opt => (
+                    <button
+                      key={opt.value}
+                      onClick={() => setSubmissionFilter(opt.value)}
+                      style={{
+                        padding: "5px 12px",
+                        borderRadius: "6px",
+                        border: "none",
+                        cursor: "pointer",
+                        fontSize: "12px",
+                        fontWeight: "600",
+                        transition: "all 0.15s",
+                        background: submissionFilter === opt.value ? "#667eea" : "transparent",
+                        color: submissionFilter === opt.value ? "white" : "#64748b",
+                      }}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <button
                 className="btn btn-success"
                 onClick={() => downloadReportAsCSV()}
@@ -871,10 +1004,13 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
                 </tr>
               </thead>
               <tbody>
-                {submissions
+                {submissionFilter !== 'not_submitted' && submissions
                   .filter((sub) => {
-                    // When in coordinator scope, only show accepted/completed submissions
-                    if (scope && sub.status !== 'accepted' && sub.status !== 'completed') {
+                    const uploaded = hasUploadedVersion(sub);
+                    if (submissionFilter === 'approved' && (!uploaded || !isGuideApproved(sub))) {
+                      return false;
+                    }
+                    if (submissionFilter === 'submitted' && (!uploaded || isGuideApproved(sub))) {
                       return false;
                     }
                     // Handle both string and object formats for timelineEventId
@@ -889,7 +1025,7 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
                       typeof sub.batchId === "string"
                         ? sub.batchId
                         : sub.batchId?._id;
-                    const batch = visibleBatches.find((b) => b._id === batchId);
+                    const batch = visibleBatches.find((b) => b._id?.toString() === batchId?.toString());
                     if (!batch) return false;
                     if (filterYear && batch.year !== filterYear) return false;
                     if (filterBranch && batch.branch !== filterBranch)
@@ -903,7 +1039,7 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
                       typeof sub.batchId === "string"
                         ? sub.batchId
                         : sub.batchId?._id;
-                    const batch = visibleBatches.find((b) => b._id === batchId);
+                    const batch = visibleBatches.find((b) => b._id?.toString() === batchId?.toString());
                     const latestVersion =
                       sub.versions?.[sub.versions.length - 1];
                     const latestAdminRemark =
@@ -1153,28 +1289,38 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
                         </td>
                         <td>
                           {sub.versions && sub.versions.length > 0 ? (
-                            <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
-                              {sub.versions[sub.versions.length - 1]?.driveLink && (
-                                <a
-                                  href={sub.versions[sub.versions.length - 1].driveLink}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  title="Click to open Google Drive file"
-                                  style={{ fontSize: '18px', cursor: 'pointer' }}
-                                >
-                                  📁
-                                </a>
-                              )}
-                              {sub.versions[sub.versions.length - 1]?.fileUrl && (
-                                <a
-                                  href={sub.versions[sub.versions.length - 1].fileUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  title="Click to open uploaded file"
-                                  style={{ fontSize: '18px', cursor: 'pointer' }}
-                                >
-                                  📥
-                                </a>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
+                              <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                                {sub.versions[sub.versions.length - 1]?.driveLink && (
+                                  <a
+                                    href={sub.versions[sub.versions.length - 1].driveLink}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    title={`Click to open Google Drive file (Version ${sub.versions.length})`}
+                                    style={{ fontSize: '18px', cursor: 'pointer' }}
+                                  >
+                                    📁
+                                  </a>
+                                )}
+                                {sub.versions[sub.versions.length - 1]?.fileUrl && (
+                                  <a
+                                    href={sub.versions[sub.versions.length - 1].fileUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    title="Click to open uploaded file"
+                                    style={{ fontSize: '18px', cursor: 'pointer' }}
+                                  >
+                                    📥
+                                  </a>
+                                )}
+                              </div>
+                              {sub.versions[sub.versions.length - 1]?.submittedByName ? (
+                                <small style={{ fontSize: '10px', color: '#475569', textAlign: 'center', lineHeight: '1.2' }}>
+                                  {sub.versions.length > 1 ? 'Updated by' : 'By'}:<br />
+                                  <strong style={{ color: '#1e293b' }}>{sub.versions[sub.versions.length - 1].submittedByName}</strong>
+                                </small>
+                              ) : (
+                                <small style={{ fontSize: '10px', color: '#94a3b8' }}>v{sub.versions.length}</small>
                               )}
                             </div>
                           ) : (
@@ -1184,6 +1330,65 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
                       </tr>
                     );
                   })}
+
+                {/* Not Submitted rows — batches with no accepted submission for this event */}
+                {(submissionFilter === 'all' || submissionFilter === 'not_submitted') && (() => {
+                  // Teams without an uploaded version are not submitted.
+                  const submittedBatchIds = new Set(
+                    submissions
+                      .filter(sub => {
+                        const subEventId = typeof sub.timelineEventId === "string" ? sub.timelineEventId : sub.timelineEventId?._id;
+                        return (
+                          subEventId === selectedEvent._id &&
+                          hasUploadedVersion(sub)
+                        );
+                      })
+                      .map(sub => {
+                        const bId = typeof sub.batchId === "string" ? sub.batchId : sub.batchId?._id;
+                        return bId ? bId.toString() : null;
+                      })
+                      .filter(Boolean)
+                  );
+
+                  return visibleBatches
+                    .filter(batch => {
+                      if (submittedBatchIds.has(batch._id?.toString())) return false;
+                      if (filterYear && batch.year !== filterYear) return false;
+                      if (filterBranch && batch.branch !== filterBranch) return false;
+                      if (filterSection && batch.section !== filterSection) return false;
+                      return true;
+                    })
+                    .map(batch => (
+                      <tr key={`ns-${batch._id}`} style={{ background: '#fff8f8', opacity: 0.85 }}>
+                        <td>
+                          <strong>{batch.teamName}</strong>
+                          <div style={{ fontSize: '11px', color: '#dc2626', marginTop: '2px', fontWeight: '600' }}>❌ Not Submitted</div>
+                        </td>
+                        <td>
+                          <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                            {(batch.teamMembers || []).map((m, idx) => (
+                              <div key={idx} style={{ fontSize: "12px", color: "#4a5568", paddingLeft: "18px" }}>
+                                • {m.rollNo}
+                              </div>
+                            ))}
+                          </div>
+                        </td>
+                        {!scope && <td>{batch.year} {batch.branch}-{batch.section}</td>}
+                        <td>{batch?.coe?.name || batch?.coeId?.name || '—'}</td>
+                        {!scope && <td>{batch?.domain || '—'}</td>}
+                        <td>
+                          {batch?.guideId?.name ? (
+                            <span style={{ fontWeight: "500", color: "#2d3748" }}>👨‍🏫 {batch.guideId.name}</span>
+                          ) : <span style={{ color: "#718096", fontStyle: "italic" }}>Not Assigned</span>}
+                        </td>
+                        <td><span style={{ color: '#aaa', fontSize: '13px' }}>—</span></td>
+                        <td><span style={{ color: '#aaa', fontSize: '13px' }}>—</span></td>
+                        <td><span style={{ color: '#aaa', fontSize: '12px' }}>—</span></td>
+                        <td><span style={{ color: '#aaa', fontSize: '12px' }}>—</span></td>
+                        <td><span style={{ color: '#aaa', fontSize: '12px' }}>—</span></td>
+                      </tr>
+                    ));
+                })()}
               </tbody>
             </table>
           </div>
@@ -1331,6 +1536,24 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
                     <span style={{ fontSize: "12px", color: "#4a5568", lineHeight: '1.5' }}>
                       {event.submissionRequirements || "Not specified"}
                     </span>
+                  </div>
+                  <div>
+                    <strong style={{ fontSize: '13px', display: 'block', marginBottom: '3px' }}>📊 Submissions Status:</strong>
+                    {(() => {
+                      const stats = eventStats[event._id];
+                      if (!stats) return <span style={{ fontSize: "12px", color: "#94a3b8" }}>Loading stats...</span>;
+                      const notSub = Math.max(0, stats.total - stats.submitted);
+                      return (
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '2px' }}>
+                          <span style={{ fontSize: '12px', fontWeight: '600', color: '#16a34a', background: '#dcfce7', padding: '2px 8px', borderRadius: '12px' }}>
+                            ✅ {stats.submitted} Submitted
+                          </span>
+                          <span style={{ fontSize: '12px', fontWeight: '600', color: '#dc2626', background: '#fee2e2', padding: '2px 8px', borderRadius: '12px' }}>
+                            ❌ {notSub} Pending
+                          </span>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>

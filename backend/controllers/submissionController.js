@@ -147,12 +147,22 @@ exports.createOrUpdateSubmission = async (req, res) => {
     let submission = await Submission.findOne({ batchId, timelineEventId });
 
     if (submission) {
-      // Add new version
+      // If guide has already accepted, prevent further modifications
+      if (submission.status === 'accepted') {
+        return res.status(400).json({
+          success: false,
+          message: 'This submission has already been accepted by your guide and cannot be modified.'
+        });
+      }
+
+      // Add new version (overwrites/updates the submission to latest version)
       const newVersion = submission.currentVersion + 1;
       submission.versions.push({
         version: newVersion,
         driveLink: driveLink.trim(),
         description,
+        submittedBy: student._id,
+        submittedByName: student.name,
         submittedAt: new Date()
       });
       submission.currentVersion = newVersion;
@@ -167,6 +177,8 @@ exports.createOrUpdateSubmission = async (req, res) => {
           version: 1,
           driveLink: driveLink.trim(),
           description,
+          submittedBy: student._id,
+          submittedByName: student.name,
           submittedAt: new Date()
         }],
         currentVersion: 1,
@@ -605,15 +617,8 @@ exports.getAllSubmissions = async (req, res) => {
       }
 
       filter.batchId = { $in: coordinatorBatchIds };
-      // Coordinators can only see submissions accepted/completed by the guide
-      if (!status || status === 'all') {
-        filter.status = { $in: ['accepted', 'completed'] };
-      } else if (status !== 'accepted' && status !== 'completed') {
-        return res.status(200).json({
-          success: true,
-          data: [],
-          pagination: { current: page, total: 0, limit, pages: 0 }
-        });
+      if (status && status !== 'all') {
+        filter.status = status;
       }
     }
 

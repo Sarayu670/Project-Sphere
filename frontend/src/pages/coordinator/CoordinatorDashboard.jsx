@@ -353,35 +353,80 @@ function CoordinatorDashboard() {
   };
 
   const downloadMarksReport = () => {
-    if (!marksReport.columns.length) {
+    if (!marksReport.columns.length || !marksReport.rows.length) {
       return;
     }
 
-    const rows = marksReport.rows.map(row => {
-      const record = {
-        Team: row.teamName,
-        'Project Title': row.projectTitle || 'Not Assigned',
-        Guide: row.guideName || 'Not Assigned',
-        Student: row.memberName,
-        'Roll Number': row.rollNumber
-      };
-      marksReport.columns.forEach(column => {
-        record[`${column.label} (Guide)`] = row[column.guideKey];
-        record[`${column.label} (PRC)`] = row[column.prcKey];
-        record[`${column.label} Total`] = row[column.totalKey];
+    const headers = [
+      'Team',
+      'Project Title',
+      'Guide',
+      'Student',
+      'Roll Number'
+    ];
+    marksReport.columns.forEach(column => {
+      headers.push(`${column.label} (Guide)`);
+      headers.push(`${column.label} (PRC)`);
+      headers.push(`${column.label} Total`);
+    });
+    headers.push('Average');
+
+    const aoaData = [headers];
+    const merges = [];
+    let currentRowIdx = 1;
+
+    // Group rows by teamKey / teamName
+    const teamGroups = {};
+    marksReport.rows.forEach(row => {
+      const key = row.teamKey || row.teamName;
+      if (!teamGroups[key]) teamGroups[key] = [];
+      teamGroups[key].push(row);
+    });
+
+    Object.values(teamGroups).forEach(groupRows => {
+      const startRow = currentRowIdx;
+      const numMembers = groupRows.length;
+
+      groupRows.forEach(row => {
+        const record = [
+          row.teamName,
+          row.projectTitle || 'Not Assigned',
+          row.guideName || 'Not Assigned',
+          row.memberName,
+          row.rollNumber
+        ];
+
+        marksReport.columns.forEach(column => {
+          record.push(row[column.guideKey] ?? '—');
+          record.push(row[column.prcKey] ?? '—');
+          record.push(row[column.totalKey] ?? '—');
+        });
+
+        const avg = marksReport.columns.length > 0
+          ? Number((row.total / marksReport.columns.length).toFixed(2))
+          : 0;
+        record.push(avg);
+
+        aoaData.push(record);
+        currentRowIdx++;
       });
-      record['Average'] = marksReport.columns.length > 0
-        ? Number((row.total / marksReport.columns.length).toFixed(2))
-        : 0;
-      return record;
+
+      if (numMembers > 1) {
+        const endRow = startRow + numMembers - 1;
+        // Merge Team (col 0), Project Title (col 1), Guide (col 2) across student rows
+        merges.push({ s: { r: startRow, c: 0 }, e: { r: endRow, c: 0 } });
+        merges.push({ s: { r: startRow, c: 1 }, e: { r: endRow, c: 1 } });
+        merges.push({ s: { r: startRow, c: 2 }, e: { r: endRow, c: 2 } });
+      }
     });
 
     const workbook = XLSX.utils.book_new();
-    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const worksheet = XLSX.utils.aoa_to_sheet(aoaData);
+    worksheet['!merges'] = merges;
     worksheet['!cols'] = [
       { wch: 18 }, { wch: 35 }, { wch: 22 }, { wch: 22 }, { wch: 16 },
-      ...marksReport.columns.map(() => ({ wch: 18 })),
-      { wch: 12 }, { wch: 12 }, { wch: 12 }
+      ...marksReport.columns.flatMap(() => [{ wch: 14 }, { wch: 14 }, { wch: 14 }]),
+      { wch: 12 }
     ];
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Marks Report');
     XLSX.writeFile(workbook, `Project_Sphere_${scope?.year}_${scope?.branch}_${scope?.section}_Marks_Report.xlsx`);

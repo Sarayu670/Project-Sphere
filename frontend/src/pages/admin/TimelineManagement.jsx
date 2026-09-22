@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import * as api from "../../services/api";
 import usePolling from "../../utils/usePolling";
+import * as XLSX from "xlsx-js-style";
 
 const TARGET_YEARS = ["all", "2nd", "3rd", "4th"];
 const ALL_COLUMNS = [
@@ -41,6 +42,12 @@ const isGuideApproved = (submission) => (
 const hasUploadedVersion = (submission) => (
   Array.isArray(submission?.versions) && submission.versions.length > 0
 );
+
+const formatExcelComment = (value) => {
+  const text = String(value || 'N/A').trim();
+  if (!text) return 'N/A';
+  return text.replace(/(.{1,58})(\s+|$)/g, '$1\n').trim();
+};
 
 function TimelineReadOnly({ scope }) {
   const [events, setEvents] = useState([]);
@@ -131,9 +138,10 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
   const [submissionPagination, setSubmissionPagination] = useState({
     current: 1,
     total: 0,
-    limit: 50,
+    limit: 10,
     pages: 0
   });
+  const SUBMISSIONS_PAGE_SIZE = 10;
   const [isLoadingMoreSubmissions, setIsLoadingMoreSubmissions] = useState(false);
 
   // Filters
@@ -341,7 +349,7 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
         });
         statsMap[event._id] = {
           approved: approvedBatchIds.size,
-          submitted: submittedBatchIds.size,
+          submitted: approvedBatchIds.size + submittedBatchIds.size,
           notSubmitted: Math.max(0, totalBatches - approvedBatchIds.size - submittedBatchIds.size),
           total: totalBatches
         };
@@ -366,7 +374,7 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
       const submissionsRes = await api.getAllSubmissions({
         eventId,
         page,
-        limit: 50,
+        limit: 1000,
         status: 'all'
       });
 
@@ -374,16 +382,11 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
       const pagination = submissionsRes.data?.pagination || {
         current: page,
         total: 0,
-        limit: 50,
+        limit: 1000,
         pages: 0
       };
 
-      if (page === 1) {
-        setSubmissions(newSubmissions);
-      } else {
-        // Append to existing submissions
-        setSubmissions(prev => [...prev, ...newSubmissions]);
-      }
+      setSubmissions(newSubmissions);
 
       setSubmissionPagination(pagination);
       setSubmissionPage(page);
@@ -434,6 +437,69 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
       load();
     }
   }, [selectedEvent?._id, fetchSubmissionsForEvent, fetchBatchesForEvent, batches.length]);
+
+  const filteredEventSubmissions = useMemo(() => submissions.filter((sub) => {
+    const subEventId = typeof sub.timelineEventId === "string"
+      ? sub.timelineEventId
+      : sub.timelineEventId?._id;
+    if (subEventId !== selectedEvent?._id) return false;
+
+    const batchId = typeof sub.batchId === "string" ? sub.batchId : sub.batchId?._id;
+    const batch = visibleBatches.find((item) => item._id?.toString() === batchId?.toString());
+    if (!batch) return false;
+    if (filterYear && batch.year !== filterYear) return false;
+    if (filterBranch && batch.branch !== filterBranch) return false;
+    if (filterSection && batch.section !== filterSection) return false;
+
+    const uploaded = hasUploadedVersion(sub);
+    if (submissionFilter === 'approved') return uploaded && isGuideApproved(sub);
+    if (submissionFilter === 'submitted') return uploaded && !isGuideApproved(sub);
+    if (submissionFilter === 'not_submitted') return false;
+    return uploaded;
+  }), [submissions, selectedEvent?._id, visibleBatches, filterYear, filterBranch, filterSection, submissionFilter]);
+
+  const notSubmittedBatches = useMemo(() => {
+    if (submissionFilter !== 'all' && submissionFilter !== 'not_submitted') return [];
+    const submittedBatchIds = new Set(
+      submissions.filter((sub) => {
+        const subEventId = typeof sub.timelineEventId === "string" ? sub.timelineEventId : sub.timelineEventId?._id;
+        return subEventId === selectedEvent?._id && hasUploadedVersion(sub);
+      }).map((sub) => {
+        const batchId = typeof sub.batchId === "string" ? sub.batchId : sub.batchId?._id;
+        return batchId?.toString();
+      }).filter(Boolean)
+    );
+
+    return visibleBatches.filter((batch) => (
+      !submittedBatchIds.has(batch._id?.toString()) &&
+      (!filterYear || batch.year === filterYear) &&
+      (!filterBranch || batch.branch === filterBranch) &&
+      (!filterSection || batch.section === filterSection)
+    ));
+  }, [submissions, selectedEvent?._id, visibleBatches, filterYear, filterBranch, filterSection, submissionFilter]);
+
+  const totalDisplayRows = filteredEventSubmissions.length + notSubmittedBatches.length;
+  const displayPages = Math.ceil(totalDisplayRows / SUBMISSIONS_PAGE_SIZE);
+  const displayPageStart = (submissionPagination.current - 1) * SUBMISSIONS_PAGE_SIZE;
+  const displayPageEnd = displayPageStart + SUBMISSIONS_PAGE_SIZE;
+  const submittedPageRows = filteredEventSubmissions.slice(displayPageStart, displayPageEnd);
+  const notSubmittedPageStart = Math.max(0, displayPageStart - filteredEventSubmissions.length);
+  const notSubmittedPageEnd = Math.max(0, displayPageEnd - filteredEventSubmissions.length);
+
+  useEffect(() => {
+    setSubmissionPagination((current) => ({
+      ...current,
+      total: totalDisplayRows,
+      limit: SUBMISSIONS_PAGE_SIZE,
+      pages: displayPages,
+      current: displayPages > 0 ? Math.min(current.current, displayPages) : 1
+    }));
+  }, [totalDisplayRows, displayPages]);
+
+  useEffect(() => {
+    setSubmissionPage(1);
+    setSubmissionPagination((current) => ({ ...current, current: 1 }));
+  }, [selectedEvent?._id, submissionFilter, filterYear, filterBranch, filterSection]);
 
   // Poll every 60s for new events/batches only (not submissions) - reduced from 25s
   usePolling(fetchEvents, 60000);
@@ -824,9 +890,9 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
               </div>
               <button
                 className="btn btn-success"
-                onClick={() => downloadReportAsCSV()}
+                onClick={() => downloadReportAsExcel()}
               >
-                📥 Download Report (CSV)
+                📥 Download Excel Report
               </button>
             </div>
             <div
@@ -1012,36 +1078,7 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
                 </tr>
               </thead>
               <tbody>
-                {submissionFilter !== 'not_submitted' && submissions
-                  .filter((sub) => {
-                    const uploaded = hasUploadedVersion(sub);
-                    if (submissionFilter === 'approved' && (!uploaded || !isGuideApproved(sub))) {
-                      return false;
-                    }
-                    if (submissionFilter === 'submitted' && (!uploaded || isGuideApproved(sub))) {
-                      return false;
-                    }
-                    // Handle both string and object formats for timelineEventId
-                    const subEventId =
-                      typeof sub.timelineEventId === "string"
-                        ? sub.timelineEventId
-                        : sub.timelineEventId?._id;
-                    return subEventId === selectedEvent._id;
-                  })
-                  .filter((sub) => {
-                    const batchId =
-                      typeof sub.batchId === "string"
-                        ? sub.batchId
-                        : sub.batchId?._id;
-                    const batch = visibleBatches.find((b) => b._id?.toString() === batchId?.toString());
-                    if (!batch) return false;
-                    if (filterYear && batch.year !== filterYear) return false;
-                    if (filterBranch && batch.branch !== filterBranch)
-                      return false;
-                    if (filterSection && batch.section !== filterSection)
-                      return false;
-                    return true;
-                  })
+                {submittedPageRows
                   .map((sub) => {
                     const batchId =
                       typeof sub.batchId === "string"
@@ -1108,7 +1145,7 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
                             <span
                               style={{ fontWeight: "500", color: "#2d3748" }}
                             >
-                              👨‍🏫 {batch.guideId.name}
+                              {batch.guideId.name}
                             </span>
                           ) : (
                             <span
@@ -1222,7 +1259,7 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
                                 }
                                 title="Click to expand"
                               >
-                                <strong>👨‍🏫:</strong>{" "}
+                                <strong>Guide:</strong>{" "}
                                 {sub.comments[sub.comments.length - 1].comment.substring(0, 50)}...
                                 <br />
                                 <small style={{ color: "#666" }}>
@@ -1368,14 +1405,8 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
                       .filter(Boolean)
                   );
 
-                  return visibleBatches
-                    .filter(batch => {
-                      if (submittedBatchIds.has(batch._id?.toString())) return false;
-                      if (filterYear && batch.year !== filterYear) return false;
-                      if (filterBranch && batch.branch !== filterBranch) return false;
-                      if (filterSection && batch.section !== filterSection) return false;
-                      return true;
-                    })
+                  return notSubmittedBatches
+                    .slice(notSubmittedPageStart, notSubmittedPageEnd)
                     .map(batch => (
                       <tr key={`ns-${batch._id}`} style={{ background: '#fff8f8', opacity: 0.85 }}>
                         <td>
@@ -1396,7 +1427,7 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
                         {!scope && <td>{batch?.domain || '—'}</td>}
                         <td>
                           {batch?.guideId?.name ? (
-                            <span style={{ fontWeight: "500", color: "#2d3748" }}>👨‍🏫 {batch.guideId.name}</span>
+                            <span style={{ fontWeight: "500", color: "#2d3748" }}>{batch.guideId.name}</span>
                           ) : <span style={{ color: "#718096", fontStyle: "italic" }}>Not Assigned</span>}
                         </td>
                         <td><span style={{ color: '#aaa', fontSize: '13px' }}>—</span></td>
@@ -1412,32 +1443,50 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
           </div>
 
           {/* Pagination Controls */}
-          {
-            submissionPagination.pages > 1 && (
-              <div style={{
-                marginTop: "20px",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                flexWrap: "wrap",
-                gap: "10px"
-              }}>
-                <div style={{ fontSize: "14px", color: "#666" }}>
-                  Showing {submissions.length} of {submissionPagination.total} submissions
-                  {submissionPagination.pages > 1 && ` | Page ${submissionPagination.current} of ${submissionPagination.pages}`}
-                </div>
-                {submissionPagination.current < submissionPagination.pages && (
-                  <button
-                    className="btn btn-primary"
-                    onClick={() => fetchSubmissionsForEvent(selectedEvent._id, submissionPage + 1)}
-                    disabled={isLoadingMoreSubmissions}
-                  >
-                    {isLoadingMoreSubmissions ? "⏳ Loading..." : `📥 Load More (${submissionPagination.limit} submissions)`}
-                  </button>
-                )}
+          {displayPages > 1 && (
+            <div style={{
+              marginTop: "20px",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: "10px"
+            }}>
+              <div style={{ fontSize: "14px", color: "#666" }}>
+                Showing {((submissionPagination.current - 1) * submissionPagination.limit) + 1} - {Math.min(submissionPagination.current * submissionPagination.limit, submissionPagination.total)} of {submissionPagination.total} submissions
+                | Page {submissionPagination.current} of {submissionPagination.pages}
               </div>
-            )
-          }
+              <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => setSubmissionPagination((current) => ({ ...current, current: current.current - 1 }))}
+                  disabled={submissionPagination.current <= 1}
+                  style={{ padding: "4px 10px", fontSize: "12px" }}
+                >
+                  &lt; Prev
+                </button>
+                {Array.from({ length: displayPages }, (_, i) => i + 1).map((pageNum) => (
+                  <button
+                    key={pageNum}
+                    className={`btn ${pageNum === submissionPagination.current ? "btn-primary" : "btn-secondary"}`}
+                    onClick={() => setSubmissionPagination((current) => ({ ...current, current: pageNum }))}
+                    disabled={isLoadingMoreSubmissions}
+                    style={{ padding: "4px 10px", fontSize: "12px", minWidth: "32px" }}
+                  >
+                    {pageNum}
+                  </button>
+                ))}
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => setSubmissionPagination((current) => ({ ...current, current: current.current + 1 }))}
+                  disabled={submissionPagination.current >= displayPages}
+                  style={{ padding: "4px 10px", fontSize: "12px" }}
+                >
+                  Next &gt;
+                </button>
+              </div>
+            </div>
+          )}
         </div >
       )
       }
@@ -1560,14 +1609,14 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
                     {(() => {
                       const stats = eventStats[event._id];
                       if (!stats) return <span style={{ fontSize: "12px", color: "#94a3b8" }}>Loading stats...</span>;
-                      const notSub = Math.max(0, stats.total - stats.submitted);
+                      const notSub = stats.notSubmitted;
                       return (
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '2px' }}>
                           <span style={{ fontSize: '12px', fontWeight: '600', color: '#16a34a', background: '#dcfce7', padding: '2px 8px', borderRadius: '12px' }}>
-                            ✅ {stats.submitted} Submitted
+                            {stats.submitted} Submitted
                           </span>
                           <span style={{ fontSize: '12px', fontWeight: '600', color: '#dc2626', background: '#fee2e2', padding: '2px 8px', borderRadius: '12px' }}>
-                            ❌ {notSub} Pending
+                            {notSub} Pending
                           </span>
                         </div>
                       );
@@ -1656,7 +1705,7 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
                           }}
                         >
                           <strong style={{ color: "#0c4a6e" }}>
-                            👨‍🏫 {c.guideId?.name || "Guide"}
+                            {c.guideId?.name || "Guide"}
                           </strong>
                           <small style={{ color: "#64748b" }}>
                             {new Date(c.createdAt).toLocaleDateString("en-IN", {
@@ -2055,176 +2104,277 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
     </div >
   );
 
-  // Download report as CSV function
-  async function downloadReportAsCSV() {
-    if (!selectedEvent || submissions.length === 0) {
-      alert("No submissions to download");
+  // Download report as Excel with merged cells for batch details
+  async function downloadReportAsExcel() {
+    if (!selectedEvent) {
+      alert("No event selected to download report.");
       return;
     }
 
-    // Filter submissions for current event
-    const eventSubmissions = submissions.filter((sub) => {
-      const subEventId =
-        typeof sub.timelineEventId === "string"
-          ? sub.timelineEventId
-          : sub.timelineEventId?._id;
-      return subEventId === selectedEvent._id;
-    });
+    try {
+      // Fetch ALL submissions for current event so report is complete across all pages
+      const res = await api.getAllSubmissions({ eventId: selectedEvent._id, limit: 1000, status: 'all' });
+      const eventSubmissions = res.data?.data || res.data || [];
 
-    if (eventSubmissions.length === 0) {
-      alert("No submissions to download");
-      return;
-    }
+      // Filter submissions matching event
+      const filteredSubs = eventSubmissions.filter(sub => {
+        const subEventId = typeof sub.timelineEventId === "string" ? sub.timelineEventId : sub.timelineEventId?._id;
+        if (subEventId !== selectedEvent._id || !hasUploadedVersion(sub)) return false;
+        if (submissionFilter === 'approved' && !isGuideApproved(sub)) return false;
+        if (submissionFilter === 'submitted' && isGuideApproved(sub)) return false;
+        if (submissionFilter === 'not_submitted') return false;
+        const batchId = typeof sub.batchId === "string" ? sub.batchId : sub.batchId?._id;
+        const batch = visibleBatches.find((item) => item._id?.toString() === batchId?.toString());
+        return batch &&
+          (!filterYear || batch.year === filterYear) &&
+          (!filterBranch || batch.branch === filterBranch) &&
+          (!filterSection || batch.section === filterSection);
+      });
 
-    // Prepare CSV data
-    let csvContent = "data:text/csv;charset=utf-8,";
-    csvContent += `Timeline Event: ${selectedEvent.title}\n`;
-    csvContent += `Generated on: ${new Date().toLocaleDateString("en-IN")}\n`;
-    csvContent += `Deadline: ${new Date(
-      selectedEvent.deadline
-    ).toLocaleDateString("en-IN")}\n`;
-    csvContent += `Max Marks: ${selectedEvent.maxMarks}\n\n`;
-
-    // Header row
-    const headers = activeColumns.filter((col) =>
-      selectedColumns.includes(col.key)
-    ).map((h) => `"${h.label}"`);
-    csvContent += headers.join(",") + "\n";
-
-    // Data rows - each student on their own row
-    eventSubmissions.forEach((sub) => {
-      const batchId =
-        typeof sub.batchId === "string" ? sub.batchId : sub.batchId?._id;
-      const batch = batches.find((b) => b._id === batchId);
-      const adminRemarksText =
-        sub.adminRemarks?.length > 0
-          ? sub.adminRemarks.map(r => r.remark.replace(/"/g, '""')).join("; ")
-          : "N/A";
-      const guideFeedbackText =
-        sub.comments?.length > 0
-          ? sub.comments.map(c => c.comment.replace(/"/g, '""')).join("; ")
-          : "N/A";
-      const coe = batch?.problemId?.coeId?.name || batch?.coeId?.name || "N/A";
-      const guide = batch?.guideId?.name || "Not Assigned";
-
-      // Collect all student members for this batch
-      const studentList = [];
-      if (batch?.leaderStudentId && typeof batch.leaderStudentId === 'object') {
-        studentList.push({
-          _id: String(batch.leaderStudentId._id || ''),
-          rollNo: batch.leaderStudentId.rollNumber || batch.leaderStudentId.rollNo || '',
-          name: batch.leaderStudentId.name || ''
-        });
+      if (filteredSubs.length === 0 && visibleBatches.length === 0) {
+        alert("No data available to download");
+        return;
       }
-      (batch?.teamMembers || []).forEach((m) => {
-        const roll = m.rollNo || m.rollNumber || '';
-        if (!studentList.some((existing) => (existing._id && existing._id === String(m._id)) || (roll && existing.rollNo === roll))) {
+
+      // Map active selected columns
+      const activeCols = activeColumns.filter(col => selectedColumns.includes(col.key));
+      const headers = activeCols.map(c => c.label);
+
+      const aoaData = [headers];
+      const merges = [];
+      let currentRowIdx = 1; // 0 is header row
+
+      // Process submitted batches
+      filteredSubs.forEach((sub) => {
+        const batchId = typeof sub.batchId === "string" ? sub.batchId : sub.batchId?._id;
+        const batch = visibleBatches.find((b) => b._id?.toString() === batchId?.toString()) || batches.find(b => b._id === batchId);
+
+        if (batch) {
+          if (filterYear && batch.year !== filterYear) return;
+          if (filterBranch && batch.branch !== filterBranch) return;
+          if (filterSection && batch.section !== filterSection) return;
+        }
+
+        const adminRemarksText = sub.adminRemarks?.length > 0
+          ? sub.adminRemarks.map(r => r.remark).join("; ")
+          : "N/A";
+        const guideFeedbackText = sub.comments?.length > 0
+          ? sub.comments.map(c => c.comment).join("; ")
+          : "N/A";
+        const coe = batch?.problemId?.coeId?.name || batch?.coeId?.name || batch?.coe?.name || "N/A";
+        const guide = batch?.guideId?.name || "Not Assigned";
+
+        // Collect students for this batch
+        const studentList = [];
+        if (batch?.leaderStudentId && typeof batch.leaderStudentId === 'object') {
           studentList.push({
-            _id: String(m._id || ''),
-            rollNo: roll,
-            name: m.name || ''
+            _id: String(batch.leaderStudentId._id || ''),
+            rollNo: batch.leaderStudentId.rollNumber || batch.leaderStudentId.rollNo || '',
+            name: batch.leaderStudentId.name || ''
           });
         }
-      });
-      (sub.studentMarks || []).forEach((sm) => {
-        const s = sm.studentId;
-        if (s && typeof s === 'object') {
-          const roll = s.rollNumber || s.rollNo || '';
-          if (!studentList.some((existing) => (existing._id && existing._id === String(s._id)) || (roll && existing.rollNo === roll))) {
+        (batch?.teamMembers || []).forEach((m) => {
+          const roll = m.rollNo || m.rollNumber || '';
+          if (!studentList.some((existing) => (existing._id && existing._id === String(m._id)) || (roll && existing.rollNo === roll))) {
             studentList.push({
-              _id: String(s._id || ''),
+              _id: String(m._id || ''),
               rollNo: roll,
-              name: s.name || ''
+              name: m.name || ''
             });
           }
-        }
-      });
-      (sub.prcStudentMarks || []).forEach((sm) => {
-        const s = sm.studentId;
-        if (s && typeof s === 'object') {
-          const roll = s.rollNumber || s.rollNo || '';
-          if (!studentList.some((existing) => (existing._id && existing._id === String(s._id)) || (roll && existing.rollNo === roll))) {
-            studentList.push({
-              _id: String(s._id || ''),
-              rollNo: roll,
-              name: s.name || ''
-            });
+        });
+        (sub.studentMarks || []).forEach((sm) => {
+          const s = sm.studentId;
+          if (s && typeof s === 'object') {
+            const roll = s.rollNumber || s.rollNo || '';
+            if (!studentList.some((existing) => (existing._id && existing._id === String(s._id)) || (roll && existing.rollNo === roll))) {
+              studentList.push({
+                _id: String(s._id || ''),
+                rollNo: roll,
+                name: s.name || ''
+              });
+            }
           }
+        });
+        (sub.prcStudentMarks || []).forEach((sm) => {
+          const s = sm.studentId;
+          if (s && typeof s === 'object') {
+            const roll = s.rollNumber || s.rollNo || '';
+            if (!studentList.some((existing) => (existing._id && existing._id === String(s._id)) || (roll && existing.rollNo === roll))) {
+              studentList.push({
+                _id: String(s._id || ''),
+                rollNo: roll,
+                name: s.name || ''
+              });
+            }
+          }
+        });
+
+        if (studentList.length === 0) {
+          studentList.push({ _id: '', rollNo: 'N/A', name: 'N/A' });
         }
-      });
 
-      if (studentList.length === 0) {
-        studentList.push({ _id: '', rollNo: 'N/A', name: 'N/A' });
-      }
+        const startRowForBatch = currentRowIdx;
+        const numMembers = studentList.length;
 
-      studentList.forEach((m) => {
-        let guideMark = "N/A";
-        if (sub.status === 'accepted' || sub.status === 'completed') {
-          if (Array.isArray(sub.studentMarks) && sub.studentMarks.length > 0) {
-            const sm = sub.studentMarks.find((entry) => {
+        studentList.forEach((m) => {
+          let guideMark = "N/A";
+          if (sub.status === 'accepted' || sub.status === 'completed') {
+            if (Array.isArray(sub.studentMarks) && sub.studentMarks.length > 0) {
+              const sm = sub.studentMarks.find((entry) => {
+                const sid = typeof entry.studentId === 'object' ? entry.studentId?._id : entry.studentId;
+                const sroll = typeof entry.studentId === 'object' ? entry.studentId?.rollNumber : null;
+                return (sid && String(sid) === String(m._id)) || (sroll && sroll === m.rollNo);
+              });
+              if (sm && sm.marks !== null && sm.marks !== undefined && sm.marks !== '') {
+                guideMark = Number(sm.marks);
+              }
+            } else if (sub.marks !== null && sub.marks !== undefined && sub.marks !== '') {
+              guideMark = Number(sub.marks);
+            }
+          }
+
+          let prcMark = "N/A";
+          if (Array.isArray(sub.prcStudentMarks) && sub.prcStudentMarks.length > 0) {
+            const pm = sub.prcStudentMarks.find((entry) => {
               const sid = typeof entry.studentId === 'object' ? entry.studentId?._id : entry.studentId;
               const sroll = typeof entry.studentId === 'object' ? entry.studentId?.rollNumber : null;
               return (sid && String(sid) === String(m._id)) || (sroll && sroll === m.rollNo);
             });
-            if (sm && sm.marks !== null && sm.marks !== undefined && sm.marks !== '') {
-              guideMark = Number(sm.marks);
+            if (pm && pm.marks !== null && pm.marks !== undefined && pm.marks !== '') {
+              prcMark = Number(pm.marks);
             }
-          } else if (sub.marks !== null && sub.marks !== undefined && sub.marks !== '') {
-            guideMark = Number(sub.marks);
+          } else if (sub.prcMarks !== null && sub.prcMarks !== undefined && sub.prcMarks !== '') {
+            prcMark = Number(sub.prcMarks);
           }
-        }
 
-        let prcMark = "N/A";
-        if (Array.isArray(sub.prcStudentMarks) && sub.prcStudentMarks.length > 0) {
-          const pm = sub.prcStudentMarks.find((entry) => {
-            const sid = typeof entry.studentId === 'object' ? entry.studentId?._id : entry.studentId;
-            const sroll = typeof entry.studentId === 'object' ? entry.studentId?.rollNumber : null;
-            return (sid && String(sid) === String(m._id)) || (sroll && sroll === m.rollNo);
+          const memberDisplay = m.name && m.rollNo && m.name !== m.rollNo
+            ? `${m.name} (${m.rollNo})`
+            : m.rollNo || m.name || "N/A";
+
+          const rowMap = {
+            teamName: batch?.teamName || "Unknown",
+            teamMembers: memberDisplay,
+            year: batch?.year || "N/A",
+            branch: batch?.branch || "N/A",
+            section: batch?.section || "N/A",
+            coe: coe,
+            domain: batch?.domain || "N/A",
+            guide: guide,
+            marks: guideMark,
+            prcMarks: prcMark,
+            guidesFeedback: formatExcelComment(guideFeedbackText),
+            adminRemarks: formatExcelComment(adminRemarksText),
+          };
+
+          const rowValues = activeCols.map((c) => rowMap[c.key]);
+          aoaData.push(rowValues);
+          currentRowIdx++;
+        });
+
+        // Add merges for batch-level columns across member rows if numMembers > 1
+        if (numMembers > 1) {
+          const endRowForBatch = startRowForBatch + numMembers - 1;
+          activeCols.forEach((col, colIdx) => {
+            if (['teamName', 'year', 'branch', 'section', 'coe', 'domain', 'guide', 'guidesFeedback', 'adminRemarks'].includes(col.key)) {
+              merges.push({
+                s: { r: startRowForBatch, c: colIdx },
+                e: { r: endRowForBatch, c: colIdx }
+              });
+            }
           });
-          if (pm && pm.marks !== null && pm.marks !== undefined && pm.marks !== '') {
-            prcMark = Number(pm.marks);
-          }
-        } else if (sub.prcMarks !== null && sub.prcMarks !== undefined && sub.prcMarks !== '') {
-          prcMark = Number(sub.prcMarks);
         }
-
-        const memberDisplay = m.name && m.rollNo && m.name !== m.rollNo
-          ? `${m.name} (${m.rollNo})`
-          : m.rollNo || m.name || "N/A";
-
-        const rowData = {
-          teamName: `"${(batch?.teamName || "Unknown").replace(/"/g, '""')}"`,
-          teamMembers: `"${memberDisplay.replace(/"/g, '""')}"`,
-          year: `"${batch?.year || "N/A"}"`,
-          branch: `"${batch?.branch || "N/A"}"`,
-          section: `"${batch?.section || "N/A"}"`,
-          coe: `"${coe.replace(/"/g, '""')}"`,
-          domain: `"${(batch?.domain || "N/A").replace(/"/g, '""')}"`,
-          guide: `"${guide.replace(/"/g, '""')}"`,
-          marks: guideMark !== "N/A" ? guideMark : `"N/A"`,
-          prcMarks: prcMark !== "N/A" ? prcMark : `"N/A"`,
-          guidesFeedback: `"${guideFeedbackText}"`,
-          adminRemarks: `"${adminRemarksText}"`,
-        };
-        const row = activeColumns.filter((col) =>
-          selectedColumns.includes(col.key)
-        ).map((col) => rowData[col.key]);
-        csvContent += row.join(",") + "\n";
       });
-    });
 
-    // Create download link
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute(
-      "download",
-      `${selectedEvent.title}_report_${new Date().toISOString().split("T")[0]
-      }.csv`
-    );
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+      // Also process Not Submitted batches if shown
+      if (submissionFilter === 'all' || submissionFilter === 'not_submitted') {
+        const submittedBatchIds = new Set(
+          filteredSubs.filter(sub => hasUploadedVersion(sub)).map(sub => {
+            const bId = typeof sub.batchId === "string" ? sub.batchId : sub.batchId?._id;
+            return bId ? bId.toString() : null;
+          }).filter(Boolean)
+        );
+
+        const notSubmittedBatches = visibleBatches.filter(batch => {
+          if (submittedBatchIds.has(batch._id?.toString())) return false;
+          if (filterYear && batch.year !== filterYear) return false;
+          if (filterBranch && batch.branch !== filterBranch) return false;
+          if (filterSection && batch.section !== filterSection) return false;
+          return true;
+        });
+
+        notSubmittedBatches.forEach(batch => {
+          const members = batch.teamMembers || [];
+          const studentList = members.length > 0 ? members.map(m => m.rollNo || m.name) : ['N/A'];
+          const startRowForBatch = currentRowIdx;
+          const numMembers = studentList.length;
+
+          studentList.forEach(mDisplay => {
+            const rowMap = {
+              teamName: batch.teamName,
+              teamMembers: mDisplay,
+              year: batch.year,
+              branch: batch.branch,
+              section: batch.section,
+              coe: batch?.coe?.name || batch?.coeId?.name || "N/A",
+              domain: batch.domain || "N/A",
+              guide: batch.guideId?.name || "Not Assigned",
+              marks: "Not Submitted",
+              prcMarks: "Not Submitted",
+              guidesFeedback: "N/A",
+              adminRemarks: "N/A",
+            };
+            const rowValues = activeCols.map((c) => rowMap[c.key]);
+            aoaData.push(rowValues);
+            currentRowIdx++;
+          });
+
+          if (numMembers > 1) {
+            const endRowForBatch = startRowForBatch + numMembers - 1;
+            activeCols.forEach((col, colIdx) => {
+              if (['teamName', 'year', 'branch', 'section', 'coe', 'domain', 'guide', 'guidesFeedback', 'adminRemarks'].includes(col.key)) {
+                merges.push({
+                  s: { r: startRowForBatch, c: colIdx },
+                  e: { r: endRowForBatch, c: colIdx }
+                });
+              }
+            });
+          }
+        });
+      }
+
+      // Create SheetJS Worksheet
+      const worksheet = XLSX.utils.aoa_to_sheet(aoaData);
+      worksheet['!merges'] = merges;
+      worksheet['!rows'] = [
+        { hpt: 24 },
+        ...aoaData.slice(1).map(() => ({ hpt: 42 }))
+      ];
+      Object.keys(worksheet).forEach((cellAddress) => {
+        if (cellAddress.startsWith('!')) return;
+        worksheet[cellAddress].s = {
+          alignment: { vertical: 'top', wrapText: true }
+        };
+      });
+
+      // Set nice column widths
+      worksheet['!cols'] = activeCols.map(col => {
+        if (col.key === 'teamName') return { wch: 20 };
+        if (col.key === 'teamMembers') return { wch: 25 };
+        if (col.key === 'guide' || col.key === 'coe' || col.key === 'domain') return { wch: 22 };
+        if (col.key === 'guidesFeedback' || col.key === 'adminRemarks') return { wch: 65 };
+        return { wch: 14 };
+      });
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Event Submissions');
+
+      const fileName = `${selectedEvent.title.replace(/[^a-zA-Z0-9_-]/g, "_")}_Report_${new Date().toISOString().split("T")[0]}.xlsx`;
+      XLSX.writeFile(workbook, fileName);
+    } catch (err) {
+      console.error("Failed to export Excel report:", err);
+      alert("Failed to export Excel report: " + err.message);
+    }
   }
 }
 

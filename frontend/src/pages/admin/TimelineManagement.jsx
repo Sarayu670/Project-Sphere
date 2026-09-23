@@ -2239,6 +2239,12 @@ function TimelineEditor({ scope = null, allowRemarkEditing = true }) {
           (!filterYear || batch.year === filterYear) &&
           (!filterBranch || batch.branch === filterBranch) &&
           (!filterSection || batch.section === filterSection);
+      }).sort((left, right) => {
+        const leftId = typeof left.batchId === "string" ? left.batchId : left.batchId?._id;
+        const rightId = typeof right.batchId === "string" ? right.batchId : right.batchId?._id;
+        const leftBatch = visibleBatches.find(batch => String(batch._id) === String(leftId));
+        const rightBatch = visibleBatches.find(batch => String(batch._id) === String(rightId));
+        return compareNatural(leftBatch?.teamName, rightBatch?.teamName);
       });
 
       if (filteredSubs.length === 0 && visibleBatches.length === 0) {
@@ -2323,6 +2329,8 @@ function TimelineEditor({ scope = null, allowRemarkEditing = true }) {
         if (studentList.length === 0) {
           studentList.push({ _id: '', rollNo: 'N/A', name: 'N/A' });
         }
+
+        studentList.sort((left, right) => compareNatural(left.rollNo, right.rollNo));
 
         const startRowForBatch = currentRowIdx;
         const numMembers = studentList.length;
@@ -2413,9 +2421,13 @@ function TimelineEditor({ scope = null, allowRemarkEditing = true }) {
           return true;
         });
 
-        notSubmittedBatches.forEach(batch => {
+        notSubmittedBatches.sort((left, right) => compareNatural(left.teamName, right.teamName)).forEach(batch => {
           const members = batch.teamMembers || [];
-          const studentList = members.length > 0 ? members.map(m => m.rollNo || m.name) : ['N/A'];
+          const studentList = members.length > 0
+            ? members
+              .map(m => m.rollNo || m.name)
+              .sort((left, right) => compareNatural(left, right))
+            : ['N/A'];
           const startRowForBatch = currentRowIdx;
           const numMembers = studentList.length;
 

@@ -23,6 +23,11 @@ const MARKS_REPORT_MAX = TRACKED_MARK_EVENTS.length * MARK_GROUP_MAX;
 
 const normalizeEventTitle = (value = '') => String(value).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 
+const compareNatural = (left, right) => String(left || '').localeCompare(String(right || ''), undefined, {
+  numeric: true,
+  sensitivity: 'base'
+});
+
 function idOf(value) {
   return typeof value === 'object' && value ? value._id : value;
 }
@@ -60,7 +65,7 @@ function buildMarksReport(batches = [], timelineEvents = [], submissions = []) {
   }
 
   const rows = [];
-  for (const batch of batches) {
+  for (const batch of [...batches].sort((left, right) => compareNatural(left.teamName, right.teamName))) {
     const batchId = String(batch?._id || '');
     if (!batchId) continue;
 
@@ -107,7 +112,7 @@ function buildMarksReport(batches = [], timelineEvents = [], submissions = []) {
       });
     }
 
-    const memberList = Array.from(members.values());
+    const memberList = Array.from(members.values()).sort((left, right) => compareNatural(left.rollNo, right.rollNo));
     if (!memberList.length) continue;
 
     for (const member of memberList) {
@@ -500,7 +505,7 @@ function CoordinatorDashboard() {
   const teamsTotalPages = Math.max(1, Math.ceil(batches.length / TEAMS_PAGE_SIZE));
   const paginatedBatches = useMemo(() => {
     const start = (teamsPage - 1) * TEAMS_PAGE_SIZE;
-    return batches.slice(start, start + TEAMS_PAGE_SIZE);
+    return [...batches].sort((left, right) => compareNatural(left.teamName, right.teamName)).slice(start, start + TEAMS_PAGE_SIZE);
   }, [batches, teamsPage]);
 
   useEffect(() => {

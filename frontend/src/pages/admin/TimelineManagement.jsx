@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import * as api from "../../services/api";
 import usePolling from "../../utils/usePolling";
 import * as XLSX from "xlsx-js-style";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
 
 const TARGET_YEARS = ["all", "2nd", "3rd", "4th"];
 const ALL_COLUMNS = [
@@ -42,6 +44,11 @@ const isGuideApproved = (submission) => (
 const hasUploadedVersion = (submission) => (
   Array.isArray(submission?.versions) && submission.versions.length > 0
 );
+
+const compareNatural = (left, right) => String(left || '').localeCompare(String(right || ''), undefined, {
+  numeric: true,
+  sensitivity: 'base'
+});
 
 const formatExcelComment = (value) => {
   const text = String(value || 'N/A').trim();
@@ -96,19 +103,19 @@ function TimelineReadOnly({ scope }) {
   );
 }
 
-function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
+function TimelineEditor({ scope = null, allowRemarkEditing = true }) {
   const [events, setEvents] = useState([]);
   const [batches, setBatches] = useState([]);
   const [submissions, setSubmissions] = useState([]);
   const canAddRemarks = allowRemarkEditing;
   const [loading, setLoading] = useState(true);
   const visibleBatches = useMemo(() => {
-    if (!scope) return batches;
-    return batches.filter(batch =>
+    const filtered = !scope ? batches : batches.filter(batch =>
       batch.year === scope.year &&
       batch.branch === scope.branch &&
       batch.section === scope.section
     );
+    return [...filtered].sort((left, right) => compareNatural(left.teamName, right.teamName));
   }, [batches, scope]);
   const visibleEvents = useMemo(() => {
     if (!scope) return events;
@@ -349,16 +356,17 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
         });
         statsMap[event._id] = {
           approved: approvedBatchIds.size,
-          submitted: approvedBatchIds.size + submittedBatchIds.size,
+          submitted: submittedBatchIds.size,
           notSubmitted: Math.max(0, totalBatches - approvedBatchIds.size - submittedBatchIds.size),
           total: totalBatches
         };
+
       });
       setEventStats(statsMap);
     } catch (err) {
       console.error("Event stats fetch error:", err.message);
     }
-  }, [scope, filterYear, filterBranch, filterSection]);
+  }, [scope, filterYear, filterBranch, filterSection, selectedEvent?._id]);
 
   // Fetch submissions for selected event with pagination
   const fetchSubmissionsForEvent = useCallback(async (eventId, page = 1) => {
@@ -406,7 +414,7 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
     if (events.length > 0) {
       fetchEventStats(events);
     }
-  }, [events, fetchEventStats]);
+  }, [events, fetchEventStats, selectedEvent?._id]);
 
   // Reset submission filter when switching events
   useEffect(() => {
@@ -456,6 +464,12 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
     if (submissionFilter === 'submitted') return uploaded && !isGuideApproved(sub);
     if (submissionFilter === 'not_submitted') return false;
     return uploaded;
+  }).sort((left, right) => {
+    const leftBatchId = typeof left.batchId === 'string' ? left.batchId : left.batchId?._id;
+    const rightBatchId = typeof right.batchId === 'string' ? right.batchId : right.batchId?._id;
+    const leftBatch = visibleBatches.find(batch => String(batch._id) === String(leftBatchId));
+    const rightBatch = visibleBatches.find(batch => String(batch._id) === String(rightBatchId));
+    return compareNatural(leftBatch?.teamName, rightBatch?.teamName);
   }), [submissions, selectedEvent?._id, visibleBatches, filterYear, filterBranch, filterSection, submissionFilter]);
 
   const notSubmittedBatches = useMemo(() => {
@@ -821,51 +835,51 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
                   </span>
                 </div>
               </div>
-              {/* Stats beside heading */}
-              {(() => {
-                const stats = eventStats[selectedEvent._id] || { approved: 0, submitted: 0, notSubmitted: 0 };
-                const approvedCount = stats.approved;
-                const submittedCount = stats.submitted;
-                const notSubmittedCount = stats.notSubmitted;
-
-                return (
-                  <div style={{ display: "flex", gap: "10px", flexShrink: 0, alignItems: "center" }}>
-                    <div style={{ textAlign: "center", padding: "10px 16px", background: "#dbeafe", borderRadius: "10px", border: "1px solid #93c5fd" }}>
-                      <div style={{ fontSize: "22px", fontWeight: "700", color: "#1d4ed8" }}>{approvedCount}</div>
-                      <div style={{ fontSize: "11px", color: "#1d4ed8", fontWeight: "600" }}>✅ Guide Approved</div>
-                    </div>
-                    <div style={{ textAlign: "center", padding: "10px 16px", background: "#dcfce7", borderRadius: "10px", border: "1px solid #86efac" }}>
-                      <div style={{ fontSize: "22px", fontWeight: "700", color: "#15803d" }}>{submittedCount}</div>
-                      <div style={{ fontSize: "11px", color: "#15803d", fontWeight: "600" }}>📤 Submitted</div>
-                    </div>
-                    <div style={{ textAlign: "center", padding: "10px 16px", background: "#fee2e2", borderRadius: "10px", border: "1px solid #fca5a5" }}>
-                      <div style={{ fontSize: "22px", fontWeight: "700", color: "#dc2626" }}>{notSubmittedCount}</div>
-                      <div style={{ fontSize: "11px", color: "#b91c1c", fontWeight: "600" }}>❌ Not Submitted</div>
-                    </div>
-                  </div>
-                );
-              })()}
             </div>
           </div>
 
           {/* Filters & Download */}
           <div className="card" style={{ marginBottom: "20px" }}>
             <div
+              className="timeline-filter-header"
               style={{
-                display: "flex",
+                display: "grid",
+                gridTemplateColumns: "minmax(0, 1fr) auto",
                 justifyContent: "space-between",
                 alignItems: "center",
+                gap: "14px 20px",
                 marginBottom: "15px",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap" }}>
-                <h3 style={{ margin: 0 }}>🔍 Filters</h3>
+              <div className="timeline-filter-main" style={{ display: "flex", alignItems: "center", gap: "14px", minWidth: 0, flexWrap: "wrap" }}>
+                <h3 style={{ margin: 0, whiteSpace: "nowrap" }}>🔍 Filters</h3>
+                {(() => {
+                  const stats = eventStats[selectedEvent._id] || { approved: 0, submitted: 0, notSubmitted: 0 };
+                  const submittedTotal = stats.approved + stats.submitted;
+                  const total = stats.total || submittedTotal + stats.notSubmitted;
+                  const submittedPercent = total ? Math.round((submittedTotal / total) * 100) : 0;
+                  const approvedPercent = submittedTotal ? Math.round((stats.approved / submittedTotal) * 100) : 0;
+                  return (
+                    <div className="timeline-status-summary" style={{ display: "flex", alignItems: "center", gap: "14px", minWidth: 0 }}>
+                      <div style={{ width: "64px", height: "64px", flex: "0 0 64px", borderRadius: "50%", display: "grid", placeItems: "center", background: `conic-gradient(#0ea5e9 0 ${submittedPercent}%, #fca5a5 ${submittedPercent}% 100%)` }}>
+                        <div style={{ width: "46px", height: "46px", borderRadius: "50%", display: "grid", placeItems: "center", background: "#fff", color: "#0f172a", fontSize: "14px", fontWeight: 900 }}>{submittedPercent}%</div>
+                      </div>
+                      <div style={{ display: "grid", gap: "5px", minWidth: "260px", width: "min(100%, 390px)" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: "10px", color: "#0369a1", fontSize: "12px", fontWeight: 800 }}><span>Submitted Total</span><span>{submittedTotal} / {total}</span></div>
+                        <div style={{ height: "7px", background: "#e2e8f0", borderRadius: "99px", overflow: "hidden" }}><span style={{ display: "block", width: `${submittedPercent}%`, height: "100%", background: "#0ea5e9", borderRadius: "inherit" }} /></div>
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: "10px", color: "#1d4ed8", fontSize: "11px", fontWeight: 700 }}><span>Approved {stats.approved}</span><span>Not Approved {stats.submitted}</span></div>
+                        <div style={{ height: "5px", background: "#dcfce7", borderRadius: "99px", overflow: "hidden" }}><span style={{ display: "block", width: `${approvedPercent}%`, height: "100%", background: "#2563eb", borderRadius: "inherit" }} /></div>
+                        <div style={{ display: "flex", gap: "10px", color: "#64748b", fontSize: "11px", fontWeight: 700 }}><span><i style={{ display: "inline-block", width: "7px", height: "7px", borderRadius: "50%", background: "#0ea5e9", marginRight: "4px" }} />Submitted</span><span><i style={{ display: "inline-block", width: "7px", height: "7px", borderRadius: "50%", background: "#fca5a5", marginRight: "4px" }} />Not Submitted {stats.notSubmitted}</span></div>
+                      </div>
+                    </div>
+                  );
+                })()}
                 {/* Submitted / Not Submitted toggle */}
-                <div style={{ display: "flex", background: "#f1f5f9", borderRadius: "8px", padding: "3px", gap: "2px" }}>
+                <div className="timeline-filter-toggle" style={{ display: "flex", width: "fit-content", maxWidth: "100%", overflowX: "auto", background: "#f1f5f9", borderRadius: "8px", padding: "4px", gap: "3px" }}>
                   {[
                     { value: 'all', label: 'All Teams' },
-                    { value: 'approved', label: '✅ Guide Approved' },
-                    { value: 'submitted', label: '📤 Submitted' },
+                    { value: 'approved', label: '✅ Submitted and Approved' },
+                    { value: 'submitted', label: '📤 Submitted and Not Approved' },
                     { value: 'not_submitted', label: '❌ Not Submitted' },
                   ].map(opt => (
                     <button
@@ -888,14 +902,25 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
                   ))}
                 </div>
               </div>
-              <button
-                className="btn btn-success"
-                onClick={() => downloadReportAsExcel()}
-              >
-                📥 Download Excel Report
-              </button>
+              <div className="timeline-export-actions" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                <button
+                  className="btn btn-success"
+                  onClick={() => downloadReportAsExcel()}
+                  style={{ minWidth: '170px', height: '38px' }}
+                >
+                  📥 Download Excel Report
+                </button>
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => downloadReportAsPDF()}
+                  style={{ minWidth: '170px', height: '38px', color: '#b91c1c', borderColor: '#fca5a5', background: '#fff1f2' }}
+                >
+                  📄 Download PDF
+                </button>
+              </div>
             </div>
             <div
+              className="timeline-filter-controls"
               style={{
                 display: "flex",
                 gap: "20px",
@@ -1110,25 +1135,36 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
                       <tr key={sub._id}>
                         <td>
                           <strong>{batch?.teamName}</strong>
+                          <div style={{ marginTop: '4px' }}>
+                            <span style={{ display: 'inline-block', padding: '3px 7px', borderRadius: '5px', background: isGuideApproved(sub) ? '#dbeafe' : '#dcfce7', color: isGuideApproved(sub) ? '#1d4ed8' : '#15803d', fontSize: '10px', fontWeight: 700 }}>
+                              {isGuideApproved(sub) ? '✅ Submitted and Approved' : '📤 Submitted and Not Approved'}
+                            </span>
+                          </div>
                         </td>
                         <td>
                           <div
                             style={{
                               display: "flex",
                               flexDirection: "column",
-                              gap: "4px",
+                              gap: "5px",
+                              minWidth: "132px",
                             }}
                           >
-                            {members.map((m, idx) => (
+                            {[...members].sort((left, right) => compareNatural(left.rollNo, right.rollNo)).map((m, idx) => (
                               <div
                                 key={idx}
                                 style={{
-                                  fontSize: "12px",
-                                  color: "#4a5568",
-                                  paddingLeft: "18px",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "6px",
+                                  whiteSpace: "nowrap",
+                                  fontSize: "11px",
+                                  lineHeight: "1.25",
+                                  color: "#475569",
                                 }}
                               >
-                                • {m.rollNo}
+                                <span style={{ color: "#94a3b8", fontSize: "10px" }}>•</span>
+                                <span>{m.rollNo || m.name || "—"}</span>
                               </div>
                             ))}
                           </div>
@@ -1415,7 +1451,7 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
                         </td>
                         <td>
                           <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                            {(batch.teamMembers || []).map((m, idx) => (
+                            {[...(batch.teamMembers || [])].sort((left, right) => compareNatural(left.rollNo, right.rollNo)).map((m, idx) => (
                               <div key={idx} style={{ fontSize: "12px", color: "#4a5568", paddingLeft: "18px" }}>
                                 • {m.rollNo}
                               </div>
@@ -1613,7 +1649,7 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
                       return (
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '2px' }}>
                           <span style={{ fontSize: '12px', fontWeight: '600', color: '#16a34a', background: '#dcfce7', padding: '2px 8px', borderRadius: '12px' }}>
-                            {stats.submitted} Submitted
+                            {stats.approved + stats.submitted} Submitted Total
                           </span>
                           <span style={{ fontSize: '12px', fontWeight: '600', color: '#dc2626', background: '#fee2e2', padding: '2px 8px', borderRadius: '12px' }}>
                             {notSub} Pending
@@ -1927,7 +1963,7 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
               <div style={{ textAlign: "center", padding: "20px", color: "#999" }}>No students found for this batch.</div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "20px" }}>
-                {prcBatchStudents.map((student) => (
+                {[...prcBatchStudents].sort((left, right) => compareNatural(left.rollNumber || left.rollNo, right.rollNumber || right.rollNo)).map((student) => (
                   <div
                     key={student._id}
                     style={{
@@ -2103,6 +2139,80 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
       }
     </div >
   );
+
+  async function downloadReportAsPDF() {
+    if (!selectedEvent) {
+      alert("No event selected to download report.");
+      return;
+    }
+
+    try {
+      const res = await api.getAllSubmissions({ eventId: selectedEvent._id, limit: 1000, status: 'all' });
+      const eventSubmissions = res.data?.data || res.data || [];
+      const reportBatches = visibleBatches.filter(batch => (
+        (!filterYear || batch.year === filterYear) &&
+        (!filterBranch || batch.branch === filterBranch) &&
+        (!filterSection || batch.section === filterSection)
+      ));
+      const rows = reportBatches.map(batch => {
+        const batchSubmissions = eventSubmissions.filter(sub => {
+          const subEventId = typeof sub.timelineEventId === 'string' ? sub.timelineEventId : sub.timelineEventId?._id;
+          const subBatchId = typeof sub.batchId === 'string' ? sub.batchId : sub.batchId?._id;
+          return subEventId === selectedEvent._id && String(subBatchId) === String(batch._id) && hasUploadedVersion(sub);
+        });
+        const status = batchSubmissions.some(isGuideApproved)
+          ? 'Guide Approved'
+          : batchSubmissions.length > 0 ? 'Submitted and Not Approved' : 'Not Submitted';
+        return [
+          batch.teamName || '—',
+          `${batch.year || ''} ${batch.branch || ''}-${batch.section || ''}`,
+          batch.guideId?.name || 'Not Assigned',
+          status
+        ];
+      }).sort((left, right) => compareNatural(left[0], right[0]));
+
+      const sectionSummary = new Map();
+      reportBatches.forEach(batch => {
+        const batchSubmissions = eventSubmissions.filter(sub => {
+          const subEventId = typeof sub.timelineEventId === 'string' ? sub.timelineEventId : sub.timelineEventId?._id;
+          const subBatchId = typeof sub.batchId === 'string' ? sub.batchId : sub.batchId?._id;
+          return subEventId === selectedEvent._id && String(subBatchId) === String(batch._id) && hasUploadedVersion(sub);
+        });
+        const section = batch.section || 'Unknown';
+        if (!sectionSummary.has(section)) sectionSummary.set(section, { total: 0, approved: 0, submitted: 0, notSubmitted: 0 });
+        const summary = sectionSummary.get(section);
+        summary.total += 1;
+        if (batchSubmissions.some(isGuideApproved)) summary.approved += 1;
+        else if (batchSubmissions.length > 0) summary.submitted += 1;
+        else summary.notSubmitted += 1;
+      });
+
+      const doc = new jsPDF({ orientation: 'landscape' });
+      doc.setFontSize(16);
+      doc.text(`${selectedEvent.title} - Batch Status Report`, 14, 16);
+      doc.setFontSize(10);
+      doc.text(`Generated: ${new Date().toLocaleDateString('en-IN')}`, 14, 23);
+      let summaryY = 30;
+      Array.from(sectionSummary.entries())
+        .sort((left, right) => compareNatural(left[0], right[0]))
+        .forEach(([section, summary]) => {
+          doc.text(`${section} section (${summary.total} total): Submitted Total ${summary.approved + summary.submitted} | Approved ${summary.approved} | Not Approved ${summary.submitted} | Not Submitted ${summary.notSubmitted}`, 14, summaryY);
+          summaryY += 6;
+        });
+      doc.autoTable({
+        startY: summaryY + 2,
+        head: [['Team', 'Class', 'Guide', 'Status']],
+        body: rows,
+        headStyles: { fillColor: [30, 64, 175] },
+        alternateRowStyles: { fillColor: [248, 250, 252] },
+        styles: { fontSize: 9, cellPadding: 4 }
+      });
+      doc.save(`${selectedEvent.title.replace(/[^a-zA-Z0-9_-]/g, '_')}_Status_Report.pdf`);
+    } catch (err) {
+      console.error('Failed to export PDF report:', err);
+      alert(`Failed to export PDF report: ${err.message}`);
+    }
+  }
 
   // Download report as Excel with merged cells for batch details
   async function downloadReportAsExcel() {
@@ -2378,7 +2488,7 @@ function TimelineEditor({ scope = null, allowRemarkEditing = false }) {
   }
 }
 
-function TimelineManagement({ readOnly = false, scope = null, allowRemarkEditing = false }) {
+function TimelineManagement({ readOnly = false, scope = null, allowRemarkEditing = true }) {
   return readOnly ? <TimelineReadOnly scope={scope} /> : <TimelineEditor scope={scope} allowRemarkEditing={allowRemarkEditing} />;
 }
 

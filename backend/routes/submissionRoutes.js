@@ -58,19 +58,13 @@ router.post('/:id/prc-marks', protect, (req, res, next) => {
   if (req.user.role === 'admin') return next();
   if (req.user.role === 'guide' && req.user.isCoordinator) return next();
   return res.status(403).json({ success: false, message: 'Only admins and section coordinators can assign PRC marks.' });
-}, assignPrcMarks);
+}, assignPRCMarks);
 
 router.post('/:id/admin-remark', protect, (req, res, next) => {
   if (req.user.role === 'admin') return next();
   if (req.user.role === 'guide' && req.user.isCoordinator) return next();
   return res.status(403).json({ success: false, message: 'Only admins and section coordinators can add remarks.' });
 }, addAdminRemark);
-
-router.post('/:id/prc-marks', protect, (req, res, next) => {
-  if (req.user.role === 'admin') return next();
-  if (req.user.role === 'guide' && req.user.isCoordinator) return next();
-  return res.status(403).json({ success: false, message: 'Only admins and section coordinators can assign PRC marks.' });
-}, assignPRCMarks);
 
 // General
 router.get('/', protect, (req, res, next) => {

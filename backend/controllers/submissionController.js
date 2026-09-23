@@ -497,6 +497,9 @@ exports.assignMarks = async (req, res) => {
 // @route   POST /api/submissions/prc-marks or POST /api/submissions/:id/prc-marks
 exports.assignPrcMarks = async (req, res) => {
   try {
+    if (req.user.role !== 'guide' || !req.user.isCoordinator) {
+      return res.status(403).json({ success: false, message: 'Only class coordinators can assign PRC marks.' });
+    }
     const { submissionId, batchId, timelineEventId, studentMarks, studentId, marks } = req.body;
     const targetId = req.params.id || submissionId;
 
@@ -526,6 +529,13 @@ exports.assignPrcMarks = async (req, res) => {
 
     if (!submission) {
       return res.status(404).json({ success: false, message: 'Submission not found or milestone not identified.' });
+    }
+
+    if (submission.status !== 'accepted' && submission.status !== 'completed') {
+      return res.status(400).json({
+        success: false,
+        message: 'PRC marks can only be assigned after guide approval.'
+      });
     }
 
     const marksToAssign = Array.isArray(studentMarks) && studentMarks.length > 0
@@ -725,11 +735,21 @@ exports.addAdminRemark = async (req, res) => {
 // @route   POST /api/submissions/:id/prc-marks
 exports.assignPRCMarks = async (req, res) => {
   try {
+    if (req.user.role !== 'guide' || !req.user.isCoordinator) {
+      return res.status(403).json({ success: false, message: 'Only class coordinators can assign PRC marks.' });
+    }
     const { prcMarks, prcStudentMarks } = req.body;
     const submission = await Submission.findById(req.params.id);
 
     if (!submission) {
       return res.status(404).json({ success: false, message: 'Submission not found' });
+    }
+
+    if (submission.status !== 'accepted' && submission.status !== 'completed') {
+      return res.status(400).json({
+        success: false,
+        message: 'PRC marks can only be assigned after guide approval.'
+      });
     }
 
     const isCoordinator = req.user.role === 'guide' && req.user.isCoordinator;

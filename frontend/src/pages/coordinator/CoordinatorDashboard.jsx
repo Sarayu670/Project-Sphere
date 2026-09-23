@@ -23,6 +23,8 @@ const MARKS_REPORT_MAX = TRACKED_MARK_EVENTS.length * MARK_GROUP_MAX;
 
 const normalizeEventTitle = (value = '') => String(value).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 
+const isGuideApproved = (submission) => submission?.status === 'accepted' || submission?.status === 'completed';
+
 const compareNatural = (left, right) => String(left || '').localeCompare(String(right || ''), undefined, {
   numeric: true,
   sensitivity: 'base'
@@ -164,6 +166,7 @@ function buildMarksReport(batches = [], timelineEvents = [], submissions = []) {
         row[`${group.key}SubmissionId`] = prcSubmission?._id || submission?._id || '';
         row[`${group.key}TimelineEventId`] = group.prcEvent?._id || group.guideEvent?._id || '';
         row[`${group.key}BatchId`] = batchId;
+        row[`${group.key}GuideApproved`] = isGuideApproved(guideSubmission);
 
         total += (guideMarks + prcMarks);
       }
@@ -447,6 +450,10 @@ function CoordinatorDashboard() {
 
   const saveCoordinatorPrcMark = async (row, column) => {
     const markKey = `${row.teamKey}-${row.studentId}-${column.key}`;
+    if (!row[`${column.key}GuideApproved`]) {
+      setError('PRC marks can only be entered after guide approval.');
+      return;
+    }
     const value = markDrafts[markKey];
     const marks = Number(value);
     if (!Number.isFinite(marks) || marks < 0 || marks > MARK_COMPONENT_MAX) {
@@ -821,7 +828,9 @@ function CoordinatorDashboard() {
                             <Fragment key={`${row.teamKey}-${row.memberName}-${column.key}`}>
                               <td className="marks-cell marks-group-start"><span className={`marks-value marks-value-${column.key} ${row[column.guideKey] > 0 ? 'marks-positive' : 'marks-neutral'}`}>{row[column.guideKey] ?? 0}</span></td>
                               <td className="marks-cell marks-prc-edit-cell">
-                                {editingMarkKey === `${row.teamKey}-${row.studentId}-${column.key}` ? (
+                                {!row[`${column.key}GuideApproved`] ? (
+                                  <span className="marks-not-available">Awaiting approval</span>
+                                ) : editingMarkKey === `${row.teamKey}-${row.studentId}-${column.key}` ? (
                                   <form
                                     className="marks-inline-editor"
                                     onSubmit={event => {

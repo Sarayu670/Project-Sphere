@@ -108,6 +108,7 @@ function TimelineEditor({ scope = null, allowRemarkEditing = true }) {
   const [batches, setBatches] = useState([]);
   const [submissions, setSubmissions] = useState([]);
   const canAddRemarks = allowRemarkEditing;
+  const canEditPrcMarks = Boolean(scope && allowRemarkEditing);
   const [loading, setLoading] = useState(true);
   const visibleBatches = useMemo(() => {
     const filtered = !scope ? batches : batches.filter(batch =>
@@ -193,7 +194,11 @@ function TimelineEditor({ scope = null, allowRemarkEditing = true }) {
   }, [scope]);
 
   const openPRCMarksModal = useCallback(async (sub, batch) => {
-    if (scope && !isGuideApproved(sub)) {
+    if (!canEditPrcMarks) {
+      alert("Only the class coordinator can assign PRC marks.");
+      return;
+    }
+    if (!isGuideApproved(sub)) {
       alert("PRC marks can only be given for accepted batches.");
       return;
     }
@@ -228,11 +233,11 @@ function TimelineEditor({ scope = null, allowRemarkEditing = true }) {
     } finally {
       setLoadingPRCStudents(false);
     }
-  }, [scope]);
+  }, [canEditPrcMarks]);
 
   const handleSavePRCMarks = async () => {
     if (!selectedSubmissionForPRC) return;
-    if (scope && !isGuideApproved(selectedSubmissionForPRC)) {
+    if (!isGuideApproved(selectedSubmissionForPRC)) {
       setPrcError("PRC marks can only be given for accepted batches.");
       return;
     }
@@ -1217,7 +1222,7 @@ function TimelineEditor({ scope = null, allowRemarkEditing = true }) {
                         </td>
                         <td>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                            {scope && !isGuideApproved(sub) ? (
+                            {!isGuideApproved(sub) ? (
                               <span style={{ color: '#aaa', fontSize: '13px' }}>—</span>
                             ) : (
                               <>
@@ -1240,7 +1245,7 @@ function TimelineEditor({ scope = null, allowRemarkEditing = true }) {
                                   <span style={{ color: '#aaa', fontSize: '12px' }}>Not Assigned</span>
                                 )}
 
-                                {canAddRemarks && (
+                                {canEditPrcMarks && (
                                   <button
                                     className="btn btn-secondary"
                                     style={{
@@ -1350,7 +1355,7 @@ function TimelineEditor({ scope = null, allowRemarkEditing = true }) {
                                   ).toLocaleDateString("en-IN")}
                                 </small>
                               </div>
-                            ) : scope && !isGuideApproved(sub) ? (
+                            ) : !isGuideApproved(sub) ? (
                               <span style={{ color: '#aaa', fontSize: '13px', display: 'block', textAlign: 'center', width: '100%' }}>
                                 —
                               </span>

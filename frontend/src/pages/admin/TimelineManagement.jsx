@@ -50,6 +50,17 @@ const compareNatural = (left, right) => String(left || '').localeCompare(String(
   sensitivity: 'base'
 });
 
+const getVersionSubmitterName = (version, batch) => {
+  if (version?.submittedByName) return version.submittedByName;
+  const submittedById = typeof version?.submittedBy === 'object'
+    ? version.submittedBy?._id
+    : version?.submittedBy;
+  if (!submittedById) return '';
+  const students = [batch?.leaderStudentId, ...(batch?.teamMembers || [])].filter(Boolean);
+  const submitter = students.find(student => String(student._id) === String(submittedById));
+  return submitter?.name || '';
+};
+
 const formatExcelComment = (value) => {
   const text = String(value || 'N/A').trim();
   if (!text) return 'N/A';
@@ -1410,13 +1421,13 @@ function TimelineEditor({ scope = null, allowRemarkEditing = true }) {
                                   </a>
                                 )}
                               </div>
-                              {sub.versions[sub.versions.length - 1]?.submittedByName ? (
+                              {getVersionSubmitterName(sub.versions[sub.versions.length - 1], batch) ? (
                                 <small style={{ fontSize: '10px', color: '#475569', textAlign: 'center', lineHeight: '1.2' }}>
                                   {sub.versions.length > 1 ? 'Updated by' : 'By'}:<br />
-                                  <strong style={{ color: '#1e293b' }}>{sub.versions[sub.versions.length - 1].submittedByName}</strong>
+                                  <strong style={{ color: '#1e293b' }}>{getVersionSubmitterName(sub.versions[sub.versions.length - 1], batch)}</strong>
                                 </small>
                               ) : (
-                                <small style={{ fontSize: '10px', color: '#94a3b8' }}>v{sub.versions.length}</small>
+                                <small style={{ fontSize: '10px', color: '#94a3b8' }}>Submitted</small>
                               )}
                             </div>
                           ) : (

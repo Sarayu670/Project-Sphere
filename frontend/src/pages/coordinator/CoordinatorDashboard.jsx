@@ -144,7 +144,7 @@ function buildMarksReport(batches = [], timelineEvents = [], submissions = []) {
           markEntry.marks !== null && markEntry.marks !== undefined
         ));
         const guideMarks = guideEntry ? Number(guideEntry.marks) : 0;
-        const prcEntry = (prcSubmission?.prcStudentMarks || []).find(markEntry => {
+        const prcEntry = [...(prcSubmission?.prcStudentMarks || []), ...(guideSubmission?.prcStudentMarks || [])].find(markEntry => {
           const sid = markEntry?.studentId && typeof markEntry.studentId === 'object' ? markEntry.studentId._id : markEntry.studentId;
           return String(sid) === String(member._id);
         });
@@ -829,7 +829,7 @@ function CoordinatorDashboard() {
                               <td className="marks-cell marks-group-start"><span className={`marks-value marks-value-${column.key} ${row[column.guideKey] > 0 ? 'marks-positive' : 'marks-neutral'}`}>{row[column.guideKey] ?? 0}</span></td>
                               <td className="marks-cell marks-prc-edit-cell">
                                 {!row[`${column.key}GuideApproved`] ? (
-                                  <span className="marks-not-available">Awaiting approval</span>
+                                  <span className={`marks-value marks-value-${column.key} marks-neutral`} aria-label="PRC marks unavailable until guide approval">0</span>
                                 ) : editingMarkKey === `${row.teamKey}-${row.studentId}-${column.key}` ? (
                                   <form
                                     className="marks-inline-editor"

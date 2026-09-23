@@ -228,6 +228,7 @@ exports.getSubmission = async (req, res) => {
       .populate('comments.guideId', 'name')
       .populate('adminRemarks.adminId', 'name')
       .populate('marksAssignedBy', 'name')
+      .populate('versions.submittedBy', 'name rollNumber')
       .populate('studentMarks.studentId', 'name rollNumber')
       .populate('studentMarks.assignedBy', 'name')
       .populate('prcStudentMarks.studentId', 'name rollNumber')

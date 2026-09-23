@@ -277,12 +277,16 @@ function CoordinatorDashboard() {
   };
 
   const selectBatch = (batch) => {
+    const guideObj = typeof batch.guideId === 'object' && batch.guideId
+      ? batch.guideId
+      : guides.find(g => g._id === idOf(batch.guideId));
     setSelectedBatch(batch);
     setEditForm({
       teamName: batch.teamName || '',
       coeId: idOf(batch.coeId) || idOf(batch.problemId?.coeId) || '',
       rcId: idOf(batch.rc?.rcId) || '',
       guideId: idOf(batch.guideId) || '',
+      guideEmail: guideObj?.email || batch.guideId?.email || '',
       thrustArea: batch.thrustArea || '',
       problemTitle: batch.problemId?.title || '',
       outcome: batch.outcome || 'None'
@@ -296,13 +300,17 @@ function CoordinatorDashboard() {
       return;
     }
     setSaving(true);
+    setError('');
     try {
       const response = await api.updateBatchByCoordinator(selectedBatch._id, editForm);
       const updated = response.data.data;
       setBatches(current => current.map(batch => batch._id === updated._id ? updated : batch));
-      setSelectedBatch(updated);
-      selectBatch(updated);
-      setError('');
+      const targetGId = editForm.guideId || idOf(updated.guideId);
+      if (targetGId && editForm.guideEmail) {
+        setGuides(current => current.map(g => g._id === targetGId ? { ...g, email: editForm.guideEmail.trim().toLowerCase() } : g));
+      }
+      setSelectedBatch(null);
+      fetchData();
     } catch (err) {
       setError(err.response?.data?.message || 'Unable to update this team.');
     } finally {
@@ -632,11 +640,21 @@ function CoordinatorDashboard() {
                 <label className="coordinator-full-field">Team Name<input value={editForm.teamName} onChange={event => setEditForm(current => ({ ...current, teamName: event.target.value }))} /></label>
                 <label>COE<select value={editForm.coeId} onChange={event => setEditForm(current => ({ ...current, coeId: event.target.value }))}><option value="">Not Assigned</option>{coes.map(coe => <option key={coe._id} value={coe._id}>{coe.name}</option>)}</select></label>
                 <label>RC<select value={editForm.rcId} onChange={event => setEditForm(current => ({ ...current, rcId: event.target.value }))}><option value="">Not Assigned</option>{rcs.map(rc => <option key={rc._id} value={rc._id}>{rc.name}</option>)}</select></label>
-                <label>Guide<select value={editForm.guideId} onChange={event => setEditForm(current => ({ ...current, guideId: event.target.value }))}><option value="">Not Assigned</option>{guides.map(guide => <option key={guide._id} value={guide._id}>{guide.name}</option>)}</select></label>
+                <label>Guide<select value={editForm.guideId} onChange={event => {
+                  const guide = guides.find(item => item._id === event.target.value);
+                  setEditForm(current => ({ ...current, guideId: event.target.value, guideEmail: guide?.email || '' }));
+                }}><option value="">Not Assigned</option>{guides.map(guide => <option key={guide._id} value={guide._id}>{guide.name}</option>)}</select></label>
+                <label>Guide Email<input type="email" value={editForm.guideEmail || ''} onChange={event => setEditForm(current => ({ ...current, guideEmail: event.target.value }))} placeholder="guide@example.com" /></label>
                 <label>Outcome<select value={editForm.outcome} onChange={event => setEditForm(current => ({ ...current, outcome: event.target.value }))}>{OUTCOMES.map(outcome => <option key={outcome}>{outcome}</option>)}</select></label>
                 <label>Thrust Area<input value={editForm.thrustArea} onChange={event => setEditForm(current => ({ ...current, thrustArea: event.target.value }))} /></label>
                 <label className="coordinator-full-field">Problem Title<input value={editForm.problemTitle} onChange={event => setEditForm(current => ({ ...current, problemTitle: event.target.value }))} /></label>
               </div>
+
+              {error && (
+                <div style={{ padding: '10px 14px', background: '#fee2e2', color: '#b91c1c', borderRadius: '6px', marginBottom: '12px', fontSize: '13px', fontWeight: '500' }}>
+                  ⚠️ {error}
+                </div>
+              )}
 
               <button className="btn btn-primary" disabled={saving} onClick={saveBatch}>{saving ? 'Saving...' : 'Save Team Details'}</button>
             </section>

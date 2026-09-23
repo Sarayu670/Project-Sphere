@@ -573,13 +573,9 @@
 .coordinator-row-actions {
   display: flex;
   gap: 6px;
-  opacity: 0;
-  transition: opacity 160ms ease;
-}
-
-.coordinator-table tr:hover .coordinator-row-actions,
-.coordinator-row-actions:focus-within {
   opacity: 1;
+  pointer-events: auto;
+  visibility: visible;
 }
 
 .coordinator-action {

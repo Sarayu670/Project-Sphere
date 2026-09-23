@@ -1467,7 +1467,7 @@ exports.getSectionBatches = async (req, res) => {
 exports.updateBatchByCoordinator = async (req, res) => {
   try {
     const { year, branch, section } = req.user.coordinatorSection;
-    const { teamName, coeId, rcId, guideId, researchArea, thrustArea, outcome, problemTitle } = req.body;
+    const { teamName, coeId, rcId, guideId, guideEmail, researchArea, thrustArea, outcome, problemTitle } = req.body;
     const batch = await Batch.findOne({ _id: req.params.id, year, branch, section });
 
     if (!batch) {
@@ -1497,10 +1497,27 @@ exports.updateBatchByCoordinator = async (req, res) => {
       batch.rc = { name: rc.name, rcId: rc._id };
     }
 
-    if (guideId) {
-      const guide = await Guide.findById(guideId);
+    const targetGuideId = guideId || batch.guideId;
+    if (targetGuideId) {
+      let guide = await Guide.findById(targetGuideId);
       if (!guide) return res.status(400).json({ success: false, message: 'Selected guide was not found' });
+      if (typeof guideEmail === 'string' && guideEmail.trim() !== '') {
+        const normalizedEmail = guideEmail.trim().toLowerCase();
+        const guideWithEmail = await Guide.findOne({ email: normalizedEmail });
+        if (guideWithEmail && String(guideWithEmail._id) !== String(guide._id)) {
+          guide = guideWithEmail;
+        } else if (guide.email !== normalizedEmail) {
+          guide.email = normalizedEmail;
+          await guide.save();
+        }
+      }
       batch.guideId = guide._id;
+    } else if (typeof guideEmail === 'string' && guideEmail.trim() !== '') {
+      const normalizedEmail = guideEmail.trim().toLowerCase();
+      const existingGuide = await Guide.findOne({ email: normalizedEmail });
+      if (existingGuide) {
+        batch.guideId = existingGuide._id;
+      }
     }
     if (researchArea !== undefined) batch.researchArea = researchArea;
     if (thrustArea !== undefined) batch.thrustArea = thrustArea;

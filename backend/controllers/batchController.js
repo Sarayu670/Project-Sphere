@@ -1,3 +1,4 @@
+const bcrypt = require('bcryptjs');
 const Batch = require('../models/Batch');
 const ProblemStatement = require('../models/ProblemStatement');
 const Guide = require('../models/Guide');
@@ -1561,11 +1562,12 @@ exports.updateBatchByCoordinator = async (req, res) => {
             || (emailKey ? studentByEmail.get(emailKey.toLowerCase()) : null);
 
         if (existingStudent) {
+          const hashedPassword = await bcrypt.hash(defaultPassword, 10);
           await Student.findByIdAndUpdate(existingStudent._id, {
             name: safeName,
             rollNumber: safeRollNo,
             email: emailKey,
-            password: defaultPassword,
+            password: hashedPassword,
             year: batch.year,
             branch: batch.branch,
             section: batch.section,
@@ -1592,11 +1594,12 @@ exports.updateBatchByCoordinator = async (req, res) => {
                 ]
               });
               if (duplicateStudent) {
+                const hashedPassword = await bcrypt.hash(defaultPassword, 10);
                 await Student.findByIdAndUpdate(duplicateStudent._id, {
                   name: safeName,
                   rollNumber: safeRollNo,
                   email: emailKey,
-                  password: defaultPassword,
+                  password: hashedPassword,
                   year: batch.year,
                   branch: batch.branch,
                   section: batch.section,

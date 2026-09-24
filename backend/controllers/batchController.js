@@ -1467,7 +1467,7 @@ exports.getSectionBatches = async (req, res) => {
 exports.updateBatchByCoordinator = async (req, res) => {
   try {
     const { year, branch, section } = req.user.coordinatorSection;
-    const { teamName, coeId, rcId, guideId, guideEmail, researchArea, thrustArea, outcome, problemTitle } = req.body;
+    const { teamName, coeId, rcId, guideId, guideName, guideEmail, researchArea, thrustArea, outcome, problemTitle, teamMembers } = req.body;
     const batch = await Batch.findOne({ _id: req.params.id, year, branch, section });
 
     if (!batch) {
@@ -1497,28 +1497,140 @@ exports.updateBatchByCoordinator = async (req, res) => {
       batch.rc = { name: rc.name, rcId: rc._id };
     }
 
+    const normalizedGuideEmail = typeof guideEmail === 'string' ? guideEmail.trim().toLowerCase() : '';
+    const normalizedGuideName = typeof guideName === 'string' ? guideName.trim() : '';
     const targetGuideId = guideId || batch.guideId;
+
     if (targetGuideId) {
-      let guide = await Guide.findById(targetGuideId);
+      const guide = await Guide.findById(targetGuideId);
       if (!guide) return res.status(400).json({ success: false, message: 'Selected guide was not found' });
-      if (typeof guideEmail === 'string' && guideEmail.trim() !== '') {
-        const normalizedEmail = guideEmail.trim().toLowerCase();
-        const guideWithEmail = await Guide.findOne({ email: normalizedEmail });
+      if (normalizedGuideName) guide.name = normalizedGuideName;
+      if (normalizedGuideEmail) {
+        const guideWithEmail = await Guide.findOne({ email: normalizedGuideEmail });
         if (guideWithEmail && String(guideWithEmail._id) !== String(guide._id)) {
-          guide = guideWithEmail;
-        } else if (guide.email !== normalizedEmail) {
-          guide.email = normalizedEmail;
-          await guide.save();
+          batch.guideId = guideWithEmail._id;
+        } else if (guide.email !== normalizedGuideEmail) {
+          guide.email = normalizedGuideEmail;
         }
       }
+      if (normalizedGuideName || normalizedGuideEmail) {
+        await guide.save();
+      }
       batch.guideId = guide._id;
-    } else if (typeof guideEmail === 'string' && guideEmail.trim() !== '') {
-      const normalizedEmail = guideEmail.trim().toLowerCase();
-      const existingGuide = await Guide.findOne({ email: normalizedEmail });
+    } else if (normalizedGuideEmail) {
+      const existingGuide = await Guide.findOne({ email: normalizedGuideEmail });
       if (existingGuide) {
+        if (normalizedGuideName) existingGuide.name = normalizedGuideName;
+        await existingGuide.save();
         batch.guideId = existingGuide._id;
+      } else if (normalizedGuideName) {
+        const safeGuideName = normalizedGuideName || 'Manual Guide';
+        const generatedEmail = `${safeGuideName.toLowerCase().replace(/[^a-z0-9]+/g, '.')}.manual@local`;
+        const newGuide = await Guide.create({
+          name: safeGuideName,
+          email: generatedEmail,
+          password: `${safeGuideName.toLowerCase().replace(/[^a-z0-9]+/g, '') || 'guide'}12345`,
+          department: 'Manual Entry'
+        });
+        batch.guideId = newGuide._id;
       }
     }
+
+    if (Array.isArray(teamMembers)) {
+      const existingStudents = await Student.find({ batchId: batch._id }).lean();
+      const allStudentsByRollNo = await Student.find({ rollNumber: { $in: teamMembers.map(member => String(member.rollNo || '').trim()).filter(Boolean) } }).lean();
+      const allStudentsByEmail = await Student.find({ email: { $in: teamMembers.map(member => `${String(member.rollNo || '').trim().toLowerCase()}@gnits.ac.in`).filter(Boolean) } }).lean();
+      const existingMembers = await TeamMember.find({ batchId: batch._id }).lean();
+      const studentById = new Map(existingStudents.map(student => [String(student._id), student]));
+      const studentByRollNo = new Map([...allStudentsByRollNo, ...existingStudents].map(student => [String(student.rollNumber || '').trim().toLowerCase(), student]));
+      const studentByEmail = new Map([...allStudentsByEmail, ...existingStudents].map(student => [String(student.email || '').trim().toLowerCase(), student]));
+      const memberById = new Map(existingMembers.map(teamMember => [String(teamMember._id), teamMember]));
+      const memberByRollNo = new Map(existingMembers.map(teamMember => [String(teamMember.rollNo || '').trim().toLowerCase(), teamMember]));
+      const memberEntries = teamMembers.filter(member => member && (member.name || member.rollNo));
+      const defaultPassword = `${String(batch.teamName || 'Team').trim() || 'Team'}@123`;
+
+      for (const member of memberEntries) {
+        const safeName = String(member.name || '').trim();
+        const safeRollNo = String(member.rollNo || '').trim();
+        if (!safeName || !safeRollNo) continue;
+
+        const emailKey = `${safeRollNo.toLowerCase()}@gnits.ac.in`;
+        const existingStudent = member._id && studentById.has(String(member._id))
+          ? studentById.get(String(member._id))
+          : (safeRollNo ? studentByRollNo.get(safeRollNo.toLowerCase()) : null)
+            || (emailKey ? studentByEmail.get(emailKey.toLowerCase()) : null);
+
+        if (existingStudent) {
+          await Student.findByIdAndUpdate(existingStudent._id, {
+            name: safeName,
+            rollNumber: safeRollNo,
+            email: emailKey,
+            password: defaultPassword,
+            year: batch.year,
+            branch: batch.branch,
+            section: batch.section,
+            batchId: batch._id
+          }, { new: true, runValidators: true });
+        } else {
+          try {
+            await Student.create({
+              name: safeName,
+              rollNumber: safeRollNo,
+              email: emailKey,
+              password: defaultPassword,
+              year: batch.year,
+              branch: batch.branch,
+              section: batch.section,
+              batchId: batch._id
+            });
+          } catch (createError) {
+            if (createError && createError.code === 11000) {
+              const duplicateStudent = await Student.findOne({
+                $or: [
+                  { rollNumber: safeRollNo },
+                  { email: emailKey }
+                ]
+              });
+              if (duplicateStudent) {
+                await Student.findByIdAndUpdate(duplicateStudent._id, {
+                  name: safeName,
+                  rollNumber: safeRollNo,
+                  email: emailKey,
+                  password: defaultPassword,
+                  year: batch.year,
+                  branch: batch.branch,
+                  section: batch.section,
+                  batchId: batch._id
+                }, { new: true, runValidators: true });
+              }
+            } else {
+              throw createError;
+            }
+          }
+        }
+
+        const existingMember = member._id && memberById.has(String(member._id))
+          ? memberById.get(String(member._id))
+          : (safeRollNo ? memberByRollNo.get(safeRollNo.toLowerCase()) : null);
+
+        if (existingMember) {
+          await TeamMember.findByIdAndUpdate(existingMember._id, {
+            name: safeName,
+            rollNo: safeRollNo,
+            branch: batch.branch
+          }, { new: true, runValidators: true });
+        } else {
+          await TeamMember.create({
+            batchId: batch._id,
+            name: safeName,
+            rollNo: safeRollNo,
+            branch: batch.branch,
+            email: `${safeRollNo.toLowerCase()}@gnits.ac.in`
+          });
+        }
+      }
+    }
+
     if (researchArea !== undefined) batch.researchArea = researchArea;
     if (thrustArea !== undefined) batch.thrustArea = thrustArea;
     if (outcome !== undefined) batch.outcome = outcome;

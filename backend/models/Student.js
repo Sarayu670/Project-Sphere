@@ -61,6 +61,28 @@ StudentSchema.pre('save', async function() {
   this.password = await bcrypt.hash(this.password, salt);
 });
 
+StudentSchema.pre('findOneAndUpdate', async function(next) {
+  const update = this.getUpdate();
+  if (!update || !update.password) {
+    return next();
+  }
+
+  const salt = await bcrypt.genSalt(10);
+  update.password = await bcrypt.hash(update.password, salt);
+  next();
+});
+
+StudentSchema.pre('updateOne', async function(next) {
+  const update = this.getUpdate();
+  if (!update || !update.password) {
+    return next();
+  }
+
+  const salt = await bcrypt.genSalt(10);
+  update.password = await bcrypt.hash(update.password, salt);
+  next();
+});
+
 // Match password
 StudentSchema.methods.matchPassword = async function(enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);

@@ -58,11 +58,17 @@ function AIProgressMonitorCard({ batchId, userRole = 'student' }) {
 
   if (!analysis) return null;
 
-  const filteredRecs = (analysis.adaptiveRecommendations || []).filter(r => {
-    if (userRole === 'student') return r.targetRole === 'student' || r.targetRole === 'both';
-    if (userRole === 'guide') return r.targetRole === 'guide' || r.targetRole === 'both';
-    return true;
-  });
+  const filteredRecs = (analysis.adaptiveRecommendations || [])
+    .filter(r => {
+      if (userRole === 'student') return r.targetRole === 'student' || r.targetRole === 'both';
+      if (userRole === 'guide') return r.targetRole === 'guide' || r.targetRole === 'both';
+      return true;
+    })
+    .sort((a, b) => {
+      const aScore = a.targetRole === userRole ? 0 : 1;
+      const bScore = b.targetRole === userRole ? 0 : 1;
+      return aScore - bScore;
+    });
 
   return (
     <div className="ai-monitor-card">

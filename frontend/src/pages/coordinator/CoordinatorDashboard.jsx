@@ -284,6 +284,27 @@ function CoordinatorDashboard() {
     setSelectedBatch(null);
   };
 
+  const normalizeTeamMemberForm = (member = {}) => ({
+    _id: member._id || '',
+    name: member.name || '',
+    rollNo: member.rollNo || member.rollNumber || ''
+  });
+
+  const handleTeamMemberFieldChange = (index, field, value) => {
+    setEditForm(current => {
+      const teamMembers = [...(current.teamMembers || [])];
+      teamMembers[index] = { ...(teamMembers[index] || {}), [field]: value };
+      return { ...current, teamMembers };
+    });
+  };
+
+  const addTeamMemberRow = () => {
+    setEditForm(current => ({
+      ...current,
+      teamMembers: [...(current.teamMembers || []), { _id: '', name: '', rollNo: '' }]
+    }));
+  };
+
   const selectBatch = (batch) => {
     const guideObj = typeof batch.guideId === 'object' && batch.guideId
       ? batch.guideId
@@ -294,10 +315,12 @@ function CoordinatorDashboard() {
       coeId: idOf(batch.coeId) || idOf(batch.problemId?.coeId) || '',
       rcId: idOf(batch.rc?.rcId) || '',
       guideId: idOf(batch.guideId) || '',
+      guideName: guideObj?.name || '',
       guideEmail: guideObj?.email || batch.guideId?.email || '',
       thrustArea: batch.thrustArea || '',
       problemTitle: batch.problemId?.title || '',
-      outcome: batch.outcome || 'None'
+      outcome: batch.outcome || 'None',
+      teamMembers: (batch.teamMembers || []).map(normalizeTeamMemberForm)
     });
   };
 
@@ -310,7 +333,15 @@ function CoordinatorDashboard() {
     setSaving(true);
     setError('');
     try {
-      const response = await api.updateBatchByCoordinator(selectedBatch._id, editForm);
+      const payload = {
+        ...editForm,
+        teamMembers: (editForm.teamMembers || []).map(member => ({
+          _id: member._id || '',
+          name: member.name?.trim() || '',
+          rollNo: member.rollNo?.trim() || ''
+        })).filter(member => member.name || member.rollNo)
+      };
+      const response = await api.updateBatchByCoordinator(selectedBatch._id, payload);
       const updated = response.data.data;
       setBatches(current => current.map(batch => batch._id === updated._id ? updated : batch));
       const targetGId = editForm.guideId || idOf(updated.guideId);
@@ -649,17 +680,36 @@ function CoordinatorDashboard() {
               </div>
 
               <div className="coordinator-form-grid">
-                <label className="coordinator-full-field">Team Name<input value={editForm.teamName} onChange={event => setEditForm(current => ({ ...current, teamName: event.target.value }))} /></label>
-                <label>COE<select value={editForm.coeId} onChange={event => setEditForm(current => ({ ...current, coeId: event.target.value }))}><option value="">Not Assigned</option>{coes.map(coe => <option key={coe._id} value={coe._id}>{coe.name}</option>)}</select></label>
-                <label>RC<select value={editForm.rcId} onChange={event => setEditForm(current => ({ ...current, rcId: event.target.value }))}><option value="">Not Assigned</option>{rcs.map(rc => <option key={rc._id} value={rc._id}>{rc.name}</option>)}</select></label>
-                <label>Guide<select value={editForm.guideId} onChange={event => {
-                  const guide = guides.find(item => item._id === event.target.value);
-                  setEditForm(current => ({ ...current, guideId: event.target.value, guideEmail: guide?.email || '' }));
-                }}><option value="">Not Assigned</option>{guides.map(guide => <option key={guide._id} value={guide._id}>{guide.name}</option>)}</select></label>
+                <label className="coordinator-full-field">Team Name<input value={editForm.teamName || ''} onChange={event => setEditForm(current => ({ ...current, teamName: event.target.value }))} /></label>
+                <label>COE<select value={editForm.coeId || ''} onChange={event => setEditForm(current => ({ ...current, coeId: event.target.value }))}><option value="">Not Assigned</option>{coes.map(coe => <option key={coe._id} value={coe._id}>{coe.name}</option>)}</select></label>
+                <label>RC<select value={editForm.rcId || ''} onChange={event => setEditForm(current => ({ ...current, rcId: event.target.value }))}><option value="">Not Assigned</option>{rcs.map(rc => <option key={rc._id} value={rc._id}>{rc.name}</option>)}</select></label>
+                <label>Guide Name<input value={editForm.guideName || ''} onChange={event => setEditForm(current => ({ ...current, guideName: event.target.value }))} placeholder="Enter guide name" /></label>
                 <label>Guide Email<input type="email" value={editForm.guideEmail || ''} onChange={event => setEditForm(current => ({ ...current, guideEmail: event.target.value }))} placeholder="guide@example.com" /></label>
-                <label>Outcome<select value={editForm.outcome} onChange={event => setEditForm(current => ({ ...current, outcome: event.target.value }))}>{OUTCOMES.map(outcome => <option key={outcome}>{outcome}</option>)}</select></label>
-                <label>Thrust Area<input value={editForm.thrustArea} onChange={event => setEditForm(current => ({ ...current, thrustArea: event.target.value }))} /></label>
-                <label className="coordinator-full-field">Problem Title<input value={editForm.problemTitle} onChange={event => setEditForm(current => ({ ...current, problemTitle: event.target.value }))} /></label>
+                <label>Outcome<select value={editForm.outcome || 'None'} onChange={event => setEditForm(current => ({ ...current, outcome: event.target.value }))}>{OUTCOMES.map(outcome => <option key={outcome}>{outcome}</option>)}</select></label>
+                <label>Thrust Area<input value={editForm.thrustArea || ''} onChange={event => setEditForm(current => ({ ...current, thrustArea: event.target.value }))} /></label>
+                <div className="coordinator-full-field" style={{ gridColumn: '1 / -1' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <strong>Team Members</strong>
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={addTeamMemberRow}>Add Member</button>
+                  </div>
+                  <div style={{ display: 'grid', gap: '10px' }}>
+                    {(editForm.teamMembers || []).map((member, index) => (
+                      <div key={`${member._id || 'new'}-${index}`} style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: '10px' }}>
+                        <input
+                          value={member.name || ''}
+                          onChange={event => handleTeamMemberFieldChange(index, 'name', event.target.value)}
+                          placeholder="Student name"
+                        />
+                        <input
+                          value={member.rollNo || ''}
+                          onChange={event => handleTeamMemberFieldChange(index, 'rollNo', event.target.value)}
+                          placeholder="Roll number"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <label className="coordinator-full-field">Problem Title<input value={editForm.problemTitle || ''} onChange={event => setEditForm(current => ({ ...current, problemTitle: event.target.value }))} /></label>
               </div>
 
               {error && (

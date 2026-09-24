@@ -136,6 +136,20 @@ function TimelineProgress({ batchId }) {
     const submission = selectedEvent.submission;
     return (
       <div>
+        {notification && (
+          <div style={{
+            marginBottom: '15px',
+            padding: '12px 16px',
+            borderRadius: '8px',
+            fontWeight: '600',
+            fontSize: '14px',
+            backgroundColor: notification.type === 'success' ? '#d1fae5' : notification.type === 'danger' ? '#fee2e2' : notification.type === 'warning' ? '#fef3c7' : '#dbeafe',
+            color: notification.type === 'success' ? '#065f46' : notification.type === 'danger' ? '#991b1b' : notification.type === 'warning' ? '#92400e' : '#1e40af',
+            border: `1px solid ${notification.type === 'success' ? '#a7f3d0' : notification.type === 'danger' ? '#fca5a5' : notification.type === 'warning' ? '#fde68a' : '#bfdbfe'}`
+          }}>
+            {notification.message}
+          </div>
+        )}
         <button className="btn btn-secondary" onClick={() => setSelectedEvent(null)} style={{ marginBottom: '20px' }}>← Back to Timeline</button>
 
         <div className="card" style={{ marginBottom: '20px', borderLeft: '4px solid #667eea' }}>
@@ -200,14 +214,19 @@ function TimelineProgress({ batchId }) {
               </div>
             )}
 
-            {selectedEvent.submissionStatus !== 'accepted' ? (
+            {(
+              selectedEvent.submissionStatus !== 'accepted' ||
+              submission?.status === 'accepted'
+            ) ? (
               <form onSubmit={handleSubmit} style={{ marginTop: '20px', paddingTop: '15px', borderTop: '1px solid #eee' }}>
                 <h4 style={{ margin: '0 0 8px 0' }}>
                   {submission?.versions?.length ? '✏️ Edit / Update Submission (Upload New Version)' : '📤 Submit Abstract / File'}
                 </h4>
                 <p style={{ color: '#64748b', fontSize: '12px', marginBottom: '15px' }}>
                   {submission?.versions?.length
-                    ? 'Any team member can submit an update. Submitting a new link will update the team submission to the latest version.'
+                    ? submission?.status === 'accepted'
+                      ? 'Your guide accepted the previous version. You can submit a corrected version, which will be sent to the guide for review again.'
+                      : 'Any team member can submit an update. Submitting a new link will update the team submission to the latest version.'
                     : 'Paste your Google Drive link below.'}
                 </p>
 
@@ -243,7 +262,7 @@ function TimelineProgress({ batchId }) {
               </form>
             ) : (
               <div style={{ marginTop: '20px', padding: '12px 16px', background: '#dcfce7', borderRadius: '8px', color: '#166534', fontSize: '13px', fontWeight: '500' }}>
-                ✅ Accepted by Guide — Submission is locked for modifications.
+                ✅ Accepted by Guide — You can still submit a corrected version for another review.
               </div>
             )}
           </div>

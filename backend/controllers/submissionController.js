@@ -147,16 +147,8 @@ exports.createOrUpdateSubmission = async (req, res) => {
     let submission = await Submission.findOne({ batchId, timelineEventId });
 
     if (submission) {
-      // If guide has already accepted, prevent further modifications
-      if (submission.status === 'accepted') {
-        return res.status(400).json({
-          success: false,
-          message: 'This submission has already been accepted by your guide and cannot be modified.'
-        });
-      }
-
-      // Add new version (overwrites/updates the submission to latest version)
-      const newVersion = submission.currentVersion + 1;
+      const isResubmissionAfterAcceptance = submission.status === 'accepted';
+      const newVersion = Number(submission.currentVersion || submission.versions.length || 0) + 1;
       submission.versions.push({
         version: newVersion,
         driveLink: driveLink.trim(),
@@ -167,6 +159,16 @@ exports.createOrUpdateSubmission = async (req, res) => {
       });
       submission.currentVersion = newVersion;
       submission.status = 'submitted';
+      if (isResubmissionAfterAcceptance) {
+        submission.marks = null;
+        submission.marksAssignedBy = null;
+        submission.marksAssignedAt = null;
+        submission.studentMarks = [];
+        submission.prcMarks = null;
+        submission.prcStudentMarks = [];
+        submission.prcMarksAssignedBy = null;
+        submission.prcMarksAssignedAt = null;
+      }
       await submission.save();
     } else {
       // Create new submission
@@ -207,7 +209,8 @@ exports.createOrUpdateSubmission = async (req, res) => {
           batch.problemId ? batch.problemId.title : 'N/A',
           description,
           driveLink,
-          batch.teamName
+          batch.teamName,
+          Boolean(submission.currentVersion > 1)
         );
       }
     } catch (emailError) {

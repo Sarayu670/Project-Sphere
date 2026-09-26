@@ -116,6 +116,29 @@ exports.createOrUpdateSubmission = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Timeline event not found' });
     }
 
+    const timelineEvents = await TimelineEvent.find({
+      isActive: true,
+      $or: [
+        { targetYear: batch.year },
+        { targetYear: 'all' }
+      ]
+    }).sort({ order: 1, deadline: 1 }).select('_id');
+    const eventIndex = timelineEvents.findIndex(item => item._id.toString() === event._id.toString());
+
+    if (eventIndex > 0) {
+      const previousSubmission = await Submission.findOne({
+        batchId,
+        timelineEventId: timelineEvents[eventIndex - 1]._id
+      }).select('status');
+
+      if (previousSubmission?.status !== 'accepted') {
+        return res.status(400).json({
+          success: false,
+          message: 'Complete and get the previous timeline milestone accepted before submitting this event.'
+        });
+      }
+    }
+
     // Check if deadline has passed
     if (new Date() > event.deadline) {
       return res.status(400).json({ success: false, message: 'Submission deadline has passed' });
@@ -124,16 +147,28 @@ exports.createOrUpdateSubmission = async (req, res) => {
     let submission = await Submission.findOne({ batchId, timelineEventId });
 
     if (submission) {
-      // Add new version
-      const newVersion = submission.currentVersion + 1;
+      const isResubmissionAfterAcceptance = submission.status === 'accepted';
+      const newVersion = Number(submission.currentVersion || submission.versions.length || 0) + 1;
       submission.versions.push({
         version: newVersion,
         driveLink: driveLink.trim(),
         description,
+        submittedBy: student._id,
+        submittedByName: student.name,
         submittedAt: new Date()
       });
       submission.currentVersion = newVersion;
       submission.status = 'submitted';
+      if (isResubmissionAfterAcceptance) {
+        submission.marks = null;
+        submission.marksAssignedBy = null;
+        submission.marksAssignedAt = null;
+        submission.studentMarks = [];
+        submission.prcMarks = null;
+        submission.prcStudentMarks = [];
+        submission.prcMarksAssignedBy = null;
+        submission.prcMarksAssignedAt = null;
+      }
       await submission.save();
     } else {
       // Create new submission
@@ -144,6 +179,8 @@ exports.createOrUpdateSubmission = async (req, res) => {
           version: 1,
           driveLink: driveLink.trim(),
           description,
+          submittedBy: student._id,
+          submittedByName: student.name,
           submittedAt: new Date()
         }],
         currentVersion: 1,
@@ -172,7 +209,8 @@ exports.createOrUpdateSubmission = async (req, res) => {
           batch.problemId ? batch.problemId.title : 'N/A',
           description,
           driveLink,
-          batch.teamName
+          batch.teamName,
+          Boolean(submission.currentVersion > 1)
         );
       }
     } catch (emailError) {
@@ -192,17 +230,22 @@ exports.getSubmission = async (req, res) => {
       .populate('timelineEventId', 'title maxMarks deadline isMarksEnabled')
       .populate('comments.guideId', 'name')
       .populate('adminRemarks.adminId', 'name')
-      .populate('marksAssignedBy', 'name');
+      .populate('marksAssignedBy', 'name')
+      .populate('versions.submittedBy', 'name rollNumber')
+      .populate('studentMarks.studentId', 'name rollNumber')
+      .populate('studentMarks.assignedBy', 'name')
+      .populate('prcStudentMarks.studentId', 'name rollNumber')
+      .populate('prcStudentMarks.assignedBy', 'name');
 
     if (!submission) {
       return res.status(404).json({ success: false, message: 'Submission not found' });
     }
-
     res.status(200).json({ success: true, data: submission });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
 
 // @desc    Get all submissions for a batch
 // @route   GET /api/submissions/batch/:batchId
@@ -213,11 +256,22 @@ exports.getBatchSubmissions = async (req, res) => {
       .populate('comments.guideId', 'name')
       .populate('adminRemarks.adminId', 'name');
 
-    res.status(200).json({ success: true, data: submissions });
+    // Strip per-student marks and PRC marks so students cannot see them
+    const sanitized = submissions.map(sub => {
+      const obj = sub.toObject();
+      delete obj.studentMarks;
+      delete obj.marks; // also hide legacy group marks
+      delete obj.prcStudentMarks;
+      delete obj.prcMarks;
+      return obj;
+    });
+
+    res.status(200).json({ success: true, data: sanitized });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
 
 // @desc    Get submissions for guide's batches
 // @route   GET /api/submissions/guide
@@ -231,6 +285,8 @@ exports.getGuideSubmissions = async (req, res) => {
       .populate('timelineEventId', 'title maxMarks deadline isMarksEnabled')
       .populate('comments.guideId', 'name')
       .populate('adminRemarks.adminId', 'name')
+      .populate('studentMarks.studentId', 'name rollNumber')
+      .populate('studentMarks.assignedBy', 'name')
       .sort({ updatedAt: -1 });
 
     res.status(200).json({ success: true, data: submissions });
@@ -258,14 +314,23 @@ exports.addComment = async (req, res) => {
       createdAt: new Date()
     });
 
-    // Only update status to needs_revision if it's not already accepted or rejected
-    if (submission.status !== 'accepted' && submission.status !== 'rejected') {
-      submission.status = 'needs_revision';
+    // If status is submitted, update to under_review when guide leaves comments
+    if (submission.status === 'submitted') {
+      submission.status = 'under_review';
     }
 
     await submission.save();
 
-    const updated = await Submission.findById(req.params.id).populate('comments.guideId', 'name');
+    const updated = await Submission.findById(req.params.id)
+      .populate('batchId', 'teamName year branch section')
+      .populate('timelineEventId', 'title maxMarks deadline isMarksEnabled')
+      .populate('comments.guideId', 'name')
+      .populate('adminRemarks.adminId', 'name')
+      .populate('marksAssignedBy', 'name')
+      .populate('studentMarks.studentId', 'name rollNumber')
+      .populate('studentMarks.assignedBy', 'name')
+      .populate('prcStudentMarks.studentId', 'name rollNumber')
+      .populate('prcStudentMarks.assignedBy', 'name');
     
     // Send email notification to students asynchronously
     try {
@@ -312,11 +377,11 @@ exports.addComment = async (req, res) => {
   }
 };
 
-// @desc    Assign marks (Guide)
+// @desc    Assign marks (Guide) — per student
 // @route   POST /api/submissions/:id/marks
 exports.assignMarks = async (req, res) => {
   try {
-    const { marks, status, comment } = req.body;
+    const { marks, status, comment, studentMarks } = req.body;
     const submission = await Submission.findById(req.params.id)
       .populate('timelineEventId', 'maxMarks title')
       .populate('batchId', 'teamName');
@@ -325,9 +390,7 @@ exports.assignMarks = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Submission not found' });
     }
 
-    if (marks > submission.timelineEventId.maxMarks) {
-      return res.status(400).json({ success: false, message: `Marks cannot exceed ${submission.timelineEventId.maxMarks}` });
-    }
+    const maximumMarks = Number(submission.timelineEventId?.maxMarks || 25);
 
     // Add comment if provided
     if (comment && comment.trim()) {
@@ -338,18 +401,56 @@ exports.assignMarks = async (req, res) => {
       });
     }
 
-    submission.marks = marks;
-    submission.marksAssignedBy = req.user._id;
-    submission.marksAssignedAt = new Date();
+    // Handle per-student marks (new behaviour)
+    if (Array.isArray(studentMarks) && studentMarks.length > 0) {
+      for (const sm of studentMarks) {
+        if (sm.marks !== null && sm.marks !== undefined && (sm.marks < 0 || sm.marks > maximumMarks)) {
+          return res.status(400).json({ success: false, message: `Marks must be between 0 and ${maximumMarks}` });
+        }
+      }
+
+      // Upsert: update existing entry for student or push new one
+      for (const sm of studentMarks) {
+        const existing = submission.studentMarks.find(
+          e => e.studentId.toString() === sm.studentId.toString()
+        );
+        if (existing) {
+          existing.marks = sm.marks !== '' && sm.marks !== null && sm.marks !== undefined ? parseFloat(sm.marks) : null;
+          existing.assignedBy = req.user._id;
+          existing.assignedAt = new Date();
+        } else {
+          submission.studentMarks.push({
+            studentId: sm.studentId,
+            marks: sm.marks !== '' && sm.marks !== null && sm.marks !== undefined ? parseFloat(sm.marks) : null,
+            assignedBy: req.user._id,
+            assignedAt: new Date()
+          });
+        }
+      }
+      // Keep legacy marks field as null since we now use per-student marks
+      submission.marks = null;
+    } else {
+      // Legacy single-mark fallback
+      if (marks < 0 || marks > maximumMarks) {
+        return res.status(400).json({ success: false, message: `Marks must be between 0 and ${maximumMarks}` });
+      }
+      submission.marks = marks;
+      submission.marksAssignedBy = req.user._id;
+      submission.marksAssignedAt = new Date();
+    }
+
     submission.status = status || 'accepted';
     await submission.save();
 
-    // Re-fetch with proper population to ensure comments are populated
+    // Re-fetch with proper population to ensure comments and studentMarks are populated
     const updated = await Submission.findById(req.params.id)
       .populate('comments.guideId', 'name')
       .populate('marksAssignedBy', 'name')
       .populate('batchId', 'teamName')
-      .populate('timelineEventId', 'title maxMarks isMarksEnabled');
+      .populate('timelineEventId', 'title maxMarks isMarksEnabled')
+      .populate('studentMarks.studentId', 'name rollNumber')
+      .populate('studentMarks.assignedBy', 'name')
+      .populate('studentMarks.prcAssignedBy', 'name');
 
     // Send email notification to students asynchronously
     try {
@@ -368,7 +469,7 @@ exports.assignMarks = async (req, res) => {
           timelineTitle: submission.timelineEventId.title,
           submissionType: submission.timelineEventId.title,
           feedback: comment ? comment.trim() : null,
-          marks: marks,
+          marks: null, // individual marks are private; don't send in email
           status: status || 'accepted',
           driveLink: submission.versions[submission.currentVersion - 1]?.driveLink || ''
         };
@@ -396,6 +497,106 @@ exports.assignMarks = async (req, res) => {
   }
 };
 
+// @desc    Assign PRC marks (Coordinator / Admin) — per student
+// @route   POST /api/submissions/prc-marks or POST /api/submissions/:id/prc-marks
+exports.assignPrcMarks = async (req, res) => {
+  try {
+    if (req.user.role !== 'guide' || !req.user.isCoordinator) {
+      return res.status(403).json({ success: false, message: 'Only class coordinators can assign PRC marks.' });
+    }
+    const { submissionId, batchId, timelineEventId, studentMarks, studentId, marks } = req.body;
+    const targetId = req.params.id || submissionId;
+
+    let submission = null;
+    const mongoose = require('mongoose');
+
+    if (targetId && mongoose.Types.ObjectId.isValid(targetId)) {
+      submission = await Submission.findById(targetId)
+        .populate('timelineEventId', 'maxMarks title')
+        .populate('batchId', 'teamName');
+    }
+
+    if (!submission && batchId && timelineEventId) {
+      submission = await Submission.findOne({ batchId, timelineEventId })
+        .populate('timelineEventId', 'maxMarks title')
+        .populate('batchId', 'teamName');
+
+      if (!submission) {
+        submission = new Submission({
+          batchId,
+          timelineEventId,
+          status: 'accepted',
+          studentMarks: []
+        });
+      }
+    }
+
+    if (!submission) {
+      return res.status(404).json({ success: false, message: 'Submission not found or milestone not identified.' });
+    }
+
+    if (submission.status !== 'accepted' && submission.status !== 'completed') {
+      return res.status(400).json({
+        success: false,
+        message: 'PRC marks can only be assigned after guide approval.'
+      });
+    }
+
+    const marksToAssign = Array.isArray(studentMarks) && studentMarks.length > 0
+      ? studentMarks
+      : studentId !== undefined ? [{ studentId, marks }] : [];
+
+    if (marksToAssign.length === 0) {
+      return res.status(400).json({ success: false, message: 'No student marks provided.' });
+    }
+
+    const maxPrcMarks = 25;
+
+    for (const sm of marksToAssign) {
+      const val = sm.marks !== '' && sm.marks !== null && sm.marks !== undefined ? parseFloat(sm.marks) : null;
+      if (val !== null && (isNaN(val) || val < 0 || val > maxPrcMarks)) {
+        return res.status(400).json({ success: false, message: `PRC marks must be between 0 and ${maxPrcMarks}.` });
+      }
+    }
+
+    for (const sm of marksToAssign) {
+      const val = sm.marks !== '' && sm.marks !== null && sm.marks !== undefined ? parseFloat(sm.marks) : null;
+      const existing = submission.studentMarks.find(
+        e => e.studentId.toString() === sm.studentId.toString()
+      );
+      if (existing) {
+        existing.prcMarks = val;
+        existing.prcAssignedBy = req.user._id;
+        existing.prcAssignedAt = new Date();
+      } else {
+        submission.studentMarks.push({
+          studentId: sm.studentId,
+          marks: null,
+          prcMarks: val,
+          prcAssignedBy: req.user._id,
+          prcAssignedAt: new Date()
+        });
+      }
+    }
+
+    await submission.save();
+
+    const updated = await Submission.findById(submission._id)
+      .populate('comments.guideId', 'name')
+      .populate('marksAssignedBy', 'name')
+      .populate('batchId', 'teamName')
+      .populate('timelineEventId', 'title maxMarks isMarksEnabled')
+      .populate('studentMarks.studentId', 'name rollNumber')
+      .populate('studentMarks.assignedBy', 'name')
+      .populate('studentMarks.prcAssignedBy', 'name');
+
+    res.status(200).json({ success: true, data: updated });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+
 // @desc    Get all submissions (Admin)
 // @route   GET /api/submissions
 // Query params: page (default 1), limit (default 50), eventId (optional), batchId (optional), status (optional - default 'accepted')
@@ -407,16 +608,44 @@ exports.getAllSubmissions = async (req, res) => {
     const limit = parseInt(req.query.limit) || 50;
     const eventId = req.query.eventId;
     const batchId = req.query.batchId;
-    const status = req.query.status || 'accepted'; // Default to showing only accepted submissions
+    const status = req.query.status;
+    const isCoordinatorRequest = req.user.role === 'guide' && req.user.isCoordinator && req.user.coordinatorSection;
     
     const skip = (page - 1) * limit;
 
     // Build filter object
     const filter = {};
     if (eventId) filter.timelineEventId = eventId;
-    if (batchId) filter.batchId = batchId;
-    // Only show accepted submissions by default in admin timeline view
-    filter.status = status;
+
+    if (isCoordinatorRequest) {
+      const { year, branch, section } = req.user.coordinatorSection;
+      const coordinatorBatches = await Batch.find({ year, branch, section }).select('_id');
+      const coordinatorBatchIds = coordinatorBatches.map(b => b._id);
+
+      if (coordinatorBatchIds.length === 0) {
+        return res.status(200).json({
+          success: true,
+          data: [],
+          pagination: { current: page, total: 0, limit, pages: 0 }
+        });
+      }
+
+      filter.batchId = { $in: coordinatorBatchIds };
+      if (status && status !== 'all') {
+        filter.status = status;
+      }
+    }
+
+    if (batchId) {
+      const batchFilter = Array.isArray(filter.batchId) ? { $in: filter.batchId } : batchId;
+      filter.batchId = isCoordinatorRequest
+        ? { $in: Array.isArray(batchFilter.$in) ? batchFilter.$in.filter(id => id.toString() === batchId.toString()) : [batchId] }
+        : batchId;
+    }
+
+    if (!isCoordinatorRequest && status && status !== 'all') {
+      filter.status = status;
+    }
 
     const submissions = await Submission.find(filter)
       .populate('batchId', 'teamName year branch section leaderStudentId guideId problemId coeId researchArea')
@@ -424,6 +653,11 @@ exports.getAllSubmissions = async (req, res) => {
       .populate('comments.guideId', 'name')
       .populate('adminRemarks.adminId', 'name')
       .populate('marksAssignedBy', 'name')
+      .populate('studentMarks.studentId', 'name rollNumber')
+      .populate('studentMarks.assignedBy', 'name')
+      .populate('prcStudentMarks.studentId', 'name rollNumber')
+      .populate('prcStudentMarks.assignedBy', 'name')
+      .populate('studentMarks.prcAssignedBy', 'name')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
@@ -462,18 +696,29 @@ exports.addAdminRemark = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Submission not found' });
     }
 
-    // Check for duplicate remark (same admin, same content, within last 60 seconds)
+    const isCoordinatorRemark = req.user.role === 'guide' && req.user.isCoordinator;
+    const remarkOwnerType = isCoordinatorRemark ? 'Guide' : 'Admin';
+
+    if (isCoordinatorRemark && submission.status !== 'accepted' && submission.status !== 'completed') {
+      return res.status(400).json({
+        success: false,
+        message: 'PRC remarks can only be added to accepted submissions.'
+      });
+    }
+
     const duplicate = submission.adminRemarks.find(r =>
       r.adminId.toString() === req.user._id.toString() &&
+      r.adminRemarkType === remarkOwnerType &&
       r.remark === remark &&
       (new Date() - new Date(r.createdAt)) < 60000
     );
 
     if (duplicate) {
-      console.log('⚠️ Duplicate admin remark detected, skipping...');
+      console.log('⚠️ Duplicate remark detected, skipping...');
     } else {
       submission.adminRemarks.push({
         adminId: req.user._id,
+        adminRemarkType: remarkOwnerType,
         remark,
         createdAt: new Date()
       });
@@ -485,6 +730,109 @@ exports.addAdminRemark = async (req, res) => {
       .populate('comments.guideId', 'name');
 
     res.status(200).json({ success: true, data: updated });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Assign PRC marks (Coordinator / Admin) out of 25
+// @route   POST /api/submissions/:id/prc-marks
+exports.assignPRCMarks = async (req, res) => {
+  try {
+    if (req.user.role !== 'guide' || !req.user.isCoordinator) {
+      return res.status(403).json({ success: false, message: 'Only class coordinators can assign PRC marks.' });
+    }
+    const { prcMarks, prcStudentMarks } = req.body;
+    const submission = await Submission.findById(req.params.id);
+
+    if (!submission) {
+      return res.status(404).json({ success: false, message: 'Submission not found' });
+    }
+
+    if (submission.status !== 'accepted' && submission.status !== 'completed') {
+      return res.status(400).json({
+        success: false,
+        message: 'PRC marks can only be assigned after guide approval.'
+      });
+    }
+
+    const isCoordinator = req.user.role === 'guide' && req.user.isCoordinator;
+    const assignedByType = isCoordinator ? 'Guide' : 'Admin';
+
+    if (isCoordinator && submission.status !== 'accepted' && submission.status !== 'completed') {
+      return res.status(400).json({
+        success: false,
+        message: 'PRC marks can only be assigned to accepted submissions.'
+      });
+    }
+
+    if (Array.isArray(prcStudentMarks) && prcStudentMarks.length > 0) {
+      submission.prcStudentMarks = submission.prcStudentMarks || [];
+      for (const item of prcStudentMarks) {
+        if (!item.studentId) continue;
+        const sid = item.studentId.toString();
+        const rawMarks = item.marks !== null && item.marks !== undefined && item.marks !== ''
+          ? parseFloat(item.marks)
+          : null;
+        const validatedMarks = rawMarks !== null ? Math.max(0, Math.min(25, rawMarks)) : null;
+
+        const existingIdx = submission.prcStudentMarks.findIndex(
+          sm => sm.studentId && sm.studentId.toString() === sid
+        );
+
+        if (existingIdx >= 0) {
+          submission.prcStudentMarks[existingIdx].marks = validatedMarks;
+          submission.prcStudentMarks[existingIdx].assignedBy = req.user._id;
+          submission.prcStudentMarks[existingIdx].assignedByType = assignedByType;
+          submission.prcStudentMarks[existingIdx].assignedAt = new Date();
+        } else {
+          submission.prcStudentMarks.push({
+            studentId: item.studentId,
+            marks: validatedMarks,
+            assignedBy: req.user._id,
+            assignedByType: assignedByType,
+            assignedAt: new Date()
+          });
+        }
+      }
+    }
+
+    if (prcMarks !== undefined && prcMarks !== '') {
+      submission.prcMarks = prcMarks !== null ? Math.max(0, Math.min(25, parseFloat(prcMarks))) : null;
+    }
+
+    submission.prcMarksAssignedBy = req.user._id;
+    submission.prcMarksAssignedByType = assignedByType;
+    submission.prcMarksAssignedAt = new Date();
+
+    await submission.save();
+
+    const updated = await Submission.findById(req.params.id)
+      .populate('batchId', 'teamName year branch section leaderStudentId guideId')
+      .populate('timelineEventId', 'title maxMarks')
+      .populate('comments.guideId', 'name')
+      .populate('adminRemarks.adminId', 'name')
+      .populate('marksAssignedBy', 'name')
+      .populate('studentMarks.studentId', 'name rollNumber')
+      .populate('studentMarks.assignedBy', 'name')
+      .populate('prcStudentMarks.studentId', 'name rollNumber')
+      .populate('prcStudentMarks.assignedBy', 'name');
+
+    res.status(200).json({ success: true, data: updated });
+  } catch (error) {
+    console.error('❌ Error assigning PRC marks:', error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Get students in a batch (for guide to assign per-student marks)
+// @route   GET /api/submissions/batch/:batchId/students
+exports.getStudentsByBatch = async (req, res) => {
+  try {
+    const students = await Student.find({ batchId: req.params.batchId })
+      .select('_id name rollNumber')
+      .lean();
+    res.status(200).json({ success: true, data: students });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

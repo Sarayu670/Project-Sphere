@@ -20,7 +20,7 @@ const {
     getCOEs,
     getRCs
 } = require('../controllers/projectSearchController');
-const { protect, authorize } = require('../middleware/auth');
+const { protect, authorize, authorizeAdminOrCoordinator } = require('../middleware/auth');
 
 // Configure multer for file upload (memory storage)
 const upload = multer({
@@ -67,7 +67,8 @@ router.get('/meta/coes', getCOEs);
 router.get('/meta/rcs', getRCs);
 
 // Admin routes
-router.post('/import', protect, authorize('admin'), upload.array('files', 10), importExcelFiles);
+// Allow admins or coordinators to import project Excel files
+router.post('/import', protect, authorizeAdminOrCoordinator, upload.array('files', 10), importExcelFiles);
 router.delete('/all', protect, authorize('admin'), deleteAllProjects);
 
 module.exports = router;

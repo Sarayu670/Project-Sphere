@@ -11,8 +11,11 @@ const {
   getGuideSubmissions,
   addComment,
   assignMarks,
+  assignPrcMarks,
   getAllSubmissions,
-  addAdminRemark
+  addAdminRemark,
+  getStudentsByBatch,
+  assignPRCMarks
 } = require('../controllers/submissionController');
 
 // Configure multer for file uploads
@@ -34,17 +37,39 @@ const upload = multer({ storage: storage });
 // Student routes
 router.post('/', protect, authorize('student'), createOrUpdateSubmission);
 router.get('/batch/:batchId', protect, getBatchSubmissions);
+router.get('/batch/:batchId/students', protect, (req, res, next) => {
+  if (req.user.role === 'admin' || req.user.role === 'guide') return next();
+  return res.status(403).json({ success: false, message: 'Not authorized' });
+}, getStudentsByBatch);
 
 // Guide routes
 router.get('/guide', protect, authorize('guide'), getGuideSubmissions);
 router.post('/:id/comment', protect, authorize('guide'), addComment);
 router.post('/:id/marks', protect, authorize('guide'), assignMarks);
 
-// Admin routes
-router.post('/:id/admin-remark', protect, authorize('admin'), addAdminRemark);
+// Admin / Coordinator routes
+router.post('/prc-marks', protect, (req, res, next) => {
+  if (req.user.role === 'guide' && req.user.isCoordinator) return next();
+  return res.status(403).json({ success: false, message: 'Only class coordinators can assign PRC marks.' });
+}, assignPrcMarks);
+
+router.post('/:id/prc-marks', protect, (req, res, next) => {
+  if (req.user.role === 'guide' && req.user.isCoordinator) return next();
+  return res.status(403).json({ success: false, message: 'Only class coordinators can assign PRC marks.' });
+}, assignPRCMarks);
+
+router.post('/:id/admin-remark', protect, (req, res, next) => {
+  if (req.user.role === 'admin') return next();
+  if (req.user.role === 'guide' && req.user.isCoordinator) return next();
+  return res.status(403).json({ success: false, message: 'Only admins and section coordinators can add remarks.' });
+}, addAdminRemark);
 
 // General
-router.get('/', protect, authorize('admin'), getAllSubmissions);
+router.get('/', protect, (req, res, next) => {
+  if (req.user.role === 'admin') return next();
+  if (req.user.role === 'guide' && req.user.isCoordinator) return next();
+  return res.status(403).json({ success: false, message: 'Only admins and coordinators can access all submissions.' });
+}, getAllSubmissions);
 router.get('/:id', protect, getSubmission);
 
 module.exports = router;

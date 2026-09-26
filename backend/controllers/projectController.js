@@ -80,30 +80,36 @@ exports.importExcelFiles = async (req, res) => {
                         : `${record.guideName.toLowerCase().replace(/[^a-z0-9]/g, '')}${Date.now()}@guide.gnits.ac.in`;
 
                     try {
-                        // Hash password ONCE manually - we use updateOne/findOneAndUpdate to bypass pre-save hook
-                        const hashedGuidePassword = await bcrypt.hash('gnits@123', 10);
                         const escapedName = record.guideName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                        
-                        guide = await Guide.findOneAndUpdate(
-                            { 
-                                $or: [
-                                    { email: guideEmail },
-                                    { name: { $regex: `^${escapedName}$`, $options: 'i' } }
-                                ]
-                            },
-                            {
-                                $set: {
-                                    name: record.guideName,
-                                    email: guideEmail,
-                                    password: hashedGuidePassword,
-                                    role: 'guide'
-                                }
-                            },
-                            { upsert: true, new: true, setDefaultsOnInsert: true }
-                        );
+                        guide = await Guide.findOne({
+                            $or: [
+                                { email: guideEmail },
+                                { name: { $regex: `^${escapedName}$`, $options: 'i' } }
+                            ]
+                        });
+
+                        if (guide) {
+                            guide.name = record.guideName;
+                            if (record.guideEmail && record.guideEmail !== 'N/A') {
+                                guide.email = guideEmail;
+                            }
+                            await guide.save();
+                        } else {
+                            guide = await Guide.create({
+                                name: record.guideName,
+                                email: guideEmail,
+                                password: 'gnits@123',
+                                role: 'guide'
+                            });
+                        }
                         console.log(`[Import] Guide synced: ${guide.name} (${guide.email})`);
                     } catch (error) {
-                        console.error(`[Import] Error syncing guide ${record.guideName}: ${error.message}`);
+                        if (error.code === 11000) {
+                            guide = await Guide.findOne({ email: guideEmail }) || await Guide.findOne({ name: record.guideName });
+                            console.log(`[Import] Guide found after duplicate key: ${guide?.name}`);
+                        } else {
+                            console.error(`[Import] Error syncing guide ${record.guideName}: ${error.message}`);
+                        }
                     }
                 }
 
@@ -213,15 +219,22 @@ exports.importExcelFiles = async (req, res) => {
                         batch.status = 'In Progress';
                     }
                     if (problem) batch.problemId = problem._id;
-                    if (coe) batch.coeId = coe._id;
+                    if (coe) {
+                        batch.coeId = coe._id;
+                        batch.coe = { name: record.coe, coeId: coe._id };
+                    } else if (record.coe && record.coe !== 'N/A') {
+                        batch.coe = { name: record.coe, coeId: null };
+                    }
                     if (studentIds.length > 0) batch.leaderStudentId = studentIds[0];
                     if (record.year) batch.year = record.year;
                     if (record.branch) batch.branch = record.branch;
                     if (record.section) batch.section = record.section;
+                    if (record.domain && record.domain !== 'N/A') batch.domain = record.domain;
                     if (record.researchArea && record.researchArea !== 'N/A') {
                         batch.researchArea = record.researchArea;
-                        batch.domain = record.researchArea;
                     }
+                    if (record.thrustArea && record.thrustArea !== 'N/A') batch.thrustArea = record.thrustArea;
+                    if (record.outcome && record.outcome !== 'N/A') batch.outcome = record.outcome;
                     await batch.save();
                 } else {
                     batch = await Batch.create({
@@ -233,11 +246,14 @@ exports.importExcelFiles = async (req, res) => {
                         status: guide ? 'In Progress' : 'Not Started',
                         problemId: problem ? problem._id : null,
                         coeId: coe ? coe._id : null,
+                        coe: record.coe && record.coe !== 'N/A' ? { name: record.coe, coeId: coe ? coe._id : null } : undefined,
                         year: record.year || '4th',
                         branch: record.branch || 'CSE',
                         section: record.section || 'A',
+                        domain: record.domain && record.domain !== 'N/A' ? record.domain : undefined,
                         researchArea: record.researchArea && record.researchArea !== 'N/A' ? record.researchArea : undefined,
-                        domain: record.researchArea && record.researchArea !== 'N/A' ? record.researchArea : undefined
+                        thrustArea: record.thrustArea && record.thrustArea !== 'N/A' ? record.thrustArea : (record.researchArea || undefined),
+                        outcome: record.outcome && record.outcome !== 'N/A' ? record.outcome : 'None'
                     });
                 }
 
@@ -279,7 +295,10 @@ exports.importExcelFiles = async (req, res) => {
                     project.rollNumbers = record.rollNumbers || [];
                     project.guideName = record.guideName;
                     project.projectTitle = record.projectTitle !== 'N/A' ? record.projectTitle : project.projectTitle;
+                    project.domain = record.domain || 'N/A';
                     project.researchArea = record.researchArea || 'N/A';
+                    project.thrustArea = record.thrustArea || record.researchArea || 'N/A';
+                    project.outcome = record.outcome || 'None';
                     project.coe = record.coe;
                     await project.save();
                 } else {
@@ -291,7 +310,10 @@ exports.importExcelFiles = async (req, res) => {
                         rollNumbers: record.rollNumbers || [],
                         guideName: record.guideName,
                         projectTitle: record.projectTitle,
+                        domain: record.domain || 'N/A',
                         researchArea: record.researchArea || 'N/A',
+                        thrustArea: record.thrustArea || record.researchArea || 'N/A',
+                        outcome: record.outcome || 'None',
                         coe: record.coe,
                         source: 'excel_import'
                     });
@@ -350,6 +372,7 @@ exports.searchProjects = async (req, res) => {
                 $or: [
                     { guideName: searchRegex },
                     { projectTitle: searchRegex },
+                    { domain: searchRegex },
                     { researchArea: searchRegex },
                     { coe: searchRegex }
                 ]
@@ -360,6 +383,8 @@ exports.searchProjects = async (req, res) => {
             query = { projectTitle: searchRegex };
         } else if (type === 'research') {
             query = { researchArea: searchRegex };
+        } else if (type === 'domain') {
+            query = { domain: searchRegex };
         } else if (type === 'coe') {
             query = { coe: searchRegex };
         }

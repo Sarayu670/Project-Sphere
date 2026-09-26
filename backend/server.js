@@ -59,6 +59,10 @@ app.use('/api/meetings', require('./routes/meetingRoutes'));
 app.use('/api/submissions', require('./routes/submissionRoutes'));
 app.use('/api/chat', require('./routes/chatRoutes'));
 app.use('/api/projects', require('./routes/projectRoutes'));
+app.use('/api/ai-problems', require('./routes/aiProblemRoutes'));
+app.use('/api/ai-mentor', require('./routes/aiMentorRoutes'));
+
+
 
 // Health check route
 app.get('/api/health', (req, res) => {

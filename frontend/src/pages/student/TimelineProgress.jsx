@@ -116,6 +116,11 @@ function TimelineProgress({ batchId }) {
     return { text: `${Math.ceil(diff)} days left`, color: '#22c55e' };
   };
 
+  const isEventUnlocked = (eventIndex) => {
+    if (eventIndex === 0) return true;
+    return timeline[eventIndex - 1]?.submissionStatus === 'accepted';
+  };
+
   if (loading && timeline.length === 0) return (
     <div style={{ padding: '20px' }}>
       {[1, 2, 3].map(i => (
@@ -131,6 +136,20 @@ function TimelineProgress({ batchId }) {
     const submission = selectedEvent.submission;
     return (
       <div>
+        {notification && (
+          <div style={{
+            marginBottom: '15px',
+            padding: '12px 16px',
+            borderRadius: '8px',
+            fontWeight: '600',
+            fontSize: '14px',
+            backgroundColor: notification.type === 'success' ? '#d1fae5' : notification.type === 'danger' ? '#fee2e2' : notification.type === 'warning' ? '#fef3c7' : '#dbeafe',
+            color: notification.type === 'success' ? '#065f46' : notification.type === 'danger' ? '#991b1b' : notification.type === 'warning' ? '#92400e' : '#1e40af',
+            border: `1px solid ${notification.type === 'success' ? '#a7f3d0' : notification.type === 'danger' ? '#fca5a5' : notification.type === 'warning' ? '#fde68a' : '#bfdbfe'}`
+          }}>
+            {notification.message}
+          </div>
+        )}
         <button className="btn btn-secondary" onClick={() => setSelectedEvent(null)} style={{ marginBottom: '20px' }}>← Back to Timeline</button>
 
         <div className="card" style={{ marginBottom: '20px', borderLeft: '4px solid #667eea' }}>
@@ -161,37 +180,55 @@ function TimelineProgress({ batchId }) {
           )}
         </div>
 
-        {(selectedEvent.isMarksEnabled !== false && selectedEvent.isMarksEnabled !== 'false') && submission?.marks !== null && submission?.marks !== undefined && (
-          <div className="card" style={{ marginBottom: '20px', background: '#f0fdf4', border: '1px solid #22c55e' }}>
-            <h3 style={{ color: '#22c55e' }}>✅ Marks Assigned</h3>
-            <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#22c55e' }}>{submission.marks} / {selectedEvent.maxMarks}</p>
-          </div>
-        )}
-
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
           <div className="card">
-            <h3>📄 Your Submissions</h3>
+            <h3>📄 Your Team Submissions</h3>
+            <p style={{ color: '#64748b', fontSize: '12px', margin: '-5px 0 15px 0' }}>
+              💡 Only one member in your team needs to upload. If another member updates it, the latest version replaces it.
+            </p>
+
             {!submission?.versions?.length ? (
               <p style={{ color: '#888' }}>No submissions yet</p>
             ) : (
-              <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+              <div style={{ maxHeight: '400px', overflowY: 'auto', marginBottom: '15px' }}>
                 {submission.versions.map((v, idx) => (
-                  <div key={idx} style={{ padding: '10px', borderBottom: '1px solid #eee' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <strong>Submission {v.version}</strong>
-                      <small>{new Date(v.submittedAt).toLocaleString()}</small>
+                  <div key={idx} style={{ padding: '12px', borderBottom: '1px solid #eee', background: idx === submission.versions.length - 1 ? '#f0fdf4' : 'transparent', borderRadius: '6px', marginBottom: '6px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <strong style={{ color: '#1e293b' }}>
+                        Version {v.version} {idx === submission.versions.length - 1 ? '(Latest)' : ''}
+                      </strong>
+                      <small style={{ color: '#64748b' }}>{new Date(v.submittedAt).toLocaleString()}</small>
                     </div>
-                    {v.description && <p style={{ color: '#666', fontSize: '14px', margin: '5px 0' }}>{v.description}</p>}
-                    {v.driveLink && <a href={v.driveLink} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm">📁 View</a>}
-                    {v.fileUrl && <a href={v.fileUrl} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm">📁 View</a>}
+                    {v.submittedByName && (
+                      <div style={{ fontSize: '12px', color: '#2563eb', fontWeight: '500', marginTop: '4px' }}>
+                        👤 {v.version === 1 ? 'Submitted by' : 'Updated by'}: <strong>{v.submittedByName}</strong>
+                      </div>
+                    )}
+                    {v.description && <p style={{ color: '#475569', fontSize: '13px', margin: '6px 0' }}>{v.description}</p>}
+                    <div style={{ marginTop: '6px' }}>
+                      {v.driveLink && <a href={v.driveLink} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm">📁 View Link</a>}
+                      {v.fileUrl && <a href={v.fileUrl} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm" style={{ marginLeft: '6px' }}>📥 Download File</a>}
+                    </div>
                   </div>
                 ))}
               </div>
             )}
 
-            {selectedEvent.submissionStatus !== 'accepted' && (
+            {(
+              selectedEvent.submissionStatus !== 'accepted' ||
+              submission?.status === 'accepted'
+            ) ? (
               <form onSubmit={handleSubmit} style={{ marginTop: '20px', paddingTop: '15px', borderTop: '1px solid #eee' }}>
-                <h4>{submission?.versions?.length ? 'Submit New Version' : 'Submit'}</h4>
+                <h4 style={{ margin: '0 0 8px 0' }}>
+                  {submission?.versions?.length ? '✏️ Edit / Update Submission (Upload New Version)' : '📤 Submit Abstract / File'}
+                </h4>
+                <p style={{ color: '#64748b', fontSize: '12px', marginBottom: '15px' }}>
+                  {submission?.versions?.length
+                    ? submission?.status === 'accepted'
+                      ? 'Your guide accepted the previous version. You can submit a corrected version, which will be sent to the guide for review again.'
+                      : 'Any team member can submit an update. Submitting a new link will update the team submission to the latest version.'
+                    : 'Paste your Google Drive link below.'}
+                </p>
 
                 {validationErrors.length > 0 && (
                   <div style={{ marginBottom: '15px', padding: '12px', background: '#fff5f5', border: '1px solid #feb2b2', borderRadius: '6px' }}>
@@ -216,11 +253,17 @@ function TimelineProgress({ batchId }) {
                   </small>
                 </div>
                 <div className="form-group">
-                  <label>Description</label>
-                  <textarea value={submissionForm.description} onChange={(e) => setSubmissionForm({ ...submissionForm, description: e.target.value })} rows={2} placeholder="Brief description of changes..." />
+                  <label>Description of Changes / Notes</label>
+                  <textarea value={submissionForm.description} onChange={(e) => setSubmissionForm({ ...submissionForm, description: e.target.value })} rows={2} placeholder="Brief description of updates..." />
                 </div>
-                <button type="submit" className="btn btn-primary" disabled={submitting}>{submitting ? 'Submitting...' : 'Submit'}</button>
+                <button type="submit" className="btn btn-primary" disabled={submitting}>
+                  {submitting ? 'Updating...' : submission?.versions?.length ? 'Update Submission' : 'Submit'}
+                </button>
               </form>
+            ) : (
+              <div style={{ marginTop: '20px', padding: '12px 16px', background: '#dcfce7', borderRadius: '8px', color: '#166534', fontSize: '13px', fontWeight: '500' }}>
+                ✅ Accepted by Guide — You can still submit a corrected version for another review.
+              </div>
             )}
           </div>
 
@@ -246,7 +289,7 @@ function TimelineProgress({ batchId }) {
 
             {submission?.adminRemarks?.length > 0 && (
               <div className="card" style={{ background: '#f0f9ff', borderColor: '#bae6fd' }}>
-                <h3 style={{ color: '#0369a1' }}>🛡️ Admin Feedback</h3>
+                <h3 style={{ color: '#0369a1' }}>💬 Coordinator Feedback</h3>
                 <div style={{ maxHeight: '150px', overflowY: 'auto' }}>
                   {submission.adminRemarks
                     .filter((r, idx, self) =>
@@ -256,8 +299,7 @@ function TimelineProgress({ batchId }) {
                     )
                     .map((r, idx) => (
                       <div key={idx} style={{ padding: '10px', borderBottom: idx !== submission.adminRemarks.length - 1 ? '1px solid #e0f2fe' : 'none' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
-                          <strong style={{ color: '#0c4a6e' }}>🛡️ {r.adminId?.name || 'Admin'}</strong>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '5px' }}>
                           <small style={{ color: '#64748b' }}>{new Date(r.createdAt).toLocaleString()}</small>
                         </div>
                         <p style={{ margin: '0', color: '#0c4a6e', fontSize: '14px', whiteSpace: 'pre-wrap' }}>{r.remark}</p>
@@ -310,15 +352,26 @@ function TimelineProgress({ batchId }) {
         <div className="timeline-list">
           {timeline.map((event, idx) => {
             const deadlineStatus = getDeadlineStatus(event.deadline);
-            const isMarksEnabled = event.isMarksEnabled !== false && event.isMarksEnabled !== 'false';
-            const progress = (isMarksEnabled && event.marks !== null) ? (event.marks / event.maxMarks * 100) : (event.submissionStatus === 'accepted' ? 100 : event.submissionStatus === 'submitted' ? 50 : 0);
+            const unlocked = isEventUnlocked(idx);
+            const progress = event.submissionStatus === 'accepted' ? 100 : event.submissionStatus === 'submitted' ? 50 : 0;
 
             return (
-              <div key={event._id} className="card" style={{ marginBottom: '15px', borderLeft: `4px solid ${event.submissionStatus === 'accepted' ? '#22c55e' : '#667eea'}`, cursor: 'pointer' }} onClick={() => setSelectedEvent(event)}>
+              <div
+                key={event._id}
+                className="card"
+                style={{
+                  marginBottom: '15px',
+                  borderLeft: `4px solid ${event.submissionStatus === 'accepted' ? '#22c55e' : unlocked ? '#667eea' : '#cbd5e1'}`,
+                  cursor: unlocked ? 'pointer' : 'not-allowed',
+                  opacity: unlocked ? 1 : 0.68,
+                  background: unlocked ? '#fff' : '#f8fafc'
+                }}
+                onClick={() => unlocked && setSelectedEvent(event)}
+              >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: '15px', flex: 1 }}>
                     <span style={{
-                      background: event.submissionStatus === 'accepted' ? '#22c55e' : '#667eea',
+                      background: event.submissionStatus === 'accepted' ? '#22c55e' : unlocked ? '#667eea' : '#94a3b8',
                       color: 'white',
                       borderRadius: '50%',
                       width: '32px',
@@ -334,20 +387,24 @@ function TimelineProgress({ batchId }) {
                     <div style={{ flex: 1 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '5px' }}>
                         <h3 style={{ margin: 0, fontSize: '18px' }}>{event.title}</h3>
-                        {getStatusBadge(event.submissionStatus)}
+                        {unlocked ? getStatusBadge(event.submissionStatus) : <span className="timeline-badge badge-secondary">🔒 Locked</span>}
                       </div>
                       <p style={{ color: '#666', fontSize: '14px', margin: '5px 0' }}>{event.description}</p>
                     </div>
                   </div>
                   <div style={{ textAlign: 'right', marginLeft: '15px' }}>
-                    <div style={{ color: deadlineStatus.color, fontWeight: '500' }}>{deadlineStatus.text}</div>
+                    <div style={{ color: unlocked ? deadlineStatus.color : '#64748b', fontWeight: '500' }}>{unlocked ? deadlineStatus.text : 'Locked'}</div>
                     <small style={{ color: '#888' }}>{new Date(event.deadline).toLocaleDateString()}</small>
-                    {(event.isMarksEnabled !== false && event.isMarksEnabled !== 'false') && event.marks !== null && <div style={{ color: '#22c55e', fontWeight: 'bold', marginTop: '5px' }}>{event.marks}/{event.maxMarks}</div>}
                   </div>
                 </div>
                 <div style={{ marginTop: '10px', background: '#e5e7eb', borderRadius: '4px', height: '6px', overflow: 'hidden' }}>
                   <div style={{ width: `${progress}%`, height: '100%', background: event.submissionStatus === 'accepted' ? '#22c55e' : '#667eea', transition: 'width 0.3s' }}></div>
                 </div>
+                {!unlocked && (
+                  <p style={{ margin: '10px 0 0', color: '#64748b', fontSize: '13px', fontWeight: '600' }}>
+                    Complete and get the previous milestone accepted to unlock this event.
+                  </p>
+                )}
               </div>
             );
           })}

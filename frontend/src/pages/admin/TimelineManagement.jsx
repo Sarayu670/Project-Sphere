@@ -213,10 +213,6 @@ function TimelineEditor({ scope = null, allowRemarkEditing = true }) {
       alert("Only the class coordinator can assign PRC marks.");
       return;
     }
-    if (!isGuideApproved(sub)) {
-      alert("PRC marks can only be given for accepted batches.");
-      return;
-    }
     setSelectedSubmissionForPRC(sub);
     setSelectedBatchForPRC(batch);
     setShowPRCMarksModal(true);
@@ -252,10 +248,6 @@ function TimelineEditor({ scope = null, allowRemarkEditing = true }) {
 
   const handleSavePRCMarks = async () => {
     if (!selectedSubmissionForPRC) return;
-    if (!isGuideApproved(selectedSubmissionForPRC)) {
-      setPrcError("PRC marks can only be given for accepted batches.");
-      return;
-    }
     setPrcError("");
 
     for (const s of prcBatchStudents) {
@@ -1239,11 +1231,7 @@ function TimelineEditor({ scope = null, allowRemarkEditing = true }) {
                         </td>
                         <td>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                            {!isGuideApproved(sub) ? (
-                              <span style={{ color: '#aaa', fontSize: '13px' }}>—</span>
-                            ) : (
-                              <>
-                                {Array.isArray(sub.prcStudentMarks) && sub.prcStudentMarks.length > 0 ? (
+                            {Array.isArray(sub.prcStudentMarks) && sub.prcStudentMarks.length > 0 ? (
                                   <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                                     {sub.prcStudentMarks.map((sm, idx) => (
                                       <div key={idx} style={{ fontSize: '12px', display: 'flex', gap: '6px', alignItems: 'center' }}>
@@ -1281,8 +1269,6 @@ function TimelineEditor({ scope = null, allowRemarkEditing = true }) {
                                       : "+ Add PRC Marks"}
                                   </button>
                                 )}
-                              </>
-                            )}
                           </div>
                         </td>
                         <td>

@@ -481,10 +481,6 @@ function CoordinatorDashboard() {
 
   const saveCoordinatorPrcMark = async (row, column) => {
     const markKey = `${row.teamKey}-${row.studentId}-${column.key}`;
-    if (!row[`${column.key}GuideApproved`]) {
-      setError('PRC marks can only be entered after guide approval.');
-      return;
-    }
     const value = markDrafts[markKey];
     const marks = Number(value);
     if (!Number.isFinite(marks) || marks < 0 || marks > MARK_COMPONENT_MAX) {
@@ -878,9 +874,7 @@ function CoordinatorDashboard() {
                             <Fragment key={`${row.teamKey}-${row.memberName}-${column.key}`}>
                               <td className="marks-cell marks-group-start"><span className={`marks-value marks-value-${column.key} ${row[column.guideKey] > 0 ? 'marks-positive' : 'marks-neutral'}`}>{row[column.guideKey] ?? 0}</span></td>
                               <td className="marks-cell marks-prc-edit-cell">
-                                {!row[`${column.key}GuideApproved`] ? (
-                                  <span className={`marks-value marks-value-${column.key} marks-neutral`} aria-label="PRC marks unavailable until guide approval">0</span>
-                                ) : editingMarkKey === `${row.teamKey}-${row.studentId}-${column.key}` ? (
+                                {editingMarkKey === `${row.teamKey}-${row.studentId}-${column.key}` ? (
                                   <form
                                     className="marks-inline-editor"
                                     onSubmit={event => {

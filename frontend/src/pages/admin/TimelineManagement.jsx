@@ -118,17 +118,22 @@ function TimelineEditor({ scope = null, allowRemarkEditing = true }) {
   const [events, setEvents] = useState([]);
   const [batches, setBatches] = useState([]);
   const [submissions, setSubmissions] = useState([]);
+  const [selectedEvent, setSelectedEvent] = useState(null);
   const canAddRemarks = allowRemarkEditing;
   const canEditPrcMarks = Boolean(scope && allowRemarkEditing);
   const [loading, setLoading] = useState(true);
   const visibleBatches = useMemo(() => {
-    const filtered = !scope ? batches : batches.filter(batch =>
+    const scoped = !scope ? batches : batches.filter(batch =>
       batch.year === scope.year &&
       batch.branch === scope.branch &&
       batch.section === scope.section
     );
+    const targetYear = selectedEvent?.targetYear;
+    const filtered = !targetYear || targetYear === 'all'
+      ? scoped
+      : scoped.filter(batch => batch.year === targetYear);
     return [...filtered].sort((left, right) => compareNatural(left.teamName, right.teamName));
-  }, [batches, scope]);
+  }, [batches, scope, selectedEvent?.targetYear]);
   const visibleEvents = useMemo(() => {
     if (!scope) return events;
     return events.filter(event =>
@@ -140,7 +145,6 @@ function TimelineEditor({ scope = null, allowRemarkEditing = true }) {
   }, [events, scope]);
   const [showForm, setShowForm] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null);
-  const [selectedEvent, setSelectedEvent] = useState(null);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -349,32 +353,34 @@ function TimelineEditor({ scope = null, allowRemarkEditing = true }) {
         (!filterBranch || batch.branch === filterBranch) &&
         (!filterSection || batch.section === filterSection)
       ));
-      const totalBatches = filteredBatches.length;
-
       // Fetch all submissions for this scope with status='all'
       const subsRes = await api.getAllSubmissions({ status: 'all', limit: 1000 });
       const subsData = subsRes.data?.data || subsRes.data || [];
-      const scopedBatchIds = new Set(filteredBatches.map(b => b._id.toString()));
       const statsMap = {};
       eventsData.forEach(event => {
-        const approvedBatchIds = new Set();
-        const submittedBatchIds = new Set();
+        const eventBatches = event.targetYear && event.targetYear !== 'all'
+          ? filteredBatches.filter(batch => batch.year === event.targetYear)
+          : filteredBatches;
+        const eligibleBatchIds = new Set(eventBatches.map(batch => batch._id.toString()));
+        const batchSubmissionStates = new Map();
         subsData.forEach(sub => {
           const subEventId = typeof sub.timelineEventId === 'string' ? sub.timelineEventId : sub.timelineEventId?._id;
           const subBatchId = typeof sub.batchId === 'string' ? sub.batchId : sub.batchId?._id;
-          if (subEventId === event._id && hasUploadedVersion(sub) && subBatchId && scopedBatchIds.has(subBatchId.toString())) {
-            if (isGuideApproved(sub)) {
-              approvedBatchIds.add(subBatchId.toString());
-            } else {
-              submittedBatchIds.add(subBatchId.toString());
-            }
+          if (subEventId !== event._id || !hasUploadedVersion(sub) || !subBatchId) return;
+          const batchId = subBatchId.toString();
+          if (!eligibleBatchIds.has(batchId)) return;
+          const currentState = batchSubmissionStates.get(batchId);
+          if (!currentState || isGuideApproved(sub)) {
+            batchSubmissionStates.set(batchId, isGuideApproved(sub) ? 'approved' : 'submitted');
           }
         });
+        const approved = [...batchSubmissionStates.values()].filter(state => state === 'approved').length;
+        const submitted = [...batchSubmissionStates.values()].filter(state => state === 'submitted').length;
         statsMap[event._id] = {
-          approved: approvedBatchIds.size,
-          submitted: submittedBatchIds.size,
-          notSubmitted: Math.max(0, totalBatches - approvedBatchIds.size - submittedBatchIds.size),
-          total: totalBatches
+          approved,
+          submitted,
+          notSubmitted: eventBatches.length - approved - submitted,
+          total: eventBatches.length
         };
 
       });

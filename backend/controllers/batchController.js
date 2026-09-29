@@ -367,7 +367,10 @@ exports.getAllBatches = async (req, res) => {
     const TeamMember = require('../models/TeamMember');
     const Guide = require('../models/Guide');
 
-    let batches = await Batch.find()
+    // Apply department scope: dept-admins only see their own branch
+    const deptFilter = req.deptFilter || {};
+
+    let batches = await Batch.find(deptFilter)
       .populate('leaderStudentId', 'name rollNumber email branch')
       .populate({
         path: 'problemId',

@@ -46,7 +46,9 @@ exports.createEvent = async (req, res) => {
       isMandatoryFormat: parseBool(isMandatoryFormat),
       isMarksEnabled: parseBool(isMarksEnabled),
       referenceFile: referenceFileData,
-      createdBy: req.user._id
+      createdBy: req.user._id,
+      // Scope event to the admin's department; 'ALL' if super-admin
+      department: req.user.department || 'ALL'
     });
 
     console.log('Event created:', event);
@@ -161,6 +163,7 @@ exports.getAllEvents = async (req, res) => {
   try {
     const { year } = req.query;
 
+    // Build base active filter
     let query = {
       $or: [{ isActive: true }, { isActive: { $exists: false } }]
     };
@@ -170,6 +173,20 @@ exports.getAllEvents = async (req, res) => {
         { $or: [{ isActive: true }, { isActive: { $exists: false } }] },
         { $or: [{ targetYear: year }, { targetYear: 'all' }] }
       ];
+    }
+
+    // Scope events by admin department:
+    // - Dept-admin (e.g. ECE) sees: events with department='ECE' OR department='ALL'
+    // - Super-admin (ALL) or non-admin (student/guide) sees all events
+    const adminDept = req.user?.role === 'admin' ? (req.user.department || 'ALL') : null;
+    if (adminDept && adminDept !== 'ALL') {
+      const deptCondition = { $or: [{ department: adminDept }, { department: 'ALL' }, { department: { $exists: false } }] };
+      if (query.$and) {
+        query.$and.push(deptCondition);
+      } else {
+        // Merge with existing $or by wrapping in $and
+        query = { $and: [query, deptCondition] };
+      }
     }
 
     const events = await TimelineEvent.find(query)

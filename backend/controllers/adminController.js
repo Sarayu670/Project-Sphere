@@ -15,13 +15,18 @@ const VALID_YEARS = ['2nd', '3rd', '4th'];
 // @route   GET /api/admin/dashboard
 exports.getDashboard = async (req, res) => {
   try {
+    // Apply department scope for dept-admins; super-admins (dept='ALL') see all data
+    const deptFilter = req.deptFilter || {};
+    const hasDeptFilter = Object.keys(deptFilter).length > 0;
+
     const totalCOEs = await COE.countDocuments();
     const totalProblems = await ProblemStatement.countDocuments();
     const totalGuides = await Guide.countDocuments();
-    const totalBatches = await Batch.countDocuments();
-    const totalStudents = await Student.countDocuments();
+    const totalBatches = await Batch.countDocuments(deptFilter);
+    const totalStudents = await Student.countDocuments(hasDeptFilter ? { branch: deptFilter.branch } : {});
 
     const batchesByStatus = await Batch.aggregate([
+      ...(hasDeptFilter ? [{ $match: deptFilter }] : []),
       { $group: { _id: '$status', count: { $sum: 1 } } }
     ]);
 
@@ -45,6 +50,9 @@ exports.getDashboard = async (req, res) => {
 // @route   GET /api/admin/overview
 exports.getOverview = async (req, res) => {
   try {
+    // Apply department scope for dept-admins
+    const deptFilter = req.deptFilter || {};
+
     const coes = await COE.find();
 
     const problems = await ProblemStatement.find()
@@ -53,7 +61,7 @@ exports.getOverview = async (req, res) => {
 
     const guides = await Guide.find().select('-password');
 
-    const batches = await Batch.find()
+    const batches = await Batch.find(deptFilter)
       .populate('leaderStudentId', 'name email')
       .populate('problemId', 'title')
       .populate('guideId', 'name email');
@@ -230,7 +238,11 @@ exports.importBatches = async (req, res) => {
 // @route   GET /api/admin/coordinators
 exports.getCoordinators = async (req, res) => {
   try {
-    const coordinators = await Coordinator.find().sort({ name: 1 });
+    // Scope coordinators by admin's department — dept-admins only see their branch
+    const deptFilter = req.deptFilter || {};
+    const coordFilter = Object.keys(deptFilter).length > 0 ? { branch: deptFilter.branch } : {};
+
+    const coordinators = await Coordinator.find(coordFilter).sort({ name: 1 });
 
     const formatted = coordinators.map((coord) => ({
       _id: coord._id,

@@ -279,7 +279,7 @@
   border-spacing: 0;
 }
 
-.coordinator-marks-table .marks-team-column { width: 110px; }
+.coordinator-marks-table .marks-team-column { width: 80px; }
 .coordinator-marks-table .marks-student-column { width: 150px; }
 .coordinator-marks-table .marks-roll-column { width: 120px; }
 .coordinator-marks-table .marks-score-column { width: 62px; }
@@ -357,8 +357,8 @@
 }
 
 .coordinator-marks-table tbody td.marks-team-cell {
-  width: 110px;
-  padding: 12px 14px;
+  width: 80px;
+  padding: 12px 8px;
   background: #f1f5f9;
   border-right: 1px solid #cbd5e1;
   color: #0f172a;

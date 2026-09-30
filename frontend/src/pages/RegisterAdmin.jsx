@@ -57,9 +57,9 @@ function RegisterAdmin() {
         <div className="auth-header">
           <span className="auth-icon">👑</span>
           <h1>G. Narayanamma Institute of Technology & Science</h1>
-          <p>Overall Coordinator Registration Portal</p>
+          <p>Admin Registration Portal</p>
           <div style={{ marginTop: '8px', fontSize: '14px', color: 'var(--text-muted)' }}>
-            Institution-wide coordinator access
+            Department-scoped admin access (select ALL for institution-wide access)
           </div>
         </div>
 
@@ -90,13 +90,21 @@ function RegisterAdmin() {
 
           <div className="form-group">
             <label>Department</label>
-            <input
-              type="text"
+            <select
               value={department}
               onChange={(e) => setDepartment(e.target.value)}
-              placeholder="e.g., Computer Science"
               required
-            />
+            >
+              <option value="">-- Select Department --</option>
+              <option value="ALL">ALL (Institution-wide Super-Admin)</option>
+              <option value="CSE">CSE</option>
+              <option value="IT">IT</option>
+              <option value="ECE">ECE</option>
+              <option value="CSM">CSM</option>
+              <option value="EEE">EEE</option>
+              <option value="CSD">CSD</option>
+              <option value="ETM">ETM</option>
+            </select>
           </div>
 
           <div className="form-group">
@@ -143,7 +151,7 @@ function RegisterAdmin() {
           </div>
 
           <button type="submit" className="btn btn-primary btn-block" disabled={loading}>
-            {loading ? 'Creating Account...' : 'Register as Overall Coordinator'}
+            {loading ? 'Creating Account...' : 'Register as Admin'}
           </button>
         </form>
 

@@ -21,7 +21,7 @@ const {
   updateBatchByCoordinator,
   deleteBatchByCoordinator
 } = require('../controllers/batchController');
-const { protect, authorize, authorizeCoordinator, authorizeAdminOrCoordinator } = require('../middleware/auth');
+const { protect, authorize, authorizeCoordinator, authorizeAdminOrCoordinator, injectDeptScope } = require('../middleware/auth');
 
 // Configure multer for file upload (memory storage)
 const upload = multer({
@@ -43,7 +43,7 @@ const upload = multer({
   }
 });
 
-router.get('/', protect, authorize('admin'), getAllBatches);
+router.get('/', protect, authorize('admin'), injectDeptScope, getAllBatches);
 router.get('/search', searchBatches);
 router.get('/search-all', searchAllBatches); // NEW: Search with full team member details
 router.get('/section', protect, authorizeCoordinator, getSectionBatches);

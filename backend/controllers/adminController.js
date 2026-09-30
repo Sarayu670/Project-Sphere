@@ -15,13 +15,40 @@ const VALID_YEARS = ['2nd', '3rd', '4th'];
 // @route   GET /api/admin/dashboard
 exports.getDashboard = async (req, res) => {
   try {
-    const totalCOEs = await COE.countDocuments();
-    const totalProblems = await ProblemStatement.countDocuments();
-    const totalGuides = await Guide.countDocuments();
-    const totalBatches = await Batch.countDocuments();
-    const totalStudents = await Student.countDocuments();
+    // Apply department scope for dept-admins; super-admins (dept='ALL') see all data
+    const deptFilter = req.deptFilter || {};
+    const hasDeptFilter = Object.keys(deptFilter).length > 0;
+
+    let totalCOEs, totalProblems, totalGuides;
+
+    if (hasDeptFilter) {
+      const dept = deptFilter.branch;
+      // Get batches for this dept to find which COEs/Problems they reference
+      const deptBatches = await Batch.find(deptFilter).select('coe problemId guideId').lean();
+      const coeIds = [...new Set(deptBatches.map(b => b.coe?.toString()).filter(Boolean))];
+      const problemIds = [...new Set(deptBatches.map(b => b.problemId?.toString()).filter(Boolean))];
+      const guideIds = [...new Set(deptBatches.map(b => b.guideId?.toString()).filter(Boolean))];
+
+      totalCOEs = coeIds.length;
+      totalProblems = problemIds.length;
+      // Count guides: those assigned to dept batches OR whose department matches
+      const guidesFromBatches = guideIds.length;
+      const guidesFromDept = await Guide.countDocuments({ department: dept });
+      // Union: guides in dept batches + guides with dept field set
+      const guideIdsFromDept = await Guide.find({ department: dept }).select('_id').lean();
+      const allGuideIds = new Set([...guideIds, ...guideIdsFromDept.map(g => g._id.toString())]);
+      totalGuides = allGuideIds.size;
+    } else {
+      totalCOEs = await COE.countDocuments();
+      totalProblems = await ProblemStatement.countDocuments();
+      totalGuides = await Guide.countDocuments();
+    }
+
+    const totalBatches = await Batch.countDocuments(deptFilter);
+    const totalStudents = await Student.countDocuments(hasDeptFilter ? { branch: deptFilter.branch } : {});
 
     const batchesByStatus = await Batch.aggregate([
+      ...(hasDeptFilter ? [{ $match: deptFilter }] : []),
       { $group: { _id: '$status', count: { $sum: 1 } } }
     ]);
 
@@ -45,18 +72,43 @@ exports.getDashboard = async (req, res) => {
 // @route   GET /api/admin/overview
 exports.getOverview = async (req, res) => {
   try {
-    const coes = await COE.find();
+    // Apply department scope for dept-admins
+    const deptFilter = req.deptFilter || {};
+    const hasDeptFilter = Object.keys(deptFilter).length > 0;
 
-    const problems = await ProblemStatement.find()
-      .populate('coeId', 'name')
-      .populate('guideId', 'name email assignedBatches maxBatches');
-
-    const guides = await Guide.find().select('-password');
-
-    const batches = await Batch.find()
+    const batches = await Batch.find(deptFilter)
       .populate('leaderStudentId', 'name email')
       .populate('problemId', 'title')
       .populate('guideId', 'name email');
+
+    let coes, problems, guides;
+
+    if (hasDeptFilter) {
+      const dept = deptFilter.branch;
+      // COEs and Problems: only those referenced by this dept's batches
+      const coeIds = [...new Set(batches.map(b => b.coe?.toString()).filter(Boolean))];
+      const problemIds = [...new Set(batches.map(b => b.problemId?._id?.toString() || b.problemId?.toString()).filter(Boolean))];
+
+      coes = await COE.find({ _id: { $in: coeIds } });
+      problems = await ProblemStatement.find({ _id: { $in: problemIds } })
+        .populate('coeId', 'name')
+        .populate('guideId', 'name email assignedBatches maxBatches');
+
+      // Guides: those assigned to dept batches OR whose Guide.department matches
+      const guideIdsFromBatches = [...new Set(batches.map(b => b.guideId?._id?.toString() || b.guideId?.toString()).filter(Boolean))];
+      guides = await Guide.find({
+        $or: [
+          { _id: { $in: guideIdsFromBatches } },
+          { department: dept }
+        ]
+      }).select('-password');
+    } else {
+      coes = await COE.find();
+      problems = await ProblemStatement.find()
+        .populate('coeId', 'name')
+        .populate('guideId', 'name email assignedBatches maxBatches');
+      guides = await Guide.find().select('-password');
+    }
 
     res.status(200).json({
       success: true,
@@ -230,7 +282,11 @@ exports.importBatches = async (req, res) => {
 // @route   GET /api/admin/coordinators
 exports.getCoordinators = async (req, res) => {
   try {
-    const coordinators = await Coordinator.find().sort({ name: 1 });
+    // Scope coordinators by admin's department — dept-admins only see their branch
+    const deptFilter = req.deptFilter || {};
+    const coordFilter = Object.keys(deptFilter).length > 0 ? { branch: deptFilter.branch } : {};
+
+    const coordinators = await Coordinator.find(coordFilter).sort({ name: 1 });
 
     const formatted = coordinators.map((coord) => ({
       _id: coord._id,

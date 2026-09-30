@@ -81,3 +81,15 @@ exports.authorizeAdminOrCoordinator = (req, res, next) => {
   return exports.authorizeCoordinator(req, res, next);
 };
 
+// Inject a department-based filter scope for admin requests.
+// If admin.department is set and not 'ALL', restricts queries to that branch.
+// Call this after protect() + authorize('admin') on routes that return branch data.
+exports.injectDeptScope = (req, res, next) => {
+  if (req.user?.role === 'admin') {
+    const dept = req.user.department;
+    req.deptFilter = (dept && dept !== 'ALL') ? { branch: dept } : {};
+  } else {
+    req.deptFilter = {};
+  }
+  next();
+};

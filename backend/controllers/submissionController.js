@@ -583,7 +583,6 @@ exports.assignPrcMarks = async (req, res) => {
         submission = new Submission({
           batchId,
           timelineEventId,
-          status: 'accepted',
           studentMarks: []
         });
       }
@@ -591,13 +590,6 @@ exports.assignPrcMarks = async (req, res) => {
 
     if (!submission) {
       return res.status(404).json({ success: false, message: 'Submission not found or milestone not identified.' });
-    }
-
-    if (submission.status !== 'accepted' && submission.status !== 'completed') {
-      return res.status(400).json({
-        success: false,
-        message: 'PRC marks can only be assigned after guide approval.'
-      });
     }
 
     const marksToAssign = Array.isArray(studentMarks) && studentMarks.length > 0
@@ -816,22 +808,8 @@ exports.assignPRCMarks = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Submission not found' });
     }
 
-    if (submission.status !== 'accepted' && submission.status !== 'completed') {
-      return res.status(400).json({
-        success: false,
-        message: 'PRC marks can only be assigned after guide approval.'
-      });
-    }
-
     const isCoordinator = req.user.role === 'guide' && req.user.isCoordinator;
     const assignedByType = isCoordinator ? 'Guide' : 'Admin';
-
-    if (isCoordinator && submission.status !== 'accepted' && submission.status !== 'completed') {
-      return res.status(400).json({
-        success: false,
-        message: 'PRC marks can only be assigned to accepted submissions.'
-      });
-    }
 
     if (Array.isArray(prcStudentMarks) && prcStudentMarks.length > 0) {
       submission.prcStudentMarks = submission.prcStudentMarks || [];

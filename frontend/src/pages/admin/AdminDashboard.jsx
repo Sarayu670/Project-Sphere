@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import * as XLSX from 'xlsx';
 import * as api from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import COEandRCManagement from '../../components/COEandRCManagement';
 import TimelineManagement from './TimelineManagement';
 import usePolling from '../../utils/usePolling';
@@ -14,6 +15,10 @@ const BRANCHES = ['CSE', 'IT', 'ECE', 'CSM', 'EEE', 'CSD', 'ETM'];
 const SECTIONS = ['A', 'B', 'C', 'D', 'E'];
 
 function AdminDashboard() {
+  const { user } = useAuth();
+  // adminDept is '' for super-admins (ALL) and the branch code (e.g. 'ECE') for dept-admins
+  const adminDept = user?.department && user.department !== 'ALL' ? user.department : '';
+
   const [stats, setStats] = useState(null);
   const [coes, setCoes] = useState([]);
   const [rcs, setRcs] = useState([]);
@@ -30,6 +35,13 @@ function AdminDashboard() {
   const [filterYear, setFilterYear] = useState('');
   const [filterBranch, setFilterBranch] = useState('');
   const [filterSection, setFilterSection] = useState('');
+
+  // Pre-set branch filter to admin's own department on mount
+  useEffect(() => {
+    if (adminDept) {
+      setFilterBranch(adminDept);
+    }
+  }, [adminDept]);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -279,7 +291,11 @@ function AdminDashboard() {
     <div className="admin-dashboard">
       <div className="dashboard-header">
         <h1>👑 Admin Dashboard</h1>
-        <p>Monitor all years, branches, sections, COEs, teams, and progress</p>
+        <p>
+          {adminDept
+            ? `${adminDept} Department — Monitor your department's teams, COEs, and progress`
+            : 'Super Admin — Monitor all years, branches, sections, COEs, teams, and progress'}
+        </p>
       </div>
 
       <div className="stats-row">
@@ -397,10 +413,15 @@ function AdminDashboard() {
                 </select>
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>Branch</label>
-                <select value={filterBranch} onChange={(e) => setFilterBranch(e.target.value)}>
-                  <option value="">All Branches</option>
-                  {BRANCHES.map(b => <option key={b} value={b}>{b}</option>)}
+                <label>Branch {adminDept && <span style={{ fontSize: '11px', color: '#667eea', fontWeight: '600' }}>(locked to {adminDept})</span>}</label>
+                <select
+                  value={filterBranch}
+                  onChange={(e) => setFilterBranch(e.target.value)}
+                  disabled={!!adminDept}
+                  style={adminDept ? { opacity: 0.7, cursor: 'not-allowed' } : {}}
+                >
+                  {!adminDept && <option value="">All Branches</option>}
+                  {(adminDept ? [adminDept] : BRANCHES).map(b => <option key={b} value={b}>{b}</option>)}
                 </select>
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
@@ -411,7 +432,7 @@ function AdminDashboard() {
                 </select>
               </div>
               <div style={{ display: 'flex', gap: '10px' }}>
-                <button className="btn btn-secondary" onClick={() => { setFilterYear(''); setFilterBranch(''); setFilterSection(''); }}>
+                <button className="btn btn-secondary" onClick={() => { setFilterYear(''); setFilterBranch(adminDept || ''); setFilterSection(''); }}>
                   Clear Filters
                 </button>
                 <button className="btn btn-primary" style={{ backgroundColor: '#28a745', borderColor: '#28a745' }} onClick={handleDownloadReport}>

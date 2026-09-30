@@ -11,13 +11,10 @@ import './CoordinatorDashboard.css';
 
 const OUTCOMES = ['None', 'Patented', 'Published', 'Copyrighted', 'Prototype', 'Funded', 'Other'];
 const TRACKED_MARK_EVENTS = [
-  { key: 'abstractReview', label: 'Abstract Review', aliases: ['abstract review', 'abstract-review', 'abstractreview'] },
   { key: 'prc1', label: 'PRC-1', aliases: ['prc-1', 'prc 1', 'prc1'] },
-  { key: 'prc2', label: 'PRC-2', aliases: ['prc-2', 'prc 2', 'prc2'] },
-  { key: 'prc3', label: 'PRC-3', aliases: ['prc-3', 'prc 3', 'prc3'] },
-  { key: 'thesis', label: 'Document Submission', aliases: ['thesis', 'document submission', 'document-submission'] }
+  { key: 'prc2', label: 'PRC-2', aliases: ['prc-2', 'prc 2', 'prc2'] }
 ];
-const MARK_COMPONENT_MAX = 25;
+const MARK_COMPONENT_MAX = 10;
 const MARK_GROUP_MAX = MARK_COMPONENT_MAX * 2;
 const MARKS_REPORT_MAX = TRACKED_MARK_EVENTS.length * MARK_GROUP_MAX;
 
@@ -416,7 +413,7 @@ function CoordinatorDashboard() {
       headers.push(`${column.label} (PRC)`);
       headers.push(`${column.label} Total`);
     });
-    headers.push('Average');
+    headers.push('Total');
 
     const aoaData = [headers];
     const merges = [];
@@ -449,10 +446,7 @@ function CoordinatorDashboard() {
           record.push(row[column.totalKey] ?? '—');
         });
 
-        const avg = marksReport.columns.length > 0
-          ? Number((row.total / marksReport.columns.length).toFixed(2))
-          : 0;
-        record.push(avg);
+        record.push(row.total);
 
         aoaData.push(record);
         currentRowIdx++;
@@ -481,10 +475,6 @@ function CoordinatorDashboard() {
 
   const saveCoordinatorPrcMark = async (row, column) => {
     const markKey = `${row.teamKey}-${row.studentId}-${column.key}`;
-    if (!row[`${column.key}GuideApproved`]) {
-      setError('PRC marks can only be entered after guide approval.');
-      return;
-    }
     const value = markDrafts[markKey];
     const marks = Number(value);
     if (!Number.isFinite(marks) || marks < 0 || marks > MARK_COMPONENT_MAX) {
@@ -816,7 +806,7 @@ function CoordinatorDashboard() {
           <div className="section-header coordinator-teams-header">
             <div>
               <h2>Team Marks Report</h2>
-              <p>Individual assessment for each batch across Abstract Review, PRC-1, PRC-2, PRC-3 and Thesis.</p>
+              <p>Individual assessment for each batch across PRC-1 and PRC-2.</p>
             </div>
             <button className="btn btn-primary" onClick={downloadMarksReport} disabled={!marksReport.columns.length}>
               Download Excel
@@ -853,13 +843,13 @@ function CoordinatorDashboard() {
                       {marksReport.columns.map(column => (
                         <th className={`marks-group-header marks-group-${column.key}`} key={column.key} colSpan="3">{column.label}<br /><span className="marks-subtext">/{column.max}</span></th>
                       ))}
-                      <th className="marks-grand-total-header" rowSpan="2">Average<br /><span className="marks-subtext">/50</span></th>
+                          <th className="marks-grand-total-header" rowSpan="2">Total<br /><span className="marks-subtext">/40</span></th>
                     </tr>
                     <tr>
                       {marksReport.columns.map(column => (
                         <Fragment key={`${column.key}-subheaders`}>
                           <th className="marks-group-start">Guide<br /><span className="marks-subtext">/{column.guideMax}</span></th>
-                          <th>PRC<br /><span className="marks-subtext">/{column.prcMax}</span></th>
+                          <th>PRC Committee<br /><span className="marks-subtext">/{column.prcMax}</span></th>
                           <th>Total<br /><span className="marks-subtext">/{column.max}</span></th>
                         </Fragment>
                       ))}
@@ -880,9 +870,7 @@ function CoordinatorDashboard() {
                             <Fragment key={`${row.teamKey}-${row.memberName}-${column.key}`}>
                               <td className="marks-cell marks-group-start"><span className={`marks-value marks-value-${column.key} ${row[column.guideKey] > 0 ? 'marks-positive' : 'marks-neutral'}`}>{row[column.guideKey] ?? 0}</span></td>
                               <td className="marks-cell marks-prc-edit-cell">
-                                {!row[`${column.key}GuideApproved`] ? (
-                                  <span className={`marks-value marks-value-${column.key} marks-neutral`} aria-label="PRC marks unavailable until guide approval">0</span>
-                                ) : editingMarkKey === `${row.teamKey}-${row.studentId}-${column.key}` ? (
+                                {editingMarkKey === `${row.teamKey}-${row.studentId}-${column.key}` ? (
                                   <form
                                     className="marks-inline-editor"
                                     onSubmit={event => {
@@ -933,7 +921,7 @@ function CoordinatorDashboard() {
                             </Fragment>
                           ))}
                           <td className="marks-total-cell">
-                            <strong>{Number((row.total / marksReport.columns.length).toFixed(2))}</strong>
+                            <strong>{row.total}</strong>
                           </td>
                         </tr>
                       ))

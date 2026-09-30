@@ -122,13 +122,13 @@ exports.registerAdmin = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Email already exists' });
     }
 
-    const admin = await Admin.create({ name, email, password, department });
+    const admin = await Admin.create({ name, email, password, department: department || 'ALL' });
     const token = generateToken(admin._id, 'admin');
 
     res.status(201).json({
       success: true,
       token,
-      user: { id: admin._id, name: admin.name, email: admin.email, role: 'admin' }
+      user: { id: admin._id, name: admin.name, email: admin.email, role: 'admin', department: admin.department || 'ALL' }
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -274,6 +274,9 @@ exports.login = async (req, res) => {
         name: user.name,
         email: user.email,
         role: userRole,
+        ...(userRole === 'admin' ? {
+          department: user.department || 'ALL'
+        } : {}),
         ...(userRole === 'guide' ? {
           isCoordinator: Boolean(user.isCoordinator),
           coordinatorSection: user.coordinatorSection || null
@@ -296,6 +299,9 @@ exports.getMe = async (req, res) => {
         name: req.user.name,
         email: req.user.email,
         role: req.user.role,
+        ...(req.user.role === 'admin' ? {
+          department: req.user.department || 'ALL'
+        } : {}),
         ...(req.user.role === 'guide' ? {
           isCoordinator: Boolean(req.user.isCoordinator),
           coordinatorSection: req.user.coordinatorSection || null

@@ -19,6 +19,9 @@ function GuideTimeline() {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [submissionAlerts, setSubmissionAlerts] = useState([]);
   const [submissionFilter, setSubmissionFilter] = useState('all'); // 'all' | 'submitted' | 'not_submitted'
+  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+  const [isDeletingComment, setIsDeletingComment] = useState(null); // stores commentId being deleted
+  const [isSubmittingMarks, setIsSubmittingMarks] = useState(false);
   const lastSeenSubmissionIds = useRef(new Set());
 
   // Reset submission filter when switching events
@@ -152,6 +155,8 @@ function GuideTimeline() {
       showDialog('Error', 'Please enter a comment', 'danger');
       return;
     }
+    if (isSubmittingFeedback) return;
+    setIsSubmittingFeedback(true);
     try {
       await api.addSubmissionComment(selectedSubmission._id, comment);
       const res = await api.getSubmission(selectedSubmission._id);
@@ -162,6 +167,23 @@ function GuideTimeline() {
     } catch (error) {
       console.error('Error adding comment:', error);
       showDialog('Error', error.response?.data?.message || 'Failed to submit feedback', 'danger');
+    } finally {
+      setIsSubmittingFeedback(false);
+    }
+  };
+
+  const handleDeleteComment = async (commentId) => {
+    if (isDeletingComment) return;
+    setIsDeletingComment(commentId);
+    try {
+      const res = await api.deleteSubmissionComment(selectedSubmission._id, commentId);
+      setSelectedSubmission(res.data.data || res.data);
+      fetchData();
+    } catch (error) {
+      console.error('Error deleting comment:', error);
+      showDialog('Error', error.response?.data?.message || 'Failed to delete feedback', 'danger');
+    } finally {
+      setIsDeletingComment(null);
     }
   };
 
@@ -199,6 +221,7 @@ function GuideTimeline() {
     }
 
     try {
+      setIsSubmittingMarks(true);
       const studentMarks = batchStudents.map(s => ({
         studentId: s._id,
         marks: studentMarkInputs[s._id] !== '' && studentMarkInputs[s._id] !== undefined
@@ -220,6 +243,8 @@ function GuideTimeline() {
       showDialog('Success', status === 'accepted' ? 'Marks assigned successfully!' : 'Revision requested successfully.', 'success');
     } catch (error) {
       showDialog('Error', error.response?.data?.message || 'Failed to assign marks', 'danger');
+    } finally {
+      setIsSubmittingMarks(false);
     }
   };
 
@@ -286,7 +311,25 @@ function GuideTimeline() {
 
     return (
       <div>
-        <button className="btn btn-secondary" onClick={() => setSelectedSubmission(null)} style={{ marginBottom: '20px' }}>← Back to Submissions</button>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
+          <button className="back-nav-btn" onClick={() => setSelectedSubmission(null)} style={{ marginBottom: 0 }}>
+            <span className="nav-arrow">‹</span> Back to Submissions
+          </button>
+          
+          <div className="breadcrumb-bar" style={{ margin: 0 }}>
+            <button className="breadcrumb-link" onClick={() => { setSelectedSubmission(null); setSelectedEvent(null); }}>
+              🗓️ Timeline
+            </button>
+            <span style={{ color: '#94a3b8', fontSize: '14px' }}>›</span>
+            <button className="breadcrumb-link" onClick={() => setSelectedSubmission(null)}>
+              {selectedEvent?.title}
+            </button>
+            <span style={{ color: '#94a3b8', fontSize: '14px' }}>›</span>
+            <span className="breadcrumb-current">
+              {submission.batchId?.teamName}
+            </span>
+          </div>
+        </div>
 
         <div className="card" style={{ marginBottom: '20px', borderLeft: '4px solid #667eea' }}>
           <h2>{selectedEvent.title} - {submission.batchId?.teamName}</h2>
@@ -344,13 +387,18 @@ function GuideTimeline() {
                 </tr>
               </thead>
               <tbody>
-                {submission.studentMarks.map((sm, idx) => (
-                  <tr key={idx}>
-                    <td><strong>{sm.studentId?.rollNumber || '—'}</strong></td>
-                    <td>{sm.studentId?.name || '—'}</td>
-                    <td><strong style={{ color: '#166534' }}>{sm.marks !== null && sm.marks !== undefined ? sm.marks : '—'}</strong> / {selectedEvent.maxMarks}</td>
-                  </tr>
-                ))}
+                {(submission.studentMarks || [])
+                  .filter((sm, idx, self) => {
+                    const sid = (sm.studentId?._id || sm.studentId)?.toString();
+                    return idx === self.findIndex(t => (t.studentId?._id || t.studentId)?.toString() === sid);
+                  })
+                  .map((sm, idx) => (
+                    <tr key={sm.studentId?._id || idx}>
+                      <td><strong>{sm.studentId?.rollNumber || '—'}</strong></td>
+                      <td>{sm.studentId?.name || '—'}</td>
+                      <td><strong style={{ color: '#166534' }}>{sm.marks !== null && sm.marks !== undefined ? sm.marks : '—'}</strong> / {selectedEvent.maxMarks}</td>
+                    </tr>
+                  ))}
               </tbody>
             </table>
           </div>
@@ -404,12 +452,35 @@ function GuideTimeline() {
               {!submission.comments?.length ? (
                 <p style={{ color: '#888', marginBottom: '10px' }}>No feedback given yet. You must submit feedback before entering marks.</p>
               ) : (
-                <div style={{ maxHeight: '180px', overflowY: 'auto', marginBottom: '10px' }}>
+                <div style={{ maxHeight: '240px', overflowY: 'auto', marginBottom: '10px' }}>
                   {submission.comments.map((c, idx) => (
-                    <div key={idx} style={{ padding: '10px', background: '#fef3c7', borderRadius: '8px', marginBottom: '10px', maxWidth: '100%', minWidth: '0', wordWrap: 'break-word', overflowWrap: 'break-word', overflow: 'hidden', wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px', minWidth: '0' }}>
-                        <strong style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>👨‍🏫 {c.guideId?.name || 'Guide'}</strong>
-                        <small style={{ whiteSpace: 'nowrap', marginLeft: '10px' }}>{new Date(c.createdAt).toLocaleString()}</small>
+                    <div key={c._id || idx} style={{ padding: '10px', background: '#fef3c7', borderRadius: '8px', marginBottom: '10px', maxWidth: '100%', minWidth: '0', wordWrap: 'break-word', overflowWrap: 'break-word', overflow: 'hidden', wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '5px', minWidth: '0', gap: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+                          <strong style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>👨‍🏫 {c.guideId?.name || 'Guide'}</strong>
+                          <small style={{ whiteSpace: 'nowrap', color: '#92400e' }}>{new Date(c.createdAt).toLocaleString()}</small>
+                        </div>
+                        {c._id && (
+                          <button
+                            onClick={() => handleDeleteComment(c._id)}
+                            disabled={isDeletingComment === c._id}
+                            title="Delete this feedback"
+                            style={{
+                              background: isDeletingComment === c._id ? '#fde8e8' : 'transparent',
+                              border: '1px solid #fca5a5',
+                              borderRadius: '5px',
+                              cursor: isDeletingComment === c._id ? 'not-allowed' : 'pointer',
+                              color: '#dc2626',
+                              fontSize: '12px',
+                              padding: '2px 7px',
+                              flexShrink: 0,
+                              fontWeight: '600',
+                              transition: 'all 0.15s'
+                            }}
+                          >
+                            {isDeletingComment === c._id ? '...' : '🗑️'}
+                          </button>
+                        )}
                       </div>
                       <p style={{ margin: '0', color: '#92400e', maxWidth: '100%', wordWrap: 'break-word', overflowWrap: 'break-word', whiteSpace: 'pre-wrap', wordBreak: 'break-word', minWidth: '0' }}>{c.comment}</p>
                     </div>
@@ -424,14 +495,15 @@ function GuideTimeline() {
                   rows={2}
                   placeholder="Type your feedback here..."
                   style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+                  disabled={isSubmittingFeedback}
                 />
                 <button
                   className="btn btn-primary btn-sm"
-                  style={{ alignSelf: 'flex-end', whiteSpace: 'nowrap', padding: '8px 14px' }}
+                  style={{ alignSelf: 'flex-end', whiteSpace: 'nowrap', padding: '8px 14px', opacity: isSubmittingFeedback ? 0.7 : 1 }}
                   onClick={handleAddComment}
-                  disabled={!comment.trim()}
+                  disabled={!comment.trim() || isSubmittingFeedback}
                 >
-                  Submit Feedback
+                  {isSubmittingFeedback ? '⏳ Submitting...' : 'Submit Feedback'}
                 </button>
               </div>
             </div>
@@ -528,15 +600,16 @@ function GuideTimeline() {
               <button
                 className="btn btn-primary"
                 disabled={
+                  isSubmittingMarks ||
                   !submission.comments?.length ||
                   (isMarksEnabled && batchStudents.length > 0 && batchStudents.some(s => studentMarkInputs[s._id] === '' || studentMarkInputs[s._id] === undefined || studentMarkInputs[s._id] === null))
                 }
                 onClick={() => handleAssignMarks('accepted')}
               >
-                {isMarksEnabled ? (hasStudentMarks || isEditingMarks ? '✅ Update Marks' : '✅ Accept & Assign Marks') : '✅ Accept Submission'}
+                {isSubmittingMarks ? '⏳ Saving Marks...' : isMarksEnabled ? (hasStudentMarks || isEditingMarks ? '✅ Update Marks' : '✅ Accept & Assign Marks') : '✅ Accept Submission'}
               </button>
               {hasStudentMarks && isEditingMarks && (
-                <button className="btn btn-secondary" onClick={() => {
+                <button className="btn btn-secondary" disabled={isSubmittingMarks} onClick={() => {
                   const existing = {};
                   if (Array.isArray(submission.studentMarks)) {
                     submission.studentMarks.forEach(sm => {
@@ -552,8 +625,8 @@ function GuideTimeline() {
                   Cancel
                 </button>
               )}
-              <button className="btn btn-warning" onClick={() => handleAssignMarks('needs_revision')}>
-                🔄 Request Revision
+              <button className="btn btn-warning" disabled={isSubmittingMarks} onClick={() => handleAssignMarks('needs_revision')}>
+                {isSubmittingMarks ? '⏳ Please wait...' : '🔄 Request Revision'}
               </button>
             </div>
           </div>
@@ -568,7 +641,21 @@ function GuideTimeline() {
 
     return (
       <div>
-        <button className="btn btn-secondary" onClick={() => setSelectedEvent(null)} style={{ marginBottom: '20px' }}>← Back to Timeline</button>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
+          <button className="back-nav-btn" onClick={() => setSelectedEvent(null)} style={{ marginBottom: 0 }}>
+            <span className="nav-arrow">‹</span> Back to Timeline
+          </button>
+          
+          <div className="breadcrumb-bar" style={{ margin: 0 }}>
+            <button className="breadcrumb-link" onClick={() => setSelectedEvent(null)}>
+              🗓️ Timeline
+            </button>
+            <span style={{ color: '#94a3b8', fontSize: '14px' }}>›</span>
+            <span className="breadcrumb-current">
+              {selectedEvent.title}
+            </span>
+          </div>
+        </div>
 
         <div className="card" style={{ marginBottom: '20px', borderLeft: '4px solid #667eea' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
@@ -677,9 +764,18 @@ function GuideTimeline() {
                         <p style={{ margin: '4px 0', fontSize: '14px', lineHeight: '1.6', display: 'flex', alignItems: 'center', gap: '12px' }}>
                           <strong>Marks:</strong>{' '}
                           <span>
-                            {Array.isArray(sub.studentMarks) && sub.studentMarks.length > 0
-                              ? `Individual (${sub.studentMarks.length} students)`
-                              : sub.marks !== null ? `${sub.marks}/${selectedEvent.maxMarks}` : '-'}
+                            {(() => {
+                              const uniqueStudents = new Set(
+                                (sub.studentMarks || [])
+                                  .map(sm => (sm.studentId?._id || sm.studentId)?.toString())
+                                  .filter(Boolean)
+                              );
+                              const count = uniqueStudents.size;
+                              if (count > 0) {
+                                return `Individual (${count} students)`;
+                              }
+                              return sub.marks !== null && sub.marks !== undefined ? `${sub.marks}/${selectedEvent.maxMarks}` : '-';
+                            })()}
                           </span>
                         </p>
                       )}

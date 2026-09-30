@@ -676,7 +676,9 @@ function CoordinatorDashboard() {
                   <h2>{selectedBatch.teamName}</h2>
                   <p>{formatMembersForDisplay(selectedBatch.teamMembers) || 'No team members'}</p>
                 </div>
-                <button className="btn btn-secondary" onClick={() => setSelectedBatch(null)}>Back to Teams</button>
+                <button className="back-nav-btn" onClick={() => setSelectedBatch(null)} style={{ marginBottom: 0 }}>
+                  <span className="nav-arrow">‹</span> Back to Teams
+                </button>
               </div>
 
               <div className="coordinator-form-grid">

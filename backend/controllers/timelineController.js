@@ -175,12 +175,25 @@ exports.getAllEvents = async (req, res) => {
       ];
     }
 
-    // Scope events by admin department:
-    // - Dept-admin (e.g. ECE) sees: events with department='ECE' OR department='ALL'
-    // - Super-admin (ALL) or non-admin (student/guide) sees all events
-    const adminDept = req.user?.role === 'admin' ? (req.user.department || 'ALL') : null;
-    if (adminDept && adminDept !== 'ALL') {
-      const deptCondition = { $or: [{ department: adminDept }, { department: 'ALL' }] };
+    // Determine the requesting user's department so everyone sees only their dept's events.
+    // - Admin:   req.user.department ('CSE', 'ECE', ... or 'ALL' for super-admin)
+    // - Guide:   req.user.department (free-text, matches dept enum)
+    // - Student: req.user.branch     ('CSE', 'ECE', ...)
+    // Events with department='ALL' are institution-wide and visible to everyone.
+    let userDept = null;
+    const role = req.user?.role;
+
+    if (role === 'admin') {
+      const dept = req.user.department || 'ALL';
+      userDept = dept !== 'ALL' ? dept : null; // null = super-admin, no filter
+    } else if (role === 'guide') {
+      userDept = req.user.department || null;
+    } else if (role === 'student') {
+      userDept = req.user.branch || null;
+    }
+
+    if (userDept) {
+      const deptCondition = { $or: [{ department: userDept }, { department: 'ALL' }] };
       if (query.$and) {
         query.$and.push(deptCondition);
       } else {
@@ -205,6 +218,7 @@ exports.getAllEvents = async (req, res) => {
     });
   }
 };
+
 
 // ================= UPDATE EVENT =================
 exports.updateEvent = async (req, res) => {

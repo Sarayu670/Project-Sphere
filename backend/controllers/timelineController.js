@@ -180,11 +180,10 @@ exports.getAllEvents = async (req, res) => {
     // - Super-admin (ALL) or non-admin (student/guide) sees all events
     const adminDept = req.user?.role === 'admin' ? (req.user.department || 'ALL') : null;
     if (adminDept && adminDept !== 'ALL') {
-      const deptCondition = { $or: [{ department: adminDept }, { department: 'ALL' }, { department: { $exists: false } }] };
+      const deptCondition = { $or: [{ department: adminDept }, { department: 'ALL' }] };
       if (query.$and) {
         query.$and.push(deptCondition);
       } else {
-        // Merge with existing $or by wrapping in $and
         query = { $and: [query, deptCondition] };
       }
     }

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import * as api from "../../services/api";
+import { useAuth } from "../../context/AuthContext";
 import usePolling from "../../utils/usePolling";
 import * as XLSX from "xlsx-js-style";
 import jsPDF from "jspdf";
@@ -115,6 +116,12 @@ function TimelineReadOnly({ scope }) {
 }
 
 function TimelineEditor({ scope = null, allowRemarkEditing = true }) {
+  const { user } = useAuth();
+  // adminDept is the branch code for dept-admins, or '' for super-admins
+  const adminDept = user?.role === 'admin' && user?.department && user.department !== 'ALL'
+    ? user.department
+    : '';
+
   const [events, setEvents] = useState([]);
   const [batches, setBatches] = useState([]);
   const [submissions, setSubmissions] = useState([]);
@@ -571,6 +578,7 @@ function TimelineEditor({ scope = null, allowRemarkEditing = true }) {
         targetYear: scope?.year || "all",
         order: 0,
         isMarksEnabled: true,
+        department: adminDept || "ALL",
       });
       fetchEvents();
     } catch (error) {
@@ -662,6 +670,7 @@ function TimelineEditor({ scope = null, allowRemarkEditing = true }) {
               targetYear: scope?.year || "all",
               order: 0,
               isMarksEnabled: true,
+              department: adminDept || "ALL",
             });
           }}
         >
@@ -758,6 +767,43 @@ function TimelineEditor({ scope = null, allowRemarkEditing = true }) {
                         {y === "all" ? "All Years" : `${y} Year`}
                       </option>
                     ))}
+                  </select>
+                )}
+              </div>
+              <div className="form-group">
+                <label>Department</label>
+                {scope ? (
+                  // Coordinator scope — dept is determined by their section, not shown
+                  null
+                ) : adminDept ? (
+                  // Dept-admin: show their dept as a locked badge
+                  <div style={{
+                    padding: "10px 12px",
+                    border: "1px solid #cbd5e1",
+                    borderRadius: "8px",
+                    background: "#f0f9ff",
+                    fontWeight: 700,
+                    color: "#0369a1",
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}>
+                    🔒 {adminDept} <span style={{ fontSize: '11px', fontWeight: 400, color: '#64748b' }}>(locked to your department)</span>
+                  </div>
+                ) : (
+                  // Super-admin: allow choosing target department
+                  <select
+                    value={formData.department || 'ALL'}
+                    onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                  >
+                    <option value="ALL">ALL (Institution-wide)</option>
+                    <option value="CSE">CSE</option>
+                    <option value="IT">IT</option>
+                    <option value="ECE">ECE</option>
+                    <option value="CSM">CSM</option>
+                    <option value="EEE">EEE</option>
+                    <option value="CSD">CSD</option>
+                    <option value="ETM">ETM</option>
                   </select>
                 )}
               </div>

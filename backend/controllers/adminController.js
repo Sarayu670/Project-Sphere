@@ -19,9 +19,31 @@ exports.getDashboard = async (req, res) => {
     const deptFilter = req.deptFilter || {};
     const hasDeptFilter = Object.keys(deptFilter).length > 0;
 
-    const totalCOEs = await COE.countDocuments();
-    const totalProblems = await ProblemStatement.countDocuments();
-    const totalGuides = await Guide.countDocuments();
+    let totalCOEs, totalProblems, totalGuides;
+
+    if (hasDeptFilter) {
+      const dept = deptFilter.branch;
+      // Get batches for this dept to find which COEs/Problems they reference
+      const deptBatches = await Batch.find(deptFilter).select('coe problemId guideId').lean();
+      const coeIds = [...new Set(deptBatches.map(b => b.coe?.toString()).filter(Boolean))];
+      const problemIds = [...new Set(deptBatches.map(b => b.problemId?.toString()).filter(Boolean))];
+      const guideIds = [...new Set(deptBatches.map(b => b.guideId?.toString()).filter(Boolean))];
+
+      totalCOEs = coeIds.length;
+      totalProblems = problemIds.length;
+      // Count guides: those assigned to dept batches OR whose department matches
+      const guidesFromBatches = guideIds.length;
+      const guidesFromDept = await Guide.countDocuments({ department: dept });
+      // Union: guides in dept batches + guides with dept field set
+      const guideIdsFromDept = await Guide.find({ department: dept }).select('_id').lean();
+      const allGuideIds = new Set([...guideIds, ...guideIdsFromDept.map(g => g._id.toString())]);
+      totalGuides = allGuideIds.size;
+    } else {
+      totalCOEs = await COE.countDocuments();
+      totalProblems = await ProblemStatement.countDocuments();
+      totalGuides = await Guide.countDocuments();
+    }
+
     const totalBatches = await Batch.countDocuments(deptFilter);
     const totalStudents = await Student.countDocuments(hasDeptFilter ? { branch: deptFilter.branch } : {});
 
@@ -52,19 +74,41 @@ exports.getOverview = async (req, res) => {
   try {
     // Apply department scope for dept-admins
     const deptFilter = req.deptFilter || {};
-
-    const coes = await COE.find();
-
-    const problems = await ProblemStatement.find()
-      .populate('coeId', 'name')
-      .populate('guideId', 'name email assignedBatches maxBatches');
-
-    const guides = await Guide.find().select('-password');
+    const hasDeptFilter = Object.keys(deptFilter).length > 0;
 
     const batches = await Batch.find(deptFilter)
       .populate('leaderStudentId', 'name email')
       .populate('problemId', 'title')
       .populate('guideId', 'name email');
+
+    let coes, problems, guides;
+
+    if (hasDeptFilter) {
+      const dept = deptFilter.branch;
+      // COEs and Problems: only those referenced by this dept's batches
+      const coeIds = [...new Set(batches.map(b => b.coe?.toString()).filter(Boolean))];
+      const problemIds = [...new Set(batches.map(b => b.problemId?._id?.toString() || b.problemId?.toString()).filter(Boolean))];
+
+      coes = await COE.find({ _id: { $in: coeIds } });
+      problems = await ProblemStatement.find({ _id: { $in: problemIds } })
+        .populate('coeId', 'name')
+        .populate('guideId', 'name email assignedBatches maxBatches');
+
+      // Guides: those assigned to dept batches OR whose Guide.department matches
+      const guideIdsFromBatches = [...new Set(batches.map(b => b.guideId?._id?.toString() || b.guideId?.toString()).filter(Boolean))];
+      guides = await Guide.find({
+        $or: [
+          { _id: { $in: guideIdsFromBatches } },
+          { department: dept }
+        ]
+      }).select('-password');
+    } else {
+      coes = await COE.find();
+      problems = await ProblemStatement.find()
+        .populate('coeId', 'name')
+        .populate('guideId', 'name email assignedBatches maxBatches');
+      guides = await Guide.find().select('-password');
+    }
 
     res.status(200).json({
       success: true,

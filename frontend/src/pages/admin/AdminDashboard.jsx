@@ -583,7 +583,9 @@ function AdminDashboard() {
 
       {activeTab === 'filter' && selectedBatch && (
         <div className="tab-content">
-          <button className="btn btn-secondary" onClick={() => setSelectedBatch(null)} style={{ marginBottom: '20px' }}>← Back to List</button>
+          <button className="back-nav-btn" onClick={() => setSelectedBatch(null)}>
+            <span className="nav-arrow">‹</span> Back to List
+          </button>
 
           <div className="card" style={{ marginBottom: '20px', borderLeft: '4px solid #667eea' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '15px' }}>

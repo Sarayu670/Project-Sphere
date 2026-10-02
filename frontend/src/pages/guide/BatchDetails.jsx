@@ -96,8 +96,8 @@ function BatchDetails({ batchId, onBack }) {
 
   return (
     <div>
-      <button onClick={onBack} className="btn btn-secondary" style={{ marginBottom: '20px' }}>
-        ← Back to Dashboard
+      <button onClick={onBack} className="back-nav-btn">
+        <span className="nav-arrow">‹</span> Back to Dashboard
       </button>
 
       <div className="card" style={{ marginBottom: '20px' }}>

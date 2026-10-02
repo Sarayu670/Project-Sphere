@@ -138,6 +138,7 @@ export const assignPRCMarks = (id, { prcMarks, prcStudentMarks }) =>
 export const assignPrcMarks = (data) =>
   axios.post(`${API_URL}/submissions/prc-marks`, data);
 export const addSubmissionComment = (id, comment) => axios.post(`${API_URL}/submissions/${id}/comment`, { comment });
+export const deleteSubmissionComment = (id, commentId) => axios.delete(`${API_URL}/submissions/${id}/comment/${commentId}`);
 export const addAdminRemark = (id, remark) => axios.post(`${API_URL}/submissions/${id}/admin-remark`, { remark });
 export const getBatchStudents = (batchId) => axios.get(`${API_URL}/submissions/batch/${batchId}/students`);
 

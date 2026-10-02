@@ -398,9 +398,17 @@ function SubmissionsReview() {
                     <td>{getStatusBadge(sub.status)}</td>
                     <td>
                       {(sub.status === 'accepted' || sub.status === 'completed') ? (
-                        Array.isArray(sub.studentMarks) && sub.studentMarks.length > 0
-                          ? <span style={{ color: '#22c55e', fontSize: '12px' }}>✅ Individual ({sub.studentMarks.length} students)</span>
-                          : sub.marks !== null ? `${sub.marks}/${sub.timelineEventId?.maxMarks}` : 'No marks'
+                        (() => {
+                          const uniqueCount = new Set(
+                            (sub.studentMarks || [])
+                              .map(sm => (sm.studentId?._id || sm.studentId)?.toString())
+                              .filter(Boolean)
+                          ).size;
+                          if (uniqueCount > 0) {
+                            return <span style={{ color: '#22c55e', fontSize: '12px' }}>✅ Individual ({uniqueCount} students)</span>;
+                          }
+                          return sub.marks !== null && sub.marks !== undefined ? `${sub.marks}/${sub.timelineEventId?.maxMarks}` : 'No marks';
+                        })()
                       ) : '-'}
                     </td>
                     <td><button className="btn btn-primary btn-sm" onClick={() => setSelectedSubmission(sub)}>Review</button></td>

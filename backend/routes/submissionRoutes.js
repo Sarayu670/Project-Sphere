@@ -10,6 +10,7 @@ const {
   getBatchSubmissions,
   getGuideSubmissions,
   addComment,
+  deleteComment,
   assignMarks,
   assignPrcMarks,
   getAllSubmissions,
@@ -45,6 +46,7 @@ router.get('/batch/:batchId/students', protect, (req, res, next) => {
 // Guide routes
 router.get('/guide', protect, authorize('guide'), getGuideSubmissions);
 router.post('/:id/comment', protect, authorize('guide'), addComment);
+router.delete('/:id/comment/:commentId', protect, authorize('guide'), deleteComment);
 router.post('/:id/marks', protect, authorize('guide'), assignMarks);
 
 // Admin / Coordinator routes

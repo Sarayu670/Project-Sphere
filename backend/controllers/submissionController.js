@@ -221,6 +221,31 @@ exports.createOrUpdateSubmission = async (req, res) => {
   }
 };
 
+// Helper to remove any duplicate studentMarks per studentId
+const deduplicateSubmissionMarks = (submissionDoc) => {
+  if (!submissionDoc) return submissionDoc;
+  const doc = typeof submissionDoc.toObject === 'function' ? submissionDoc.toObject() : { ...submissionDoc };
+  if (Array.isArray(doc.studentMarks)) {
+    const seen = new Set();
+    doc.studentMarks = doc.studentMarks.filter(sm => {
+      const sid = (sm.studentId?._id || sm.studentId)?.toString();
+      if (!sid || seen.has(sid)) return false;
+      seen.add(sid);
+      return true;
+    });
+  }
+  if (Array.isArray(doc.prcStudentMarks)) {
+    const seenPrc = new Set();
+    doc.prcStudentMarks = doc.prcStudentMarks.filter(sm => {
+      const sid = (sm.studentId?._id || sm.studentId)?.toString();
+      if (!sid || seenPrc.has(sid)) return false;
+      seenPrc.add(sid);
+      return true;
+    });
+  }
+  return doc;
+};
+
 // @desc    Get submission details
 // @route   GET /api/submissions/:id
 exports.getSubmission = async (req, res) => {
@@ -240,7 +265,7 @@ exports.getSubmission = async (req, res) => {
     if (!submission) {
       return res.status(404).json({ success: false, message: 'Submission not found' });
     }
-    res.status(200).json({ success: true, data: submission });
+    res.status(200).json({ success: true, data: deduplicateSubmissionMarks(submission) });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -289,7 +314,8 @@ exports.getGuideSubmissions = async (req, res) => {
       .populate('studentMarks.assignedBy', 'name')
       .sort({ updatedAt: -1 });
 
-    res.status(200).json({ success: true, data: submissions });
+    const cleaned = submissions.map(deduplicateSubmissionMarks);
+    res.status(200).json({ success: true, data: cleaned });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -306,6 +332,26 @@ exports.addComment = async (req, res) => {
 
     if (!submission) {
       return res.status(404).json({ success: false, message: 'Submission not found' });
+    }
+
+    // Idempotency: block duplicate comment from same guide within 60 seconds
+    const duplicate = submission.comments.find(c =>
+      c.guideId && c.guideId.toString() === req.user._id.toString() &&
+      c.comment === comment &&
+      (new Date() - new Date(c.createdAt)) < 60000
+    );
+    if (duplicate) {
+      const updated = await Submission.findById(req.params.id)
+        .populate('batchId', 'teamName year branch section')
+        .populate('timelineEventId', 'title maxMarks deadline isMarksEnabled')
+        .populate('comments.guideId', 'name')
+        .populate('adminRemarks.adminId', 'name')
+        .populate('marksAssignedBy', 'name')
+        .populate('studentMarks.studentId', 'name rollNumber')
+        .populate('studentMarks.assignedBy', 'name')
+        .populate('prcStudentMarks.studentId', 'name rollNumber')
+        .populate('prcStudentMarks.assignedBy', 'name');
+      return res.status(200).json({ success: true, data: updated });
     }
 
     submission.comments.push({
@@ -401,7 +447,7 @@ exports.assignMarks = async (req, res) => {
       });
     }
 
-    // Handle per-student marks (new behaviour)
+    // Handle per-student marks (new behaviour with strict deduplication)
     if (Array.isArray(studentMarks) && studentMarks.length > 0) {
       for (const sm of studentMarks) {
         if (sm.marks !== null && sm.marks !== undefined && (sm.marks < 0 || sm.marks > maximumMarks)) {
@@ -409,24 +455,36 @@ exports.assignMarks = async (req, res) => {
         }
       }
 
-      // Upsert: update existing entry for student or push new one
-      for (const sm of studentMarks) {
-        const existing = submission.studentMarks.find(
-          e => e.studentId.toString() === sm.studentId.toString()
-        );
-        if (existing) {
-          existing.marks = sm.marks !== '' && sm.marks !== null && sm.marks !== undefined ? parseFloat(sm.marks) : null;
-          existing.assignedBy = req.user._id;
-          existing.assignedAt = new Date();
-        } else {
-          submission.studentMarks.push({
-            studentId: sm.studentId,
-            marks: sm.marks !== '' && sm.marks !== null && sm.marks !== undefined ? parseFloat(sm.marks) : null,
-            assignedBy: req.user._id,
-            assignedAt: new Date()
+      // Map-based deduplication ensures each student has exactly ONE entry
+      const marksMap = new Map();
+      // First populate with existing entries to preserve other fields (e.g. prcMarks)
+      (submission.studentMarks || []).forEach(existing => {
+        const sId = (existing.studentId?._id || existing.studentId)?.toString();
+        if (sId) {
+          marksMap.set(sId, {
+            studentId: existing.studentId?._id || existing.studentId,
+            marks: existing.marks,
+            prcMarks: existing.prcMarks,
+            assignedBy: existing.assignedBy,
+            assignedAt: existing.assignedAt,
+            prcAssignedBy: existing.prcAssignedBy,
+            prcAssignedAt: existing.prcAssignedAt
           });
         }
+      });
+
+      // Update or insert with the new guide marks
+      for (const sm of studentMarks) {
+        const sId = (sm.studentId?._id || sm.studentId)?.toString();
+        if (!sId) continue;
+        const current = marksMap.get(sId) || { studentId: sm.studentId };
+        current.marks = sm.marks !== '' && sm.marks !== null && sm.marks !== undefined ? parseFloat(sm.marks) : null;
+        current.assignedBy = req.user._id;
+        current.assignedAt = new Date();
+        marksMap.set(sId, current);
       }
+
+      submission.studentMarks = Array.from(marksMap.values());
       // Keep legacy marks field as null since we now use per-student marks
       submission.marks = null;
     } else {
@@ -551,25 +609,34 @@ exports.assignPrcMarks = async (req, res) => {
       }
     }
 
-    for (const sm of marksToAssign) {
-      const val = sm.marks !== '' && sm.marks !== null && sm.marks !== undefined ? parseFloat(sm.marks) : null;
-      const existing = submission.studentMarks.find(
-        e => e.studentId.toString() === sm.studentId.toString()
-      );
-      if (existing) {
-        existing.prcMarks = val;
-        existing.prcAssignedBy = req.user._id;
-        existing.prcAssignedAt = new Date();
-      } else {
-        submission.studentMarks.push({
-          studentId: sm.studentId,
-          marks: null,
-          prcMarks: val,
-          prcAssignedBy: req.user._id,
-          prcAssignedAt: new Date()
+    const prcMarksMap = new Map();
+    (submission.studentMarks || []).forEach(existing => {
+      const sId = (existing.studentId?._id || existing.studentId)?.toString();
+      if (sId) {
+        prcMarksMap.set(sId, {
+          studentId: existing.studentId?._id || existing.studentId,
+          marks: existing.marks,
+          prcMarks: existing.prcMarks,
+          assignedBy: existing.assignedBy,
+          assignedAt: existing.assignedAt,
+          prcAssignedBy: existing.prcAssignedBy,
+          prcAssignedAt: existing.prcAssignedAt
         });
       }
+    });
+
+    for (const sm of marksToAssign) {
+      const sId = (sm.studentId?._id || sm.studentId)?.toString();
+      if (!sId) continue;
+      const val = sm.marks !== '' && sm.marks !== null && sm.marks !== undefined ? parseFloat(sm.marks) : null;
+      const current = prcMarksMap.get(sId) || { studentId: sm.studentId, marks: null };
+      current.prcMarks = val;
+      current.prcAssignedBy = req.user._id;
+      current.prcAssignedAt = new Date();
+      prcMarksMap.set(sId, current);
     }
+
+    submission.studentMarks = Array.from(prcMarksMap.values());
 
     await submission.save();
 
@@ -662,7 +729,7 @@ exports.getAllSubmissions = async (req, res) => {
 
     res.status(200).json({ 
       success: true, 
-      data: submissions,
+      data: submissions.map(deduplicateSubmissionMarks),
       pagination: {
         current: page,
         total,
@@ -811,6 +878,44 @@ exports.getStudentsByBatch = async (req, res) => {
       .select('_id name rollNumber')
       .lean();
     res.status(200).json({ success: true, data: students });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Delete a feedback comment from submission (Guide - own comments only)
+// @route   DELETE /api/submissions/:id/comment/:commentId
+exports.deleteComment = async (req, res) => {
+  try {
+    const submission = await Submission.findById(req.params.id);
+    if (!submission) {
+      return res.status(404).json({ success: false, message: 'Submission not found' });
+    }
+
+    const commentIndex = submission.comments.findIndex(
+      c => c._id.toString() === req.params.commentId &&
+           c.guideId.toString() === req.user._id.toString()
+    );
+
+    if (commentIndex === -1) {
+      return res.status(404).json({ success: false, message: 'Comment not found or not authorized to delete' });
+    }
+
+    submission.comments.splice(commentIndex, 1);
+    await submission.save();
+
+    const updated = await Submission.findById(req.params.id)
+      .populate('batchId', 'teamName year branch section')
+      .populate('timelineEventId', 'title maxMarks deadline isMarksEnabled')
+      .populate('comments.guideId', 'name')
+      .populate('adminRemarks.adminId', 'name')
+      .populate('marksAssignedBy', 'name')
+      .populate('studentMarks.studentId', 'name rollNumber')
+      .populate('studentMarks.assignedBy', 'name')
+      .populate('prcStudentMarks.studentId', 'name rollNumber')
+      .populate('prcStudentMarks.assignedBy', 'name');
+
+    res.status(200).json({ success: true, data: updated });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

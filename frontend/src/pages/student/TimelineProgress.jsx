@@ -150,7 +150,20 @@ function TimelineProgress({ batchId }) {
             {notification.message}
           </div>
         )}
-        <button className="btn btn-secondary" onClick={() => setSelectedEvent(null)} style={{ marginBottom: '20px' }}>← Back to Timeline</button>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
+          <button className="back-nav-btn" onClick={() => setSelectedEvent(null)} style={{ marginBottom: 0 }}>
+            <span className="nav-arrow">‹</span> Back to Timeline
+          </button>
+          <div className="breadcrumb-bar" style={{ margin: 0 }}>
+            <button className="breadcrumb-link" onClick={() => setSelectedEvent(null)}>
+              🗓️ Timeline
+            </button>
+            <span style={{ color: '#94a3b8', fontSize: '14px' }}>›</span>
+            <span className="breadcrumb-current">
+              {selectedEvent.title}
+            </span>
+          </div>
+        </div>
 
         <div className="card" style={{ marginBottom: '20px', borderLeft: '4px solid #667eea' }}>
           <h2>{selectedEvent.title}</h2>

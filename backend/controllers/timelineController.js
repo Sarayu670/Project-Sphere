@@ -46,7 +46,9 @@ exports.createEvent = async (req, res) => {
       isMandatoryFormat: parseBool(isMandatoryFormat),
       isMarksEnabled: parseBool(isMarksEnabled),
       referenceFile: referenceFileData,
-      createdBy: req.user._id
+      createdBy: req.user._id,
+      // Scope event to the admin's department; 'ALL' if super-admin
+      department: req.user.department || 'ALL'
     });
 
     console.log('Event created:', event);
@@ -161,6 +163,7 @@ exports.getAllEvents = async (req, res) => {
   try {
     const { year } = req.query;
 
+    // Build base active filter
     let query = {
       $or: [{ isActive: true }, { isActive: { $exists: false } }]
     };
@@ -170,6 +173,32 @@ exports.getAllEvents = async (req, res) => {
         { $or: [{ isActive: true }, { isActive: { $exists: false } }] },
         { $or: [{ targetYear: year }, { targetYear: 'all' }] }
       ];
+    }
+
+    // Determine the requesting user's department so everyone sees only their dept's events.
+    // - Admin:   req.user.department ('CSE', 'ECE', ... or 'ALL' for super-admin)
+    // - Guide:   req.user.department (free-text, matches dept enum)
+    // - Student: req.user.branch     ('CSE', 'ECE', ...)
+    // Events with department='ALL' are institution-wide and visible to everyone.
+    let userDept = null;
+    const role = req.user?.role;
+
+    if (role === 'admin') {
+      const dept = req.user.department || 'ALL';
+      userDept = dept !== 'ALL' ? dept : null; // null = super-admin, no filter
+    } else if (role === 'guide') {
+      userDept = req.user.department || null;
+    } else if (role === 'student') {
+      userDept = req.user.branch || null;
+    }
+
+    if (userDept) {
+      const deptCondition = { $or: [{ department: userDept }, { department: 'ALL' }] };
+      if (query.$and) {
+        query.$and.push(deptCondition);
+      } else {
+        query = { $and: [query, deptCondition] };
+      }
     }
 
     const events = await TimelineEvent.find(query)
@@ -189,6 +218,7 @@ exports.getAllEvents = async (req, res) => {
     });
   }
 };
+
 
 // ================= UPDATE EVENT =================
 exports.updateEvent = async (req, res) => {
@@ -309,11 +339,20 @@ exports.getTimelineForBatch = async (req, res) => {
 
     const query = { isActive: true };
 
+    // Filter by year: match the batch's year OR events targeting 'all' years
     if (batch.year) {
-      query.$or = [
-        { targetYear: batch.year },
-        { targetYear: 'all' }
+      query.$and = [
+        { $or: [{ targetYear: batch.year }, { targetYear: 'all' }] }
       ];
+    }
+
+    // Filter by department: only show events for this batch's branch OR institution-wide ('ALL') events
+    // This prevents ECE timeline events from appearing in CSE student dashboards
+    const branchFilter = { $or: [{ department: batch.branch }, { department: 'ALL' }] };
+    if (query.$and) {
+      query.$and.push(branchFilter);
+    } else {
+      query.$and = [branchFilter];
     }
 
     const events = await TimelineEvent.find(query)
@@ -329,11 +368,20 @@ exports.getTimelineForBatch = async (req, res) => {
         s => s.timelineEventId.toString() === event._id.toString()
       );
 
+      let sanitizedSubmission = null;
+      if (submission) {
+        sanitizedSubmission = submission.toObject();
+        delete sanitizedSubmission.marks;
+        delete sanitizedSubmission.studentMarks;
+        delete sanitizedSubmission.prcMarks;
+        delete sanitizedSubmission.prcStudentMarks;
+      }
+
       return {
         ...event.toObject(),
-        submission: submission || null,
+        submission: sanitizedSubmission,
         submissionStatus: submission?.status || 'not_started',
-        marks: submission?.marks,
+        marks: null, // Hidden from students
         currentVersion: submission?.currentVersion || 0
       };
     });

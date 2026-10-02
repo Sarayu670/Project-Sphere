@@ -72,9 +72,20 @@ function ProblemList({ coeId, coeName, onBack, onProblemSelected, batch }) {
 
   return (
     <div>
-      <button onClick={onBack} className="btn btn-secondary" style={{ marginBottom: '20px' }}>
-        ← Back to Domains
-      </button>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
+        <button onClick={onBack} className="back-nav-btn" style={{ marginBottom: 0 }}>
+          <span className="nav-arrow">‹</span> Back to Domains
+        </button>
+        <div className="breadcrumb-bar" style={{ margin: 0 }}>
+          <button className="breadcrumb-link" onClick={onBack}>
+            🌐 Domains
+          </button>
+          <span style={{ color: '#94a3b8', fontSize: '14px' }}>›</span>
+          <span className="breadcrumb-current">
+            {coeName}
+          </span>
+        </div>
+      </div>
 
       <h2 className="section-title">📋 Problems in {coeName}</h2>
 

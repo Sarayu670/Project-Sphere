@@ -53,3 +53,43 @@ exports.authorize = (...roles) => {
   };
 };
 
+// Coordinators are guides with an additional, fixed section assignment.
+// This check is intentionally server-side so the UI cannot broaden access.
+exports.authorizeCoordinator = (req, res, next) => {
+  const scope = req.user?.coordinatorSection;
+  if (
+    req.user?.role !== 'guide' ||
+    !req.user?.isCoordinator ||
+    !scope?.year ||
+    !scope?.branch ||
+    !scope?.section
+  ) {
+    return res.status(403).json({
+      success: false,
+      message: 'Coordinator access is required for this route'
+    });
+  }
+  next();
+};
+
+// Allow either admin or a coordinator (guide with coordinator flags)
+exports.authorizeAdminOrCoordinator = (req, res, next) => {
+  if (req.user?.role === 'admin') {
+    return next();
+  }
+  // Fall back to coordinator check
+  return exports.authorizeCoordinator(req, res, next);
+};
+
+// Inject a department-based filter scope for admin requests.
+// If admin.department is set and not 'ALL', restricts queries to that branch.
+// Call this after protect() + authorize('admin') on routes that return branch data.
+exports.injectDeptScope = (req, res, next) => {
+  if (req.user?.role === 'admin') {
+    const dept = req.user.department;
+    req.deptFilter = (dept && dept !== 'ALL') ? { branch: dept } : {};
+  } else {
+    req.deptFilter = {};
+  }
+  next();
+};

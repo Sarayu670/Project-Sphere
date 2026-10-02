@@ -139,34 +139,21 @@ export const parseProjectsFromExcel = (jsonData) => {
   return { projects: validProjects, errors };
 };
 
-// Extract COE name from "GNITS, CoE-Deep Learning in Eye Disease Prognosis" format
-// COE is typically the first value before comma (organization name)
-export const extractCOE = (coeRcString) => {
-  if (!coeRcString) return '';
-  const parts = coeRcString.split(',').map(part => part.trim());
-  // Return the part that looks like an organization (GNITS, BITS, etc.)
-  // Usually the first part or one without "CoE-" prefix
-  for (const part of parts) {
-    if (!part.toLowerCase().includes('coe-') && !part.toLowerCase().includes('rc-')) {
-      return part;
-    }
-  }
-  return parts[0] || '';
+const cleanCoeRcValue = (value) => {
+  if (!value) return '';
+  return String(value).trim().replace(/\s+/g, ' ');
 };
 
-// Extract RC name from "GNITS, CoE-Deep Learning in Eye Disease Prognosis" format
-// RC is typically the part with "CoE-" or "RC-" prefix, or the longer description
+// Extract COE name from raw column string without truncating
+export const extractCOE = (coeRcString) => {
+  if (!coeRcString) return '';
+  return cleanCoeRcValue(coeRcString);
+};
+
+// Extract RC name from raw column string without truncating
 export const extractRC = (coeRcString) => {
   if (!coeRcString) return '';
-  const parts = coeRcString.split(',').map(part => part.trim());
-  // Return the part that looks like an RC (has CoE- or RC- prefix, or is descriptive)
-  for (const part of parts) {
-    if (part.toLowerCase().includes('coe-') || part.toLowerCase().includes('rc-')) {
-      return part;
-    }
-  }
-  // If no RC- or CoE- prefix, return the longer part or last part
-  return parts[parts.length - 1] || '';
+  return cleanCoeRcValue(coeRcString);
 };
 
 // Extract year from batch string or project ID

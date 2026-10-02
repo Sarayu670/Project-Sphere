@@ -1,5 +1,35 @@
 const mongoose = require('mongoose');
 
+const StudentMarkSchema = new mongoose.Schema({
+  studentId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Student',
+    required: true
+  },
+  marks: {
+    type: Number,
+    default: null
+  },
+  prcMarks: {
+    type: Number,
+    default: null
+  },
+  assignedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Guide'
+  },
+  assignedAt: {
+    type: Date
+  },
+  prcAssignedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Guide'
+  },
+  prcAssignedAt: {
+    type: Date
+  }
+});
+
 const CommentSchema = new mongoose.Schema({
   guideId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -20,8 +50,14 @@ const CommentSchema = new mongoose.Schema({
 const AdminRemarkSchema = new mongoose.Schema({
   adminId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Admin',
+    refPath: 'adminRemarkType',
     required: true
+  },
+  adminRemarkType: {
+    type: String,
+    enum: ['Admin', 'Guide'],
+    required: true,
+    default: 'Admin'
   },
   remark: {
     type: String,
@@ -54,6 +90,14 @@ const VersionSchema = new mongoose.Schema({
     trim: true
   },
   description: {
+    type: String,
+    trim: true
+  },
+  submittedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Student'
+  },
+  submittedByName: {
     type: String,
     trim: true
   },
@@ -90,11 +134,55 @@ const SubmissionSchema = new mongoose.Schema({
     type: Number,
     default: null
   },
+  studentMarks: [StudentMarkSchema],
   marksAssignedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Guide'
   },
   marksAssignedAt: {
+    type: Date
+  },
+  prcMarks: {
+    type: Number,
+    min: 0,
+    max: 25,
+    default: null
+  },
+  prcStudentMarks: [{
+    studentId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Student',
+      required: true
+    },
+    marks: {
+      type: Number,
+      min: 0,
+      max: 25,
+      default: null
+    },
+    assignedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      refPath: 'prcStudentMarks.assignedByType'
+    },
+    assignedByType: {
+      type: String,
+      enum: ['Admin', 'Guide'],
+      default: 'Guide'
+    },
+    assignedAt: {
+      type: Date
+    }
+  }],
+  prcMarksAssignedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    refPath: 'prcMarksAssignedByType'
+  },
+  prcMarksAssignedByType: {
+    type: String,
+    enum: ['Admin', 'Guide'],
+    default: 'Guide'
+  },
+  prcMarksAssignedAt: {
     type: Date
   }
 }, { timestamps: true });

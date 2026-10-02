@@ -52,6 +52,11 @@ const TimelineEventSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Admin',
     required: true
+  },
+  department: {
+    type: String,
+    enum: ['ALL', 'CSE', 'IT', 'ECE', 'CSM', 'EEE', 'CSD', 'ETM'],
+    default: 'ALL'
   }
 }, { timestamps: true });
 

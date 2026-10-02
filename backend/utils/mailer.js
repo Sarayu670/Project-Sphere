@@ -22,18 +22,19 @@ transporter.verify((error, success) => {
 /**
  * Send email to guide when a student makes a submission
  */
-const sendGuideSubmissionEmail = async (guideEmail, guideName, studentNames, submissionType, projectTitle, description, driveLink, teamName) => {
+const sendGuideSubmissionEmail = async (guideEmail, guideName, studentNames, submissionType, projectTitle, description, driveLink, teamName, isResubmission = false) => {
   try {
-    console.log(`[Mailer] Preparing email to: ${guideEmail}, subject: New Submission: ${submissionType} - ${teamName}`);
+    const subjectPrefix = isResubmission ? 'Resubmitted Submission' : 'New Submission';
+    console.log(`[Mailer] Preparing email to: ${guideEmail}, subject: ${subjectPrefix}: ${submissionType} - ${teamName}`);
     const mailOptions = {
       from: process.env.SMTP_FROM,
       to: guideEmail,
-      subject: `New Submission: ${submissionType} - ${teamName}`,
+      subject: `${subjectPrefix}: ${submissionType} - ${teamName}`,
       html: `
         <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-          <h2 style="color: #2c3e50;">New Project Submission</h2>
+          <h2 style="color: #2c3e50;">${isResubmission ? 'Project Submission Resubmitted' : 'New Project Submission'}</h2>
           <p>Dear <strong>${guideName}</strong>,</p>
-          <p>A new submission has been made for the project: <strong>${projectTitle || 'N/A'}</strong>.</p>
+          <p>${isResubmission ? 'A new version has been submitted after your earlier acceptance' : 'A new submission has been made'} for the project: <strong>${projectTitle || 'N/A'}</strong>.</p>
           
           <div style="background-color: #f9f9f9; padding: 15px; border-left: 5px solid #3498db; margin: 20px 0;">
             <p><strong>Team Name:</strong> ${teamName}</p>

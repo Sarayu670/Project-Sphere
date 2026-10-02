@@ -774,13 +774,40 @@
 
 /* Responsive */
 @media (max-width: 768px) {
-  .header-content {
+  .home-header .header-content {
     flex-direction: column;
-    gap: 20px;
+    align-items: stretch;
+    gap: 12px;
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+
+  .right-nav {
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .nav-links {
+    flex: 1 1 300px;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 4px;
+  }
+
+  .nav-btn {
+    padding: 8px 10px;
+    font-size: 14px;
   }
 
   .hero-content h2 {
     font-size: 24px;
+  }
+
+  .hero-section,
+  .coe-section,
+  .guide-search-section {
+    padding: 24px 16px;
   }
 
   .guide-detail-header {
@@ -793,7 +820,7 @@
   }
 
   .coe-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .cta-buttons {
@@ -802,5 +829,63 @@
 
   .cta-buttons .btn {
     width: 100%;
+  }
+}
+
+@media (max-width: 600px) {
+  .home-header .header-content {
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+
+  .logo-section h1 {
+    font-size: 24px;
+  }
+
+  .right-nav {
+    align-items: center;
+  }
+
+  .nav-links {
+    flex-basis: 100%;
+    justify-content: space-between;
+  }
+
+  .auth-buttons {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .nav-btn {
+    padding: 8px 6px;
+    font-size: 13px;
+  }
+
+  .hero-section,
+  .coe-section,
+  .guide-search-section {
+    padding: 20px 12px;
+  }
+
+  .hero-features,
+  .coe-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .feature,
+  .coe-card {
+    padding: 18px;
+  }
+
+  .section-tabs {
+    gap: 4px;
+    overflow-x: auto;
+    justify-content: flex-start;
+  }
+
+  .section-tab {
+    flex: 0 0 auto;
+    padding: 10px 14px;
   }
 }

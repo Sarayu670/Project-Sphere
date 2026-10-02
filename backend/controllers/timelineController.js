@@ -339,11 +339,20 @@ exports.getTimelineForBatch = async (req, res) => {
 
     const query = { isActive: true };
 
+    // Filter by year: match the batch's year OR events targeting 'all' years
     if (batch.year) {
-      query.$or = [
-        { targetYear: batch.year },
-        { targetYear: 'all' }
+      query.$and = [
+        { $or: [{ targetYear: batch.year }, { targetYear: 'all' }] }
       ];
+    }
+
+    // Filter by department: only show events for this batch's branch OR institution-wide ('ALL') events
+    // This prevents ECE timeline events from appearing in CSE student dashboards
+    const branchFilter = { $or: [{ department: batch.branch }, { department: 'ALL' }] };
+    if (query.$and) {
+      query.$and.push(branchFilter);
+    } else {
+      query.$and = [branchFilter];
     }
 
     const events = await TimelineEvent.find(query)

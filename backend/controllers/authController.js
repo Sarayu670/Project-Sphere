@@ -181,7 +181,6 @@ exports.login = async (req, res) => {
     }
 
     if (!user) {
-      console.log(`[AUTH] No ${role} account found for email: "${email}"`);
       return res.status(401).json({ success: false, message: `No ${role} account found with these credentials` });
     }
 
@@ -194,22 +193,15 @@ exports.login = async (req, res) => {
       }
     }
 
-    console.log(`[AUTH] Found user: name="${user.name}", email="${user.email}", role="${role}"`);
-    console.log(`[AUTH] Password from request: "${password}"`);
-    console.log(`[AUTH] Stored hash: "${user.password}"`);
-
     const bcryptDirect = require('bcryptjs');
     const directMatch = await bcryptDirect.compare(password, user.password);
-    console.log(`[AUTH] Direct bcrypt.compare result: ${directMatch}`);
 
     let isMatch = directMatch || await user.matchPassword(password);
-    console.log(`[AUTH] matchPassword result: ${isMatch}`);
 
     if (!isMatch && userRole === 'student' && user.password === password) {
       isMatch = true;
       user.password = password;
       await user.save();
-      console.log(`[AUTH] Repaired plain-text student password for ${user.email}`);
     }
 
     if (!isMatch && userRole === 'student') {
@@ -230,7 +222,6 @@ exports.login = async (req, res) => {
         const candidateMatch = await bcryptDirect.compare(candidate, user.password);
         if (candidateMatch) {
           isMatch = true;
-          console.log(`[AUTH] Student password fallback matched candidate: "${candidate}"`);
           break;
         }
       }
@@ -244,13 +235,11 @@ exports.login = async (req, res) => {
           isMatch = true;
           user.password = 'gnits@123';
           await user.save();
-          console.log(`[AUTH] Migrated guide ${user.email} from defaultPassword123 to gnits@123`);
         } else if (user.email === 'swetha@gnits.ac.in' || !user.specialization) {
           // Auto-created during import without custom password
           isMatch = true;
           user.password = 'gnits@123';
           await user.save();
-          console.log(`[AUTH] Repaired imported guide ${user.email} password to gnits@123`);
         }
       } else if (password === 'defaultPassword123') {
         const matchesGnits = await user.matchPassword('gnits@123');

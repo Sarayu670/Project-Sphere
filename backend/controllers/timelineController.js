@@ -56,23 +56,23 @@ exports.createEvent = async (req, res) => {
     // ================= EMAIL NOTIFICATION - METHOD 1: Direct from Guide & Student models =================
     try {
       console.log('Sending email notifications (Method 1: Direct DB query)...');
-      
+
       // Fetch all guides
       const guides = await Guide.find({}).select('name email').lean();
       console.log(`Found ${guides.length} guides`);
-      
+
       // Fetch all students (excluding 2nd year as they typically don't participate)
       const students = await Student.find({ year: { $in: ['3rd', '4th'] } }).select('name email').lean();
       console.log(`Found ${students.length} eligible students (3rd & 4th year)`);
-      
+
       // Combine recipients
       const recipients = [
         ...guides.map(g => ({ name: g.name, email: g.email })),
         ...students.map(s => ({ name: s.name, email: s.email }))
       ];
-      
+
       console.log(`Total recipients: ${recipients.length}`);
-      
+
       if (recipients.length > 0) {
         // Send emails asynchronously without blocking the response
         sendTimelineNotificationEmail(recipients, event)
@@ -337,6 +337,9 @@ exports.getTimelineForBatch = async (req, res) => {
       });
     }
 
+    const canViewStudentMarks = req.user?.role === 'student'
+      && await Student.exists({ _id: req.user._id, batchId: batch._id });
+
     const query = { isActive: true };
 
     // Filter by year: match the batch's year OR events targeting 'all' years
@@ -369,8 +372,16 @@ exports.getTimelineForBatch = async (req, res) => {
       );
 
       let sanitizedSubmission = null;
+      let studentMarks = null;
       if (submission) {
         sanitizedSubmission = submission.toObject();
+        const personalMark = canViewStudentMarks
+          ? submission.studentMarks.find(mark => {
+            const studentId = mark.studentId?._id || mark.studentId;
+            return studentId?.toString() === req.user._id.toString();
+          })
+          : null;
+        studentMarks = personalMark ? personalMark.marks : submission.marks;
         delete sanitizedSubmission.marks;
         delete sanitizedSubmission.studentMarks;
         delete sanitizedSubmission.prcMarks;
@@ -381,7 +392,7 @@ exports.getTimelineForBatch = async (req, res) => {
         ...event.toObject(),
         submission: sanitizedSubmission,
         submissionStatus: submission?.status || 'not_started',
-        marks: null, // Hidden from students
+        marks: canViewStudentMarks ? studentMarks : null,
         currentVersion: submission?.currentVersion || 0
       };
     });

@@ -168,10 +168,13 @@ function TimelineProgress({ batchId }) {
         <div className="card" style={{ marginBottom: '20px', borderLeft: '4px solid #667eea' }}>
           <h2>{selectedEvent.title}</h2>
           <p style={{ color: '#666' }}>{selectedEvent.description}</p>
-          <div style={{ display: 'flex', gap: '20px', marginTop: '15px' }}>
+          <div style={{ display: 'flex', gap: '20px', marginTop: '15px', flexWrap: 'wrap', alignItems: 'center' }}>
             <span><strong>📅 Deadline:</strong> {new Date(selectedEvent.deadline).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
             {selectedEvent.isMarksEnabled !== false && selectedEvent.isMarksEnabled !== 'false' && (
               <span><strong>🎯 Max Marks:</strong> {selectedEvent.maxMarks}</span>
+            )}
+            {selectedEvent.marks !== null && selectedEvent.marks !== undefined && selectedEvent.isMarksEnabled !== false && (
+              <span className="timeline-badge badge-success"><strong>Your Marks:</strong>&nbsp;{selectedEvent.marks} / {selectedEvent.maxMarks}</span>
             )}
             {getStatusBadge(selectedEvent.submissionStatus)}
             {selectedEvent.isMandatoryFormat && (
@@ -401,6 +404,9 @@ function TimelineProgress({ batchId }) {
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '5px' }}>
                         <h3 style={{ margin: 0, fontSize: '18px' }}>{event.title}</h3>
                         {unlocked ? getStatusBadge(event.submissionStatus) : <span className="timeline-badge badge-secondary">🔒 Locked</span>}
+                        {event.marks !== null && event.marks !== undefined && event.isMarksEnabled !== false && (
+                          <span className="timeline-badge badge-success">🎯 {event.marks} / {event.maxMarks}</span>
+                        )}
                       </div>
                       <p style={{ color: '#666', fontSize: '14px', margin: '5px 0' }}>{event.description}</p>
                     </div>

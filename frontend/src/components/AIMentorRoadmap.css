@@ -343,3 +343,64 @@
   font-size: 13px;
   font-weight: 600;
 }
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .roadmap-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 16px;
+  }
+
+  .btn-regenerate-roadmap {
+    width: 100%;
+    text-align: center;
+  }
+
+  .roadmap-progress-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+  }
+
+  .roadmap-progress-pie {
+    align-self: center;
+  }
+
+  .phase-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 14px 16px;
+  }
+
+  .phase-status-right {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .phase-card-body {
+    padding: 0 16px 16px 16px;
+  }
+
+  .tech-stack-container {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 480px) {
+  .roadmap-header-left h2 {
+    font-size: 18px;
+  }
+
+  .task-item {
+    align-items: flex-start;
+  }
+
+  .task-text {
+    font-size: 13px;
+  }
+}
+

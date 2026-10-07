@@ -255,3 +255,48 @@
   70% { transform: scale(1.05); box-shadow: 0 0 0 6px rgba(255, 71, 87, 0); }
   100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 71, 87, 0); }
 }
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .dashboard-header {
+    flex-direction: column;
+    gap: 16px;
+    padding: 16px;
+  }
+
+  .header-left {
+    min-width: auto;
+    width: 100%;
+  }
+
+  .header-right,
+  .header-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .chat-btn,
+  .report-btn {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .tab-content {
+    padding: 16px 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .dashboard-header h1 {
+    font-size: 18px;
+  }
+
+  .header-actions {
+    flex-direction: column;
+  }
+
+  .chat-btn,
+  .report-btn {
+    width: 100%;
+  }
+}

@@ -663,7 +663,7 @@
 
 @media (max-width: 900px) {
   .coordinator-dashboard {
-    padding: 16px;
+    padding: 16px 10px;
   }
 
   .coordinator-overview-grid,
@@ -678,14 +678,70 @@
   .status-visual-row {
     align-items: flex-start;
     flex-direction: column;
+    gap: 16px;
+  }
+
+  .coordinator-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .coordinator-teams-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+  }
+}
+
+@media (max-width: 600px) {
+  .coordinator-dashboard {
+    padding: 12px 6px;
+  }
+
+  .coordinator-dashboard .dashboard-header h1 {
+    font-size: 20px;
   }
 
   .coordinator-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .coordinator-teams-header {
-    align-items: flex-start;
+  .coordinator-dashboard .coordinator-stats .stat-card {
+    padding: 12px 10px;
+    min-height: 90px;
+  }
+
+  .coordinator-dashboard .coordinator-stats .stat-value {
+    font-size: 24px;
+  }
+
+  .coordinator-panel {
+    padding: 14px 10px;
+  }
+
+  .status-donut {
+    width: 100px;
+    height: 100px;
+    flex: 0 0 100px;
+  }
+
+  .status-donut::after {
+    width: 66px;
+    height: 66px;
+  }
+
+  .status-donut span {
+    font-size: 20px;
+  }
+
+  .marks-table-container {
+    padding-bottom: 8px;
+  }
+
+  .coordinator-pagination {
     flex-direction: column;
+    align-items: center;
+    text-align: center;
   }
 }
+

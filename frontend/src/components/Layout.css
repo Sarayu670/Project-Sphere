@@ -73,19 +73,39 @@
 
 @media (max-width: 600px) {
   .header .header-content {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: 8px;
     padding: 8px 12px;
   }
 
+  .logo-text {
+    font-size: 15px;
+  }
+
+  .logo-icon {
+    font-size: 18px;
+  }
+
   .header .user-info {
-    flex-wrap: wrap;
-    justify-content: flex-end;
+    display: flex;
+    align-items: center;
     gap: 6px;
     margin-left: auto;
   }
 
+  .home-btn {
+    padding: 5px 8px !important;
+    font-size: 12px !important;
+    margin-right: 4px !important;
+  }
+
   .main-content {
-    padding: 12px;
+    padding: 12px 8px;
   }
 }
+
+@media (max-width: 480px) {
+  .logo-text {
+    display: none;
+  }
+}

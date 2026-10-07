@@ -402,47 +402,108 @@ a:hover {
 /* Badge styles */
 /* (Badge styles consolidated in the top-level badge rule) */
 
-/* Tab styles */
-.tabs {
+/* Tab styles - Horizontal smooth scrolling on mobile without overflow */
+.tabs,
+.sub-tabs,
+.section-tabs {
   display: flex;
-  gap: 4px;
-  margin-bottom: 24px;
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 4px;
+  gap: 8px;
+  margin-bottom: 20px;
+  border-bottom: 2px solid var(--border);
+  padding-bottom: 6px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; /* Firefox */
+  max-width: 100%;
 }
 
-.tab {
-  padding: 12px 20px;
+.tabs::-webkit-scrollbar,
+.sub-tabs::-webkit-scrollbar,
+.section-tabs::-webkit-scrollbar {
+  display: none; /* Safari and Chrome */
+}
+
+.tab,
+.sub-tab,
+.section-tab {
+  flex: 0 0 auto;
+  padding: 10px 18px;
   border: none;
-  background: transparent;
+  background: var(--surface);
   color: var(--text-muted);
   font-weight: 600;
   font-size: 14px;
   cursor: pointer;
-  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-  transition: background-color 0.15s ease, color 0.15s ease;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  transition: all 0.15s ease;
   position: relative;
+  white-space: nowrap;
 }
 
-.tab:hover {
+.tab:hover,
+.sub-tab:hover,
+.section-tab:hover {
   background: var(--surface-2);
   color: var(--text);
+  border-color: var(--primary-light);
 }
 
-.tab.active {
+.tab.active,
+.sub-tab.active,
+.section-tab.active {
   background: var(--primary);
   color: var(--primary-contrast);
+  border-color: var(--primary);
 }
 
-.tab.active::after {
-  content: '';
-  position: absolute;
-  bottom: -5px;
+/* Responsive Table Wrapper */
+.table-container,
+.data-table-wrapper,
+.marks-table-container,
+.details-table-container,
+.statements-table-wrapper {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-bottom: 16px;
+  border-radius: var(--radius-sm);
+}
+
+/* Modal Responsiveness */
+.modal-overlay,
+.details-modal-overlay,
+.ai-modal-overlay {
+  position: fixed;
+  top: 0;
   left: 0;
   right: 0;
-  height: 3px;
-  background: var(--accent-gold);
-  border-radius: 2px 2px 0 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 12px;
+}
+
+.modal,
+.modal-content,
+.details-modal-content,
+.ai-modal-content {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 24px;
+  width: 100%;
+  max-width: 540px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow-lg);
+  box-sizing: border-box;
 }
 
 /* Responsive design */
@@ -459,7 +520,7 @@ a:hover {
   min-width: 170px;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 900px) {
   .timeline-filter-header {
     grid-template-columns: 1fr !important;
   }
@@ -492,7 +553,7 @@ a:hover {
   }
 
   .timeline-export-actions .btn {
-    flex: 1 1 170px;
+    flex: 1 1 140px;
   }
 
   .timeline-filter-controls {
@@ -502,42 +563,60 @@ a:hover {
 
 @media (max-width: 768px) {
   .container {
-    padding: 0 16px;
+    padding: 0 14px;
   }
 
-  .grid-2 {
+  .grid-2,
+  .grid-3 {
     grid-template-columns: 1fr;
   }
 
-  .grid-3 {
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  .tabs,
+  .sub-tabs,
+  .section-tabs {
+    gap: 6px;
+    padding-bottom: 8px;
   }
 
-  .tabs {
-    flex-wrap: wrap;
-  }
-
-  .tab {
-    padding: 10px 16px;
+  .tab,
+  .sub-tab,
+  .section-tab {
+    padding: 8px 14px;
     font-size: 13px;
   }
 
   .main-content {
-    padding: 16px;
+    padding: 14px 10px;
+  }
+
+  .modal,
+  .modal-content,
+  .details-modal-content,
+  .ai-modal-content {
+    padding: 18px 14px;
+    max-width: 96vw;
   }
 }
 
 @media (max-width: 480px) {
   .container {
-    padding: 0 12px;
+    padding: 0 10px;
   }
 
   .main-content {
-    padding: 12px;
+    padding: 10px 6px;
   }
 
-  .grid-3 {
-    grid-template-columns: 1fr;
+  .btn {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  .tab,
+  .sub-tab,
+  .section-tab {
+    padding: 8px 12px;
+    font-size: 12px;
   }
 }
 

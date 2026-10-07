@@ -180,6 +180,30 @@ exports.getAllEvents = async (req, res) => {
       }
     }
 
+    // Restrict by year for non-admins so a timeline created for e.g. 3rd years
+    // is visible only to admins, 3rd year students, and the guides of 3rd year teams.
+    // Events targeting 'all' years remain visible to everyone in the department.
+    if (role !== 'admin') {
+      let allowedYears = [];
+      if (role === 'student') {
+        if (req.user.year) allowedYears = [req.user.year];
+      } else if (role === 'guide') {
+        const guideYears = await Batch.distinct('year', { guideId: req.user._id });
+        allowedYears = guideYears.filter(Boolean);
+        if (req.user.isCoordinator && req.user.coordinatorSection?.year) {
+          allowedYears.push(req.user.coordinatorSection.year);
+        }
+      }
+      allowedYears = [...new Set(allowedYears)];
+
+      const yearCondition = { targetYear: { $in: [...allowedYears, 'all'] } };
+      if (query.$and) {
+        query.$and.push(yearCondition);
+      } else {
+        query = { $and: [query, yearCondition] };
+      }
+    }
+
     const events = await TimelineEvent.find(query)
       .sort({ order: 1, deadline: 1 })
       .populate('createdBy', 'name');

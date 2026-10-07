@@ -121,6 +121,9 @@ function TimelineEditor({ scope = null, allowRemarkEditing = true }) {
   const adminDept = user?.role === 'admin' && user?.department && user.department !== 'ALL'
     ? user.department
     : '';
+  // Only admins may create, edit or delete timeline events. Coordinators can
+  // still view teams/submissions and add remarks, but not manage events.
+  const canManageEvents = user?.role === 'admin';
 
   const [events, setEvents] = useState([]);
   const [batches, setBatches] = useState([]);
@@ -653,6 +656,7 @@ function TimelineEditor({ scope = null, allowRemarkEditing = true }) {
     <div className="tab-content">
       <div className="flex-between" style={{ marginBottom: "20px" }}>
         <h2>📅 Timeline Management</h2>
+        {canManageEvents && (
         <button
           className="btn btn-primary"
           onClick={() => {
@@ -676,9 +680,10 @@ function TimelineEditor({ scope = null, allowRemarkEditing = true }) {
         >
           + Add Event
         </button>
+        )}
       </div>
 
-      {showForm && (
+      {canManageEvents && showForm && (
         <div className="card" style={{ marginBottom: "20px" }}>
           <h3>{editingEvent ? "Edit Event" : "Create New Timeline Event"}</h3>
           <form onSubmit={handleSubmit}>
@@ -1659,18 +1664,22 @@ function TimelineEditor({ scope = null, allowRemarkEditing = true }) {
                     >
                       👥 View Teams
                     </button>
-                    <button
-                      className="btn btn-secondary btn-sm"
-                      onClick={() => handleEdit(event)}
-                    >
-                      ✏️
-                    </button>
-                    <button
-                      className="btn btn-danger btn-sm"
-                      onClick={() => handleDelete(event._id)}
-                    >
-                      🗑️
-                    </button>
+                    {canManageEvents && (
+                      <>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => handleEdit(event)}
+                        >
+                          ✏️
+                        </button>
+                        <button
+                          className="btn btn-danger btn-sm"
+                          onClick={() => handleDelete(event._id)}
+                        >
+                          🗑️
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
                 <div

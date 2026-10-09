@@ -1722,3 +1722,7 @@ exports.deleteBatchByCoordinator = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// Shared helper (used by the guide marks report)
+exports.attachTeamMembers = attachTeamMembers;
+

@@ -347,12 +347,29 @@ function GuideTimeline() {
               <strong>Status:</strong> {getStatusBadge(submission.status)}
             </div>
           </div>
-          {selectedEvent.submissionRequirements && (
-            <div style={{ marginTop: '15px', padding: '10px', background: '#f8fafc', borderRadius: '8px' }}>
-              <strong>📋 What to Submit:</strong><br />
-              <span style={{ color: '#666' }}>{selectedEvent.submissionRequirements}</span>
-            </div>
-          )}
+          {(() => {
+            const refFile = selectedEvent.referenceFile
+              || timelineEvents.find(item => item._id === selectedEvent._id)?.referenceFile;
+            if (!selectedEvent.submissionRequirements && !refFile?.url) return null;
+            return (
+              <div style={{ marginTop: '15px', padding: '10px', background: '#f8fafc', borderRadius: '8px' }}>
+                <strong>📋 What to Submit:</strong><br />
+                {selectedEvent.submissionRequirements && (
+                  <span style={{ color: '#666' }}>{selectedEvent.submissionRequirements}</span>
+                )}
+                {refFile?.url && (
+                  <a
+                    href={api.getUploadUrl(refFile.url)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ display: 'block', marginTop: '6px', fontWeight: 600 }}
+                  >
+                    📎 {refFile.name || 'Requirements file'}
+                  </a>
+                )}
+              </div>
+            );
+          })()}
         </div>
 
         {/* Display Assigned Individual Marks if available */}

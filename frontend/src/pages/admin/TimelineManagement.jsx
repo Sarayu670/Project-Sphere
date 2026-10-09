@@ -75,7 +75,7 @@ function TimelineReadOnly({ scope }) {
   useEffect(() => {
     const loadEvents = async () => {
       try {
-        const response = await api.getAllTimelineEvents(scope?.year);
+        const response = await api.getAllTimelineEvents(scope?.year, scope?.branch);
         setEvents(response.data?.data || response.data || []);
       } catch (error) {
         console.error('Unable to fetch the section timeline:', error);
@@ -84,7 +84,7 @@ function TimelineReadOnly({ scope }) {
       }
     };
     loadEvents();
-  }, [scope?.year]);
+  }, [scope?.year, scope?.branch]);
 
   if (loading) return <div className="tab-content"><div className="card loading"><h3>Loading timeline...</h3></div></div>;
 
@@ -107,6 +107,11 @@ function TimelineReadOnly({ scope }) {
                 <strong style={{ color: '#1d4ed8', whiteSpace: 'nowrap' }}>{new Date(event.deadline).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</strong>
               </div>
               {event.submissionRequirements && <small style={{ color: '#64748b' }}>Requirements: {event.submissionRequirements}</small>}
+              {event.referenceFile?.url && (
+                <a href={api.getUploadUrl(event.referenceFile.url)} target="_blank" rel="noopener noreferrer" style={{ display: 'block', marginTop: '6px', fontSize: '13px', fontWeight: 600 }}>
+                  📎 {event.referenceFile.name || 'Requirements file'}
+                </a>
+              )}
             </article>
           ))}
         </div>
@@ -117,10 +122,7 @@ function TimelineReadOnly({ scope }) {
 
 function TimelineEditor({ scope = null, allowRemarkEditing = true }) {
   const { user } = useAuth();
-  // adminDept is the branch code for dept-admins, or '' for super-admins
-  const adminDept = user?.role === 'admin' && user?.department && user.department !== 'ALL'
-    ? user.department
-    : '';
+  // Branch lock removed: every admin can target any branch when creating events.
   // Only admins may create, edit or delete timeline events. Coordinators can
   // still view teams/submissions and add remarks, but not manage events.
   const canManageEvents = user?.role === 'admin';
@@ -139,22 +141,32 @@ function TimelineEditor({ scope = null, allowRemarkEditing = true }) {
       batch.section === scope.section
     );
     const targetYear = selectedEvent?.targetYear;
-    const filtered = !targetYear || targetYear === 'all'
-      ? scoped
-      : scoped.filter(batch => batch.year === targetYear);
+    const targetDept = selectedEvent?.department;
+    const filtered = scoped.filter(batch =>
+      (!targetYear || targetYear === 'all' || batch.year === targetYear) &&
+      (!targetDept || targetDept === 'ALL' || batch.branch === targetDept)
+    );
     return [...filtered].sort((left, right) => compareNatural(left.teamName, right.teamName));
-  }, [batches, scope, selectedEvent?.targetYear]);
+  }, [batches, scope, selectedEvent?.targetYear, selectedEvent?.department]);
   const visibleEvents = useMemo(() => {
     if (!scope) return events;
     return events.filter(event =>
-      event.targetYear === 'all' ||
-      event.targetYear === scope.year ||
-      event.targetYear === undefined ||
-      event.targetYear === null
+      (
+        event.targetYear === 'all' ||
+        event.targetYear === scope.year ||
+        event.targetYear === undefined ||
+        event.targetYear === null
+      ) && (
+        !event.department ||
+        event.department === 'ALL' ||
+        event.department === scope.branch
+      )
     );
   }, [events, scope]);
   const [showForm, setShowForm] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null);
+  const [requirementsFile, setRequirementsFile] = useState(null);
+  const [removeRequirementsFile, setRemoveRequirementsFile] = useState(false);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -164,6 +176,7 @@ function TimelineEditor({ scope = null, allowRemarkEditing = true }) {
     targetYear: scope?.year || "all",
     order: 0,
     isMarksEnabled: true,
+    department: scope?.branch || "ALL",
   });
 
   // Pagination and lazy loading
@@ -305,7 +318,7 @@ function TimelineEditor({ scope = null, allowRemarkEditing = true }) {
       let eventsData = [];
 
       try {
-        const eventsRes = await api.getAllTimelineEvents(scope?.year);
+        const eventsRes = await api.getAllTimelineEvents(scope?.year, scope?.branch);
         if (Array.isArray(eventsRes.data)) {
           eventsData = eventsRes.data;
         } else if (eventsRes.data?.data && Array.isArray(eventsRes.data.data)) {
@@ -322,7 +335,7 @@ function TimelineEditor({ scope = null, allowRemarkEditing = true }) {
       console.error("Fetch error:", error.message);
       if (loading) setLoading(false);
     }
-  }, [loading, scope?.year]);
+  }, [loading, scope?.year, scope?.branch]);
 
   // Fetch batches lazily - only when event is selected
   const fetchBatchesForEvent = useCallback(async () => {
@@ -560,6 +573,11 @@ function TimelineEditor({ scope = null, allowRemarkEditing = true }) {
     Object.keys(formData).forEach(key => {
       data.append(key, formData[key]);
     });
+    if (requirementsFile) {
+      data.append("referenceFile", requirementsFile);
+    } else if (editingEvent && removeRequirementsFile) {
+      data.append("removeReferenceFile", "true");
+    }
 
     try {
       if (editingEvent) {
@@ -572,6 +590,8 @@ function TimelineEditor({ scope = null, allowRemarkEditing = true }) {
       console.log("Event saved successfully");
       setShowForm(false);
       setEditingEvent(null);
+      setRequirementsFile(null);
+      setRemoveRequirementsFile(false);
       setFormData({
         title: "",
         description: "",
@@ -581,7 +601,7 @@ function TimelineEditor({ scope = null, allowRemarkEditing = true }) {
         targetYear: scope?.year || "all",
         order: 0,
         isMarksEnabled: true,
-        department: adminDept || "ALL",
+        department: scope?.branch || "ALL",
       });
       fetchEvents();
     } catch (error) {
@@ -593,6 +613,8 @@ function TimelineEditor({ scope = null, allowRemarkEditing = true }) {
 
   const handleEdit = (event) => {
     setEditingEvent(event);
+    setRequirementsFile(null);
+    setRemoveRequirementsFile(false);
     setFormData({
       title: event.title,
       description: event.description || "",
@@ -602,6 +624,7 @@ function TimelineEditor({ scope = null, allowRemarkEditing = true }) {
       targetYear: scope?.year || event.targetYear,
       order: event.order || 0,
       isMarksEnabled: event.isMarksEnabled !== undefined ? event.isMarksEnabled : true,
+      department: event.department || "ALL",
     });
     setShowForm(true);
   };
@@ -665,6 +688,8 @@ function TimelineEditor({ scope = null, allowRemarkEditing = true }) {
             const defaultDate = tomorrow.toISOString().split("T")[0];
             setShowForm(true);
             setEditingEvent(null);
+            setRequirementsFile(null);
+            setRemoveRequirementsFile(false);
             setFormData({
               title: "",
               description: "",
@@ -674,7 +699,7 @@ function TimelineEditor({ scope = null, allowRemarkEditing = true }) {
               targetYear: scope?.year || "all",
               order: 0,
               isMarksEnabled: true,
-              department: adminDept || "ALL",
+              department: scope?.branch || "ALL",
             });
           }}
         >
@@ -776,27 +801,20 @@ function TimelineEditor({ scope = null, allowRemarkEditing = true }) {
                 )}
               </div>
               <div className="form-group">
-                <label>Department</label>
+                <label>Branch</label>
                 {scope ? (
-                  // Coordinator scope — dept is determined by their section, not shown
-                  null
-                ) : adminDept ? (
-                  // Dept-admin: show their dept as a locked badge
-                  <div style={{
-                    padding: "10px 12px",
-                    border: "1px solid #cbd5e1",
-                    borderRadius: "8px",
-                    background: "#f0f9ff",
-                    fontWeight: 700,
-                    color: "#0369a1",
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px'
-                  }}>
-                    🔒 {adminDept} <span style={{ fontSize: '11px', fontWeight: 400, color: '#64748b' }}>(locked to your department)</span>
+                  <div
+                    style={{
+                      padding: "10px 12px",
+                      border: "1px solid #cbd5e1",
+                      borderRadius: "8px",
+                      background: "#f8fafc",
+                      fontWeight: 700
+                    }}
+                  >
+                    {scope.branch}
                   </div>
                 ) : (
-                  // Super-admin: allow choosing target department
                   <select
                     value={formData.department || 'ALL'}
                     onChange={(e) => setFormData({ ...formData, department: e.target.value })}
@@ -811,6 +829,9 @@ function TimelineEditor({ scope = null, allowRemarkEditing = true }) {
                     <option value="ETM">ETM</option>
                   </select>
                 )}
+                <small style={{ color: "#666", fontSize: "12px" }}>
+                  Only students and guides of the selected year &amp; branch will see this timeline.
+                </small>
               </div>
               <div className="form-group">
                 <label>Order (for sorting)</label>
@@ -847,6 +868,50 @@ function TimelineEditor({ scope = null, allowRemarkEditing = true }) {
                 rows={3}
                 placeholder="What documents/files need to be submitted"
               />
+              <div style={{ marginTop: "10px", display: "grid", gap: "6px" }}>
+                <label htmlFor="requirementsFile" style={{ fontWeight: 600, fontSize: "13px" }}>
+                  Requirements File (optional)
+                </label>
+                <input
+                  id="requirementsFile"
+                  type="file"
+                  accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.zip,.png,.jpg,.jpeg"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] || null;
+                    setRequirementsFile(file);
+                    if (file) setRemoveRequirementsFile(false);
+                  }}
+                />
+                {requirementsFile && (
+                  <small style={{ color: "#0369a1" }}>Selected: {requirementsFile.name}</small>
+                )}
+                {!requirementsFile && editingEvent?.referenceFile?.url && !removeRequirementsFile && (
+                  <small style={{ color: "#475569", display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
+                    Current file:{" "}
+                    <a href={api.getUploadUrl(editingEvent.referenceFile.url)} target="_blank" rel="noopener noreferrer">
+                      {editingEvent.referenceFile.name || "Download"}
+                    </a>
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => setRemoveRequirementsFile(true)}
+                    >
+                      Remove
+                    </button>
+                  </small>
+                )}
+                {removeRequirementsFile && !requirementsFile && (
+                  <small style={{ color: "#b91c1c" }}>
+                    The current file will be removed when you update.{" "}
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => setRemoveRequirementsFile(false)}>
+                      Undo
+                    </button>
+                  </small>
+                )}
+                <small style={{ color: "#666", fontSize: "12px" }}>
+                  Upload a document describing the requirements / template. Students and guides can download it.
+                </small>
+              </div>
             </div>
 
             <div style={{ display: "flex", gap: "10px" }}>
@@ -1711,7 +1776,25 @@ function TimelineEditor({ scope = null, allowRemarkEditing = true }) {
                   <div>
                     <strong style={{ fontSize: '13px', display: 'block', marginBottom: '3px' }}>📋 Requirements:</strong>
                     <span style={{ fontSize: "12px", color: "#4a5568", lineHeight: '1.5' }}>
-                      {event.submissionRequirements || "Not specified"}
+                      {event.submissionRequirements || (event.referenceFile?.url ? "" : "Not specified")}
+                    </span>
+                    {event.referenceFile?.url && (
+                      <a
+                        href={api.getUploadUrl(event.referenceFile.url)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginTop: '4px', color: '#4f46e5' }}
+                      >
+                        📎 {event.referenceFile.name || "Requirements file"}
+                      </a>
+                    )}
+                  </div>
+                  <div>
+                    <strong style={{ fontSize: '13px', display: 'block', marginBottom: '3px' }}>🎓 Visible To:</strong>
+                    <span style={{ fontSize: '12px', color: '#4a5568', lineHeight: '1.5' }}>
+                      {(!event.targetYear || event.targetYear === 'all') ? 'All Years' : `${event.targetYear} Year`}
+                      {' • '}
+                      {(!event.department || event.department === 'ALL') ? 'All Branches' : event.department}
                     </span>
                   </div>
                   <div>

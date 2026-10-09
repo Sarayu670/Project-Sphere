@@ -655,6 +655,151 @@ exports.assignPrcMarks = async (req, res) => {
   }
 };
 
+// @desc    Coordinator edits a student's GUIDE marks from the marks report.
+//          Allowed only after the timeline event's deadline has passed and only
+//          for teams inside the coordinator's own section.
+// @route   POST /api/submissions/coordinator-guide-marks
+exports.assignCoordinatorGuideMarks = async (req, res) => {
+  try {
+    const scope = req.user?.coordinatorSection;
+    if (req.user.role !== 'guide' || !req.user.isCoordinator || !scope?.year || !scope?.branch || !scope?.section) {
+      return res.status(403).json({ success: false, message: 'Only class coordinators can edit guide marks.' });
+    }
+
+    const mongoose = require('mongoose');
+    const { submissionId, batchId, timelineEventId, studentId, marks } = req.body;
+
+    if (!studentId) {
+      return res.status(400).json({ success: false, message: 'Student is required.' });
+    }
+
+    let submission = null;
+    if (submissionId && mongoose.Types.ObjectId.isValid(submissionId)) {
+      submission = await Submission.findById(submissionId);
+    }
+    if (!submission && batchId && timelineEventId) {
+      submission = await Submission.findOne({ batchId, timelineEventId });
+    }
+
+    const targetBatchId = submission?.batchId || batchId;
+    const targetEventId = submission?.timelineEventId || timelineEventId;
+    if (!targetBatchId || !targetEventId) {
+      return res.status(400).json({ success: false, message: 'Team and milestone are required.' });
+    }
+
+    const [batch, event] = await Promise.all([
+      Batch.findOne({ _id: targetBatchId, year: scope.year, branch: scope.branch, section: scope.section }).select('_id'),
+      TimelineEvent.findById(targetEventId).select('title deadline maxMarks')
+    ]);
+
+    if (!batch) {
+      return res.status(403).json({ success: false, message: 'This team is not in your section.' });
+    }
+    if (!event) {
+      return res.status(404).json({ success: false, message: 'Timeline event not found.' });
+    }
+    if (new Date() <= new Date(event.deadline)) {
+      return res.status(403).json({
+        success: false,
+        message: `Guide marks for "${event.title}" can be edited only after the deadline (${new Date(event.deadline).toLocaleDateString('en-IN')}).`
+      });
+    }
+
+    const maximumMarks = Number(event.maxMarks) > 0 ? Number(event.maxMarks) : 10;
+    const value = marks !== '' && marks !== null && marks !== undefined ? parseFloat(marks) : null;
+    if (value !== null && (Number.isNaN(value) || value < 0 || value > maximumMarks)) {
+      return res.status(400).json({ success: false, message: `Guide marks must be between 0 and ${maximumMarks}.` });
+    }
+
+    if (!submission) {
+      submission = new Submission({ batchId: targetBatchId, timelineEventId: targetEventId, studentMarks: [] });
+    }
+
+    const marksMap = new Map();
+    (submission.studentMarks || []).forEach(existing => {
+      const sId = (existing.studentId?._id || existing.studentId)?.toString();
+      if (sId && !marksMap.has(sId)) {
+        marksMap.set(sId, {
+          studentId: existing.studentId?._id || existing.studentId,
+          marks: existing.marks,
+          prcMarks: existing.prcMarks,
+          assignedBy: existing.assignedBy,
+          assignedAt: existing.assignedAt,
+          prcAssignedBy: existing.prcAssignedBy,
+          prcAssignedAt: existing.prcAssignedAt
+        });
+      }
+    });
+
+    const sId = String(studentId);
+    const current = marksMap.get(sId) || { studentId, prcMarks: null };
+    current.marks = value;
+    current.assignedBy = req.user._id;
+    current.assignedAt = new Date();
+    marksMap.set(sId, current);
+
+    submission.studentMarks = Array.from(marksMap.values());
+    await submission.save();
+
+    const updated = await Submission.findById(submission._id)
+      .populate('timelineEventId', 'title maxMarks deadline isMarksEnabled')
+      .populate('studentMarks.studentId', 'name rollNumber')
+      .populate('studentMarks.assignedBy', 'name');
+
+    res.status(200).json({ success: true, data: deduplicateSubmissionMarks(updated) });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Data for the guide's own marks report (guide marks only, no PRC committee marks)
+// @route   GET /api/submissions/guide/marks-report
+exports.getGuideMarksReport = async (req, res) => {
+  try {
+    const { attachTeamMembers } = require('./batchController');
+    const { buildTimelineVisibilityFilter } = require('../utils/timelineVisibility');
+
+    const rawBatches = await Batch.find({
+      guideId: req.user._id,
+      allotmentStatus: { $nin: ['pending', 'rejected'] }
+    })
+      .populate('leaderStudentId', 'name rollNumber')
+      .populate('problemId', 'title')
+      .populate('guideId', 'name')
+      .lean();
+
+    const batches = await attachTeamMembers(rawBatches);
+    const batchIds = batches.map(batch => batch._id);
+
+    const visibilityFilter = await buildTimelineVisibilityFilter(req.user);
+    const eventConditions = [{ $or: [{ isActive: true }, { isActive: { $exists: false } }] }];
+    if (visibilityFilter) eventConditions.push(visibilityFilter);
+    const events = await TimelineEvent.find({ $and: eventConditions })
+      .select('title deadline maxMarks targetYear department order')
+      .sort({ order: 1, deadline: 1 })
+      .lean();
+
+    const submissions = batchIds.length === 0 ? [] : await Submission.find({ batchId: { $in: batchIds } })
+      .select('batchId timelineEventId status studentMarks comments')
+      .populate('studentMarks.studentId', 'name rollNumber')
+      .lean();
+
+    // Strip every PRC committee mark before sending to the guide.
+    const sanitized = submissions.map(deduplicateSubmissionMarks).map(sub => ({
+      ...sub,
+      studentMarks: (sub.studentMarks || []).map(sm => ({
+        studentId: sm.studentId,
+        marks: sm.marks
+      }))
+    }));
+
+    res.status(200).json({ success: true, data: { batches, events, submissions: sanitized } });
+  } catch (error) {
+    console.error('Guide marks report error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 
 // @desc    Get all submissions (Admin)
 // @route   GET /api/submissions

@@ -7,6 +7,7 @@ import { generateChatReport } from '../../utils/reportGenerator';
 import usePolling from '../../utils/usePolling';
 import BatchDetails from './BatchDetails';
 import GuideTimeline from './GuideTimeline';
+import GuideMarksReport from './GuideMarksReport';
 import ExcelImportProblem from './ExcelImportProblem';
 import GuideSearch from '../admin/GuideSearch';
 import ConfirmationDialog from '../../components/ConfirmationDialog';
@@ -452,6 +453,7 @@ function GuideDashboard() {
             </span>
           )}
         </button>
+        <button className={`tab ${activeTab === 'marks' ? 'active' : ''}`} onClick={() => handleTabChange('marks')}>📊 Marks Report</button>
         <button className={`tab ${activeTab === 'meetings' ? 'active' : ''}`} onClick={() => handleTabChange('meetings')}>🤝 Meetings</button>
         <button className={`tab ${activeTab === 'ai-hub' ? 'active' : ''}`} onClick={() => handleTabChange('ai-hub')}>🤖 AI Problem Hub</button>
         <button className={`tab ${activeTab === 'guide-search' ? 'active' : ''}`} onClick={() => handleTabChange('guide-search')}>🔍 Search Batches</button>
@@ -624,6 +626,8 @@ function GuideDashboard() {
       )}
 
       {activeTab === 'submissions' && <GuideTimeline />}
+
+      {activeTab === 'marks' && <GuideMarksReport />}
 
       {activeTab === 'meetings' && <GuideMeetings />}
 

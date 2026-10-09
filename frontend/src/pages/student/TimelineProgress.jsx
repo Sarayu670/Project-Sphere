@@ -182,9 +182,9 @@ function TimelineProgress({ batchId }) {
             )}
           </div>
           <div style={{ display: 'flex', gap: '15px', marginTop: '15px' }}>
-            {selectedEvent.referenceFile && (
-              <a href={selectedEvent.referenceFile.url} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm" style={{ background: '#667eea', color: 'white', border: 'none' }}>
-                📥 Download Template: {selectedEvent.referenceFile.name}
+            {selectedEvent.referenceFile?.url && (
+              <a href={api.getUploadUrl(selectedEvent.referenceFile.url)} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm" style={{ background: '#667eea', color: 'white', border: 'none' }}>
+                📥 Download Requirements: {selectedEvent.referenceFile.name}
               </a>
             )}
           </div>

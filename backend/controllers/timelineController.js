@@ -5,6 +5,9 @@ const Guide = require('../models/Guide');
 const Student = require('../models/Student');
 const ProjectEntry = require('../models/ProjectEntry');
 const { sendTimelineNotificationEmail } = require('../utils/mailer');
+const { buildTimelineVisibilityFilter } = require('../utils/timelineVisibility');
+
+const VALID_DEPARTMENTS = ['ALL', 'CSE', 'IT', 'ECE', 'CSM', 'EEE', 'CSD', 'ETM'];
 
 // ================= CREATE EVENT =================
 exports.createEvent = async (req, res) => {
@@ -36,9 +39,9 @@ exports.createEvent = async (req, res) => {
     }
 
 
-    const targetDept = (req.user.department && req.user.department !== 'ALL')
-      ? req.user.department
-      : (req.body.department || 'ALL');
+    // Branch lock removed: admins choose the target branch explicitly.
+    const requestedDept = String(req.body.department || 'ALL').trim().toUpperCase();
+    const targetDept = VALID_DEPARTMENTS.includes(requestedDept) ? requestedDept : 'ALL';
     const targetYr = targetYear || 'all';
 
     const event = await TimelineEvent.create({
@@ -140,69 +143,28 @@ exports.createEvent = async (req, res) => {
 // ================= GET ALL EVENTS =================
 exports.getAllEvents = async (req, res) => {
   try {
-    const { year } = req.query;
+    const { year, branch } = req.query;
 
-    // Build base active filter
-    let query = {
-      $or: [{ isActive: true }, { isActive: { $exists: false } }]
-    };
+    // Base active filter
+    const conditions = [
+      { $or: [{ isActive: true }, { isActive: { $exists: false } }] }
+    ];
 
+    // Optional explicit filters (e.g. admin filtering the list)
     if (year && year !== 'all') {
-      query.$and = [
-        { $or: [{ isActive: true }, { isActive: { $exists: false } }] },
-        { $or: [{ targetYear: year }, { targetYear: 'all' }] }
-      ];
+      conditions.push({ targetYear: { $in: [year, 'all'] } });
+    }
+    if (branch && branch !== 'ALL' && branch !== 'all') {
+      conditions.push({ department: { $in: [branch, 'ALL'] } });
     }
 
-    // Determine the requesting user's department so everyone sees only their dept's events.
-    // - Admin:   req.user.department ('CSE', 'ECE', ... or 'ALL' for super-admin)
-    // - Guide:   req.user.department (free-text, matches dept enum)
-    // - Student: req.user.branch     ('CSE', 'ECE', ...)
-    // Events with department='ALL' are institution-wide and visible to everyone.
-    let userDept = null;
-    const role = req.user?.role;
+    // Visibility: admins see every branch/year. A timeline created for a particular
+    // year + branch is visible only to students of that year + branch and to the
+    // guides (and coordinators) of teams in that year + branch.
+    const visibilityFilter = await buildTimelineVisibilityFilter(req.user);
+    if (visibilityFilter) conditions.push(visibilityFilter);
 
-    if (role === 'admin') {
-      const dept = req.user.department || 'ALL';
-      userDept = dept !== 'ALL' ? dept : null; // null = super-admin, no filter
-    } else if (role === 'guide') {
-      userDept = req.user.department || null;
-    } else if (role === 'student') {
-      userDept = req.user.branch || null;
-    }
-
-    if (userDept) {
-      const deptCondition = { $or: [{ department: userDept }, { department: 'ALL' }] };
-      if (query.$and) {
-        query.$and.push(deptCondition);
-      } else {
-        query = { $and: [query, deptCondition] };
-      }
-    }
-
-    // Restrict by year for non-admins so a timeline created for e.g. 3rd years
-    // is visible only to admins, 3rd year students, and the guides of 3rd year teams.
-    // Events targeting 'all' years remain visible to everyone in the department.
-    if (role !== 'admin') {
-      let allowedYears = [];
-      if (role === 'student') {
-        if (req.user.year) allowedYears = [req.user.year];
-      } else if (role === 'guide') {
-        const guideYears = await Batch.distinct('year', { guideId: req.user._id });
-        allowedYears = guideYears.filter(Boolean);
-        if (req.user.isCoordinator && req.user.coordinatorSection?.year) {
-          allowedYears.push(req.user.coordinatorSection.year);
-        }
-      }
-      allowedYears = [...new Set(allowedYears)];
-
-      const yearCondition = { targetYear: { $in: [...allowedYears, 'all'] } };
-      if (query.$and) {
-        query.$and.push(yearCondition);
-      } else {
-        query = { $and: [query, yearCondition] };
-      }
-    }
+    const query = { $and: conditions };
 
     const events = await TimelineEvent.find(query)
       .sort({ order: 1, deadline: 1 })
@@ -266,11 +228,18 @@ exports.updateEvent = async (req, res) => {
       if (!enabled) updateData.maxMarks = 0;
     }
 
+    if (req.body.department !== undefined) {
+      const requestedDept = String(req.body.department || 'ALL').trim().toUpperCase();
+      updateData.department = VALID_DEPARTMENTS.includes(requestedDept) ? requestedDept : 'ALL';
+    }
+
     if (req.file) {
       updateData.referenceFile = {
         url: `/uploads/reference/${req.file.filename}`,
         name: req.file.originalname
       };
+    } else if (req.body.removeReferenceFile === 'true' || req.body.removeReferenceFile === true) {
+      updateData.referenceFile = null;
     }
 
     const event = await TimelineEvent.findByIdAndUpdate(

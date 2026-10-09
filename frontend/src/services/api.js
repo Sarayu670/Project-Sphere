@@ -105,7 +105,7 @@ export const fixCOEandRCClassification = () => axios.post(`${API_URL}/admin/fix-
 
 
 // Timeline
-export const getAllTimelineEvents = (year) => axios.get(`${API_URL}/timeline`, { params: { year } });
+export const getAllTimelineEvents = (year, branch) => axios.get(`${API_URL}/timeline`, { params: { year, branch } });
 export const getTimelineForBatch = (batchId) => axios.get(`${API_URL}/timeline/batch/${batchId}`);
 export const createTimelineEvent = (data) => axios.post(`${API_URL}/timeline`, data, {
   headers: { 'Content-Type': 'multipart/form-data' }
@@ -137,6 +137,21 @@ export const assignPRCMarks = (id, { prcMarks, prcStudentMarks }) =>
   axios.post(`${API_URL}/submissions/${id}/prc-marks`, { prcMarks, prcStudentMarks });
 export const assignPrcMarks = (data) =>
   axios.post(`${API_URL}/submissions/prc-marks`, data);
+export const assignCoordinatorGuideMarks = (data) =>
+  axios.post(`${API_URL}/submissions/coordinator-guide-marks`, data);
+export const getGuideMarksReport = () => axios.get(`${API_URL}/submissions/guide/marks-report`);
+
+// Resolve a backend upload path (e.g. "/uploads/reference/x.pdf") to a usable URL.
+// When the API lives on another origin (VITE_API_URL is absolute), prefix that origin.
+export const getUploadUrl = (fileUrl) => {
+  if (!fileUrl) return '';
+  if (/^https?:\/\//i.test(fileUrl)) return fileUrl;
+  if (/^https?:\/\//i.test(API_URL)) {
+    const base = API_URL.replace(/\/api\/?$/, '').replace(/\/$/, '');
+    return `${base}${fileUrl.startsWith('/') ? '' : '/'}${fileUrl}`;
+  }
+  return fileUrl;
+};
 export const addSubmissionComment = (id, comment) => axios.post(`${API_URL}/submissions/${id}/comment`, { comment });
 export const deleteSubmissionComment = (id, commentId) => axios.delete(`${API_URL}/submissions/${id}/comment/${commentId}`);
 export const addAdminRemark = (id, remark) => axios.post(`${API_URL}/submissions/${id}/admin-remark`, { remark });

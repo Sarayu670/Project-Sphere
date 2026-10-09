@@ -16,7 +16,9 @@ const {
   getAllSubmissions,
   addAdminRemark,
   getStudentsByBatch,
-  assignPRCMarks
+  assignPRCMarks,
+  assignCoordinatorGuideMarks,
+  getGuideMarksReport
 } = require('../controllers/submissionController');
 
 // Configure multer for file uploads
@@ -45,11 +47,16 @@ router.get('/batch/:batchId/students', protect, (req, res, next) => {
 
 // Guide routes
 router.get('/guide', protect, authorize('guide'), getGuideSubmissions);
+router.get('/guide/marks-report', protect, authorize('guide'), getGuideMarksReport);
 router.post('/:id/comment', protect, authorize('guide'), addComment);
 router.delete('/:id/comment/:commentId', protect, authorize('guide'), deleteComment);
 router.post('/:id/marks', protect, authorize('guide'), assignMarks);
 
 // Admin / Coordinator routes
+router.post('/coordinator-guide-marks', protect, (req, res, next) => {
+  if (req.user.role === 'guide' && req.user.isCoordinator) return next();
+  return res.status(403).json({ success: false, message: 'Only class coordinators can edit guide marks.' });
+}, assignCoordinatorGuideMarks);
 router.post('/prc-marks', protect, (req, res, next) => {
   if (req.user.role === 'guide' && req.user.isCoordinator) return next();
   return res.status(403).json({ success: false, message: 'Only class coordinators can assign PRC marks.' });

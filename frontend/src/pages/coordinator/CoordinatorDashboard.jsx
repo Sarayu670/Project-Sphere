@@ -7,195 +7,22 @@ import AdminMeetings from '../admin/AdminMeetings';
 import BatchImport from '../admin/BatchImport';
 import ImportProjectData from '../admin/ImportProjectData';
 import usePolling from '../../utils/usePolling';
+import {
+  buildMarksReport,
+  getTeamRowSpan,
+  compareNatural,
+  isDeadlinePassed,
+  MARK_COMPONENT_MAX,
+  MARKS_REPORT_MAX
+} from '../../utils/marksReport';
 import './CoordinatorDashboard.css';
 
 const OUTCOMES = ['None', 'Patented', 'Published', 'Copyrighted', 'Prototype', 'Funded', 'Other'];
-const TRACKED_MARK_EVENTS = [
-  { key: 'prc1', label: 'PRC-1', aliases: ['prc-1', 'prc 1', 'prc1'] },
-  { key: 'prc2', label: 'PRC-2', aliases: ['prc-2', 'prc 2', 'prc2'] }
-];
-const MARK_COMPONENT_MAX = 10;
-const MARK_GROUP_MAX = MARK_COMPONENT_MAX * 2;
-const MARKS_REPORT_MAX = TRACKED_MARK_EVENTS.length * MARK_GROUP_MAX;
-
-const normalizeEventTitle = (value = '') => String(value).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
-
-const isGuideApproved = (submission) => submission?.status === 'accepted' || submission?.status === 'completed';
-
-const compareNatural = (left, right) => String(left || '').localeCompare(String(right || ''), undefined, {
-  numeric: true,
-  sensitivity: 'base'
-});
 
 function idOf(value) {
   return typeof value === 'object' && value ? value._id : value;
 }
 
-function buildMarksReport(batches = [], timelineEvents = [], submissions = []) {
-  const markGroups = TRACKED_MARK_EVENTS.map(config => {
-    const events = (timelineEvents || []).filter(event => {
-      const normalized = normalizeEventTitle(event?.title || '');
-      return config.aliases.some(alias => normalized.includes(alias));
-    });
-    const guideEvent = events.find(event => normalizeEventTitle(event.title).includes('guide')) || events[0];
-    const prcEvent = events.find(event => normalizeEventTitle(event.title).includes('prc') && event._id !== guideEvent?._id)
-      || events.find(event => event._id !== guideEvent?._id);
-    return {
-      key: config.key,
-      label: config.label,
-      guideEvent,
-      prcEvent,
-      max: MARK_GROUP_MAX,
-      guideMax: MARK_COMPONENT_MAX,
-      prcMax: MARK_COMPONENT_MAX
-    };
-  });
-
-  if (!markGroups.some(group => group.guideEvent || group.prcEvent)) {
-    return { columns: [], rows: [] };
-  }
-
-  const submissionsByKey = new Map();
-  for (const submission of submissions) {
-    const batchId = submission?.batchId && typeof submission.batchId === 'object' ? submission.batchId._id : submission.batchId;
-    const eventId = submission?.timelineEventId && typeof submission.timelineEventId === 'object' ? submission.timelineEventId._id : submission.timelineEventId;
-    if (!batchId || !eventId) continue;
-    submissionsByKey.set(`${String(batchId)}::${String(eventId)}`, submission);
-  }
-
-  const rows = [];
-  for (const batch of [...batches].sort((left, right) => compareNatural(left.teamName, right.teamName))) {
-    const batchId = String(batch?._id || '');
-    if (!batchId) continue;
-
-    const members = new Map();
-    const addMember = (member) => {
-      if (!member) return;
-      const uniqueKey = String(member._id || member.rollNo || member.rollNumber || `${member.name || 'member'}-${Math.random()}`);
-      if (!members.has(uniqueKey)) {
-        members.set(uniqueKey, {
-          _id: member._id || member.rollNo || member.rollNumber || uniqueKey,
-          name: member.name || 'Unknown Student',
-          rollNo: member.rollNo || member.rollNumber || '—'
-        });
-      }
-    };
-
-    if (batch.leaderStudentId && typeof batch.leaderStudentId === 'object') {
-      addMember(batch.leaderStudentId);
-    }
-    (batch.teamMembers || []).forEach(addMember);
-
-    for (const submission of submissions) {
-      const currentBatchId = submission?.batchId && typeof submission.batchId === 'object' ? submission.batchId._id : submission.batchId;
-      if (String(currentBatchId) !== batchId) continue;
-      (submission.studentMarks || []).forEach(markEntry => {
-        const student = markEntry?.studentId && typeof markEntry.studentId === 'object' ? markEntry.studentId : null;
-        if (!student) return;
-        addMember({
-          _id: student._id,
-          name: student.name,
-          rollNumber: student.rollNumber,
-          rollNo: student.rollNumber
-        });
-      });
-      (submission.prcStudentMarks || []).forEach(markEntry => {
-        const student = markEntry?.studentId && typeof markEntry.studentId === 'object' ? markEntry.studentId : null;
-        if (!student) return;
-        addMember({
-          _id: student._id,
-          name: student.name,
-          rollNumber: student.rollNumber,
-          rollNo: student.rollNumber
-        });
-      });
-    }
-
-    const memberList = Array.from(members.values()).sort((left, right) => compareNatural(left.rollNo, right.rollNo));
-    if (!memberList.length) continue;
-
-    for (const member of memberList) {
-      const row = {
-        studentId: member._id,
-        teamKey: batchId,
-        teamName: batch.teamName || 'Unknown Team',
-        projectTitle: batch.problemId?.title || batch.problemTitle || batch.title || 'Not Assigned',
-        guideName: batch.guideId?.name || (typeof batch.guideId === 'string' ? batch.guideId : 'Not Assigned'),
-        memberName: member.name,
-        rollNumber: member.rollNo || '—'
-      };
-      let total = 0;
-      const guideFeedbacks = [];
-      const prcFeedbacks = [];
-
-      for (const group of markGroups) {
-        const guideSubmission = group.guideEvent && submissionsByKey.get(`${batchId}::${String(group.guideEvent._id)}`);
-        const prcSubmission = group.prcEvent && submissionsByKey.get(`${batchId}::${String(group.prcEvent._id)}`);
-        const submission = guideSubmission || prcSubmission;
-        const findStudentMark = (source, predicate) => (source?.studentMarks || []).find(markEntry => {
-          const studentId = markEntry?.studentId && typeof markEntry.studentId === 'object' ? markEntry.studentId._id : markEntry.studentId;
-          return String(studentId) === String(member._id) && predicate(markEntry);
-        });
-
-        const guideEntry = findStudentMark(guideSubmission || submission, markEntry => (
-          markEntry.marks !== null && markEntry.marks !== undefined
-        ));
-        const guideMarks = guideEntry ? Number(guideEntry.marks) : 0;
-        const prcEntry = [...(prcSubmission?.prcStudentMarks || []), ...(guideSubmission?.prcStudentMarks || [])].find(markEntry => {
-          const sid = markEntry?.studentId && typeof markEntry.studentId === 'object' ? markEntry.studentId._id : markEntry.studentId;
-          return String(sid) === String(member._id);
-        });
-        const nestedPrcEntry = findStudentMark(prcSubmission || submission, markEntry => (
-          markEntry.prcMarks !== null && markEntry.prcMarks !== undefined
-        ));
-        const guideNestedPrcEntry = guideSubmission && findStudentMark(guideSubmission, markEntry => (
-          markEntry.prcMarks !== null && markEntry.prcMarks !== undefined
-        ));
-        const prcMarks = prcEntry?.marks ?? nestedPrcEntry?.prcMarks ?? guideNestedPrcEntry?.prcMarks
-          ?? prcSubmission?.prcMarks ?? guideSubmission?.prcMarks ?? 0;
-
-        if (guideSubmission?.comments?.length) guideFeedbacks.push(...guideSubmission.comments.map(comment => comment.comment).filter(Boolean));
-        if (prcSubmission?.adminRemarks?.length) prcFeedbacks.push(...prcSubmission.adminRemarks.map(remark => remark.remark).filter(Boolean));
-
-        row[`${group.key}Guide`] = guideMarks;
-        row[`${group.key}Prc`] = prcMarks;
-        row[`${group.key}Total`] = guideMarks + prcMarks;
-        row[`${group.key}SubmissionId`] = prcSubmission?._id || submission?._id || '';
-        row[`${group.key}TimelineEventId`] = group.prcEvent?._id || group.guideEvent?._id || '';
-        row[`${group.key}BatchId`] = batchId;
-        row[`${group.key}GuideApproved`] = isGuideApproved(guideSubmission);
-
-        total += (guideMarks + prcMarks);
-      }
-
-      row.guideFeedback = guideFeedbacks.length > 0 ? guideFeedbacks.join(' | ') : 'N/A';
-      row.prcFeedback = prcFeedbacks.length > 0 ? prcFeedbacks.join(' | ') : 'N/A';
-      row.total = total;
-      row.outOf = MARKS_REPORT_MAX;
-      row.percentage = Math.round((total / MARKS_REPORT_MAX) * 100);
-      rows.push(row);
-    }
-  }
-
-  return {
-    columns: markGroups.map(group => ({
-      key: group.key,
-      label: group.label,
-      guideKey: `${group.key}Guide`,
-      prcKey: `${group.key}Prc`,
-      totalKey: `${group.key}Total`,
-      guideMax: group.guideMax,
-      prcMax: group.prcMax,
-      max: group.max
-    })),
-    rows
-  };
-}
-
-function getTeamRowSpan(rows, index) {
-  const nextTeamIndex = rows.slice(index).findIndex(row => row.teamKey !== rows[index].teamKey);
-  return nextTeamIndex === -1 ? rows.length - index : nextTeamIndex;
-}
 
 function CoordinatorDashboard() {
   const { user } = useAuth();
@@ -229,7 +56,7 @@ function CoordinatorDashboard() {
         api.getAllCOEs(),
         api.getAllRCs(),
         api.getAllGuides(),
-        api.getAllTimelineEvents(scope?.year),
+        api.getAllTimelineEvents(scope?.year, scope?.branch),
         api.getAllSubmissions({ status: 'all', limit: 500 })
       ]);
       const nextBatches = batchesRes.data.data || [];
@@ -527,6 +354,58 @@ function CoordinatorDashboard() {
     }
   };
 
+  const saveCoordinatorGuideMark = async (row, column) => {
+    const markKey = `${row.teamKey}-${row.studentId}-${column.key}-guide`;
+    if (!isDeadlinePassed(column.guideDeadline)) {
+      setError(`Guide marks for ${column.label} can be edited only after the timeline deadline ends.`);
+      return;
+    }
+    const marks = Number(markDrafts[markKey]);
+    if (!Number.isFinite(marks) || marks < 0 || marks > MARK_COMPONENT_MAX) {
+      setError(`Guide marks must be between 0 and ${MARK_COMPONENT_MAX}.`);
+      return;
+    }
+
+    setSavingMarkKey(markKey);
+    try {
+      await api.assignCoordinatorGuideMarks({
+        submissionId: row[`${column.key}GuideSubmissionId`] || undefined,
+        batchId: row.teamKey,
+        timelineEventId: row[`${column.key}GuideEventId`],
+        studentId: row.studentId,
+        marks
+      });
+
+      setMarksReport(current => ({
+        ...current,
+        rows: current.rows.map(r => {
+          if (r.studentId === row.studentId && r.teamKey === row.teamKey) {
+            const updated = { ...r };
+            updated[column.guideKey] = marks;
+            updated[column.totalKey] = marks + (updated[column.prcKey] || 0);
+            let sum = 0;
+            current.columns.forEach(col => {
+              sum += (updated[col.totalKey] || 0);
+            });
+            updated.total = sum;
+            updated.percentage = Math.round((sum / MARKS_REPORT_MAX) * 100);
+            return updated;
+          }
+          return r;
+        })
+      }));
+
+      setMarkDrafts(current => ({ ...current, [markKey]: '' }));
+      setEditingMarkKey('');
+      setError('');
+      await fetchData();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Unable to save guide marks.');
+    } finally {
+      setSavingMarkKey('');
+    }
+  };
+
   const marksTotalPages = Math.max(1, Math.ceil((marksReport.rows?.length || 0) / MARKS_PAGE_SIZE));
   const paginatedMarksRows = marksReport.rows.slice((marksPage - 1) * MARKS_PAGE_SIZE, marksPage * MARKS_PAGE_SIZE);
 
@@ -806,7 +685,7 @@ function CoordinatorDashboard() {
           <div className="section-header coordinator-teams-header">
             <div>
               <h2>Team Marks Report</h2>
-              <p>Individual assessment for each batch across PRC-1 and PRC-2.</p>
+              <p>Individual assessment for each batch across PRC-1 and PRC-2. Guide marks become editable once that timeline's deadline has ended.</p>
             </div>
             <button className="btn btn-primary" onClick={downloadMarksReport} disabled={!marksReport.columns.length}>
               Download Excel
@@ -868,7 +747,74 @@ function CoordinatorDashboard() {
                           <td>{row.rollNumber}</td>
                           {marksReport.columns.map(column => (
                             <Fragment key={`${row.teamKey}-${row.memberName}-${column.key}`}>
-                              <td className="marks-cell marks-group-start"><span className={`marks-value marks-value-${column.key} ${row[column.guideKey] > 0 ? 'marks-positive' : 'marks-neutral'}`}>{row[column.guideKey] ?? 0}</span></td>
+                              <td className="marks-cell marks-group-start marks-prc-edit-cell">
+                                {(() => {
+                                  const guideMarkKey = `${row.teamKey}-${row.studentId}-${column.key}-guide`;
+                                  const guideEditable = isDeadlinePassed(column.guideDeadline);
+                                  if (editingMarkKey === guideMarkKey && guideEditable) {
+                                    return (
+                                      <form
+                                        className="marks-inline-editor"
+                                        onSubmit={event => {
+                                          event.preventDefault();
+                                          saveCoordinatorGuideMark(row, column);
+                                        }}
+                                      >
+                                        <input
+                                          autoFocus
+                                          aria-label={`${column.label} guide marks for ${row.memberName}`}
+                                          type="number"
+                                          min="0"
+                                          max={MARK_COMPONENT_MAX}
+                                          value={markDrafts[guideMarkKey] ?? row[column.guideKey] ?? 0}
+                                          onChange={event => setMarkDrafts(current => ({
+                                            ...current,
+                                            [guideMarkKey]: event.target.value
+                                          }))}
+                                          onKeyDown={event => {
+                                            if (event.key === 'Escape') setEditingMarkKey('');
+                                          }}
+                                        />
+                                        <button
+                                          className="marks-save-button"
+                                          type="submit"
+                                          aria-label="Save guide marks"
+                                          disabled={savingMarkKey === guideMarkKey}
+                                        >
+                                          {savingMarkKey === guideMarkKey ? '...' : '✓'}
+                                        </button>
+                                      </form>
+                                    );
+                                  }
+                                  if (!guideEditable) {
+                                    const deadlineText = column.guideDeadline
+                                      ? new Date(column.guideDeadline).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+                                      : 'not set';
+                                    return (
+                                      <span
+                                        className={`marks-value marks-value-${column.key} ${row[column.guideKey] > 0 ? 'marks-positive' : 'marks-neutral'}`}
+                                        title={`Guide marks can be edited only after the ${column.guideEventTitle} deadline (${deadlineText}).`}
+                                      >
+                                        {row[column.guideKey] ?? 0}
+                                      </span>
+                                    );
+                                  }
+                                  return (
+                                    <button
+                                      className={`marks-value marks-value-${column.key} ${row[column.guideKey] > 0 ? 'marks-positive' : 'marks-neutral'} marks-edit-trigger`}
+                                      type="button"
+                                      title="Deadline has passed — click to edit guide marks"
+                                      aria-label={`Edit ${column.label} guide marks for ${row.memberName}`}
+                                      onClick={() => {
+                                        setMarkDrafts(current => ({ ...current, [guideMarkKey]: row[column.guideKey] ?? 0 }));
+                                        setEditingMarkKey(guideMarkKey);
+                                      }}
+                                    >
+                                      {row[column.guideKey] ?? 0}
+                                    </button>
+                                  );
+                                })()}
+                              </td>
                               <td className="marks-cell marks-prc-edit-cell">
                                 {editingMarkKey === `${row.teamKey}-${row.studentId}-${column.key}` ? (
                                   <form

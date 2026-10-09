@@ -4,7 +4,10 @@ const Batch = require('../models/Batch');
 const Guide = require('../models/Guide');
 const Student = require('../models/Student');
 const ProjectEntry = require('../models/ProjectEntry');
-const { sendTimelineNotificationEmail, sendNewEventEmail } = require('../utils/mailer');
+const { sendTimelineNotificationEmail } = require('../utils/mailer');
+const { buildTimelineVisibilityFilter } = require('../utils/timelineVisibility');
+
+const VALID_DEPARTMENTS = ['ALL', 'CSE', 'IT', 'ECE', 'CSM', 'EEE', 'CSD', 'ETM'];
 
 // ================= CREATE EVENT =================
 exports.createEvent = async (req, res) => {
@@ -35,115 +38,96 @@ exports.createEvent = async (req, res) => {
       };
     }
 
+
+    // Branch lock removed: admins choose the target branch explicitly.
+    const requestedDept = String(req.body.department || 'ALL').trim().toUpperCase();
+    const targetDept = VALID_DEPARTMENTS.includes(requestedDept) ? requestedDept : 'ALL';
+    const targetYr = targetYear || 'all';
+
     const event = await TimelineEvent.create({
       title,
       description,
       deadline,
       maxMarks: parseBool(isMarksEnabled) ? Number(maxMarks) : 0,
       submissionRequirements,
-      targetYear: targetYear || 'all',
+      targetYear: targetYr,
       order: Number(order) || 0,
       isMandatoryFormat: parseBool(isMandatoryFormat),
       isMarksEnabled: parseBool(isMarksEnabled),
       referenceFile: referenceFileData,
-      createdBy: req.user._id
+      createdBy: req.user._id,
+      department: targetDept
     });
 
-    console.log('Event created:', event);
 
-    // ================= EMAIL NOTIFICATION - METHOD 1: Direct from Guide & Student models =================
+    console.log(`[Timeline] Event created: "${event.title}", Year: ${targetYr}, Dept: ${targetDept}`);
+
+    // ================= TARGETED EMAIL NOTIFICATION =================
+    // Only send to respective students and guides of the targeted year and branch
     try {
-      console.log('Sending email notifications (Method 1: Direct DB query)...');
-      
-      // Fetch all guides
-      const guides = await Guide.find({}).select('name email').lean();
-      console.log(`Found ${guides.length} guides`);
-      
-      // Fetch all students (excluding 2nd year as they typically don't participate)
-      const students = await Student.find({ year: { $in: ['3rd', '4th'] } }).select('name email').lean();
-      console.log(`Found ${students.length} eligible students (3rd & 4th year)`);
-      
-      // Combine recipients
-      const recipients = [
-        ...guides.map(g => ({ name: g.name, email: g.email })),
-        ...students.map(s => ({ name: s.name, email: s.email }))
-      ];
-      
-      console.log(`Total recipients: ${recipients.length}`);
-      
-      if (recipients.length > 0) {
-        // Send emails asynchronously without blocking the response
-        sendTimelineNotificationEmail(recipients, event)
-          .then(result => {
-            if (result) {
-              console.log('Email notification results:', result);
-            }
-          })
-          .catch(error => {
-            console.error('Error in timeline email notification:', error);
-          });
-      } else {
-        console.log('No recipients found for email notification');
+      console.log(`[Timeline] Finding targeted recipients: Year=${targetYr}, Dept=${targetDept}`);
+
+      // 1. Filter Students by target year and branch/department
+      const studentFilter = {};
+      if (targetYr !== 'all') {
+        studentFilter.year = targetYr;
       }
-    } catch (emailError) {
-      // Log the error but don't fail the request
-      console.error('Failed to send email notifications (Method 1):', emailError.message);
-    }
+      if (targetDept !== 'ALL') {
+        studentFilter.branch = targetDept;
+      }
+      const students = await Student.find(studentFilter).select('name email branch year').lean();
 
-    // ================= EMAIL NOTIFICATION - METHOD 2: From ProjectEntry =================
-    try {
-      console.log('Sending email notifications (Method 2: ProjectEntry)...');
-      const projectEntries = await ProjectEntry.find({});
-      let allEmails = [];
-
-      projectEntries.forEach(entry => {
-        // STUDENTS
-        if (entry.students && entry.students.length > 0) {
-          // CASE 1: [{ rollNumber }]
-          if (typeof entry.students[0] === 'object') {
-            entry.students.forEach(student => {
-              if (student.rollNumber) {
-                const rollno = student.rollNumber.trim().toLowerCase();
-                allEmails.push(`${rollno}@gnits.ac.in`);
-              }
-            });
-          }
-          // CASE 2: ["rollno"]
-          else {
-            entry.students.forEach(roll => {
-              const rollno = roll.trim().toLowerCase();
-              allEmails.push(`${rollno}@gnits.ac.in`);
-            });
-          }
-        }
-
-        // GUIDE EMAIL
-        if (entry.internalGuide && entry.internalGuide.email) {
-          allEmails.push(entry.internalGuide.email.trim().toLowerCase());
+      // 2. Filter Guides: find batches for this year & branch to get their allocated guides
+      const batchFilter = {};
+      if (targetYr !== 'all') batchFilter.year = targetYr;
+      if (targetDept !== 'ALL') batchFilter.branch = targetDept;
+      
+      const batches = await Batch.find(batchFilter).populate('guideId', 'name email department').lean();
+      
+      const guideEmailMap = new Map();
+      batches.forEach(b => {
+        if (b.guideId && b.guideId.email) {
+          guideEmailMap.set(b.guideId.email.toLowerCase().trim(), b.guideId.name);
         }
       });
 
-      // REMOVE DUPLICATES
-      allEmails = [...new Set(allEmails)].filter(email => email);
+      // Also include department guides if department is specific (e.g. CSE)
+      if (targetDept !== 'ALL') {
+        const deptGuides = await Guide.find({ department: targetDept }).select('name email').lean();
+        deptGuides.forEach(g => {
+          if (g.email) guideEmailMap.set(g.email.toLowerCase().trim(), g.name);
+        });
+      } else if (targetYr === 'all' && targetDept === 'ALL') {
+        // Institution-wide: include all guides
+        const allGuides = await Guide.find({}).select('name email').lean();
+        allGuides.forEach(g => {
+          if (g.email) guideEmailMap.set(g.email.toLowerCase().trim(), g.name);
+        });
+      }
 
-      console.log("📧 Emails from ProjectEntry:", allEmails);
+      // Collect all recipient emails
+      const studentEmails = students.map(s => s.email?.toLowerCase().trim()).filter(Boolean);
+      const guideEmails = Array.from(guideEmailMap.keys());
+      const allRecipients = [...new Set([...studentEmails, ...guideEmails])];
 
-      if (allEmails.length > 0) {
-        // Send emails asynchronously
-        sendNewEventEmail(allEmails, event)
+      console.log(`[Timeline] Notifying ${studentEmails.length} students and ${guideEmails.length} guides (${allRecipients.length} unique emails)`);
+
+      if (allRecipients.length > 0) {
+        // Send asynchronously with BCC batching to avoid blocking HTTP response
+        sendTimelineNotificationEmail(allRecipients, event)
           .then(result => {
             if (result) {
-              console.log("✅ ProjectEntry emails sent successfully");
+              console.log('[Timeline] Email notification delivery complete:', result);
             }
           })
           .catch(error => {
-            console.error("❌ Error sending ProjectEntry emails:", error);
+            console.error('[Timeline] Error in timeline email notification:', error.message);
           });
       } else {
-        console.log("⚠️ No emails found in ProjectEntry");
+        console.log('[Timeline] No recipients matched the target year/department filter');
       }
     } catch (emailError) {
-      console.error("❌ Email sending error (Method 2):", emailError);
+      console.error('[Timeline] Error preparing targeted email notifications:', emailError.message);
     }
 
     res.status(201).json({ success: true, data: event });
@@ -159,18 +143,28 @@ exports.createEvent = async (req, res) => {
 // ================= GET ALL EVENTS =================
 exports.getAllEvents = async (req, res) => {
   try {
-    const { year } = req.query;
+    const { year, branch } = req.query;
 
-    let query = {
-      $or: [{ isActive: true }, { isActive: { $exists: false } }]
-    };
+    // Base active filter
+    const conditions = [
+      { $or: [{ isActive: true }, { isActive: { $exists: false } }] }
+    ];
 
+    // Optional explicit filters (e.g. admin filtering the list)
     if (year && year !== 'all') {
-      query.$and = [
-        { $or: [{ isActive: true }, { isActive: { $exists: false } }] },
-        { $or: [{ targetYear: year }, { targetYear: 'all' }] }
-      ];
+      conditions.push({ targetYear: { $in: [year, 'all'] } });
     }
+    if (branch && branch !== 'ALL' && branch !== 'all') {
+      conditions.push({ department: { $in: [branch, 'ALL'] } });
+    }
+
+    // Visibility: admins see every branch/year. A timeline created for a particular
+    // year + branch is visible only to students of that year + branch and to the
+    // guides (and coordinators) of teams in that year + branch.
+    const visibilityFilter = await buildTimelineVisibilityFilter(req.user);
+    if (visibilityFilter) conditions.push(visibilityFilter);
+
+    const query = { $and: conditions };
 
     const events = await TimelineEvent.find(query)
       .sort({ order: 1, deadline: 1 })
@@ -189,6 +183,7 @@ exports.getAllEvents = async (req, res) => {
     });
   }
 };
+
 
 // ================= UPDATE EVENT =================
 exports.updateEvent = async (req, res) => {
@@ -233,11 +228,18 @@ exports.updateEvent = async (req, res) => {
       if (!enabled) updateData.maxMarks = 0;
     }
 
+    if (req.body.department !== undefined) {
+      const requestedDept = String(req.body.department || 'ALL').trim().toUpperCase();
+      updateData.department = VALID_DEPARTMENTS.includes(requestedDept) ? requestedDept : 'ALL';
+    }
+
     if (req.file) {
       updateData.referenceFile = {
         url: `/uploads/reference/${req.file.filename}`,
         name: req.file.originalname
       };
+    } else if (req.body.removeReferenceFile === 'true' || req.body.removeReferenceFile === true) {
+      updateData.referenceFile = null;
     }
 
     const event = await TimelineEvent.findByIdAndUpdate(
@@ -307,13 +309,25 @@ exports.getTimelineForBatch = async (req, res) => {
       });
     }
 
+    const canViewStudentMarks = req.user?.role === 'student'
+      && await Student.exists({ _id: req.user._id, batchId: batch._id });
+
     const query = { isActive: true };
 
+    // Filter by year: match the batch's year OR events targeting 'all' years
     if (batch.year) {
-      query.$or = [
-        { targetYear: batch.year },
-        { targetYear: 'all' }
+      query.$and = [
+        { $or: [{ targetYear: batch.year }, { targetYear: 'all' }] }
       ];
+    }
+
+    // Filter by department: only show events for this batch's branch OR institution-wide ('ALL') events
+    // This prevents ECE timeline events from appearing in CSE student dashboards
+    const branchFilter = { $or: [{ department: batch.branch }, { department: 'ALL' }] };
+    if (query.$and) {
+      query.$and.push(branchFilter);
+    } else {
+      query.$and = [branchFilter];
     }
 
     const events = await TimelineEvent.find(query)
@@ -329,11 +343,28 @@ exports.getTimelineForBatch = async (req, res) => {
         s => s.timelineEventId.toString() === event._id.toString()
       );
 
+      let sanitizedSubmission = null;
+      let studentMarks = null;
+      if (submission) {
+        sanitizedSubmission = submission.toObject();
+        const personalMark = canViewStudentMarks
+          ? submission.studentMarks.find(mark => {
+            const studentId = mark.studentId?._id || mark.studentId;
+            return studentId?.toString() === req.user._id.toString();
+          })
+          : null;
+        studentMarks = personalMark ? personalMark.marks : submission.marks;
+        delete sanitizedSubmission.marks;
+        delete sanitizedSubmission.studentMarks;
+        delete sanitizedSubmission.prcMarks;
+        delete sanitizedSubmission.prcStudentMarks;
+      }
+
       return {
         ...event.toObject(),
-        submission: submission || null,
+        submission: sanitizedSubmission,
         submissionStatus: submission?.status || 'not_started',
-        marks: submission?.marks,
+        marks: canViewStudentMarks ? studentMarks : null,
         currentVersion: submission?.currentVersion || 0
       };
     });

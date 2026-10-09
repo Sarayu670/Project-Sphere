@@ -10,6 +10,29 @@ const connectDB = async () => {
         serverSelectionTimeoutMS: 10000,
       });
       console.log(`MongoDB Connected: ${conn.connection.host}`);
+      
+      // Auto-repair any imported guide default passwords
+      setTimeout(async () => {
+        try {
+          const Guide = require('../models/Guide');
+          const bcrypt = require('bcryptjs');
+          const guides = await Guide.find({}).select('+password');
+          for (const guide of guides) {
+            const matchesDefault = await bcrypt.compare('defaultPassword123', guide.password);
+            const isSwetha = guide.email === 'swetha@gnits.ac.in';
+            const isGnits = await bcrypt.compare('gnits@123', guide.password);
+            
+            if (matchesDefault || (isSwetha && !isGnits)) {
+              guide.password = 'gnits@123';
+              await guide.save();
+              console.log(`[DB-REPAIR] Fixed default password for guide: ${guide.email} -> gnits@123`);
+            }
+          }
+        } catch (repairErr) {
+          console.error('[DB-REPAIR] Guide password check error:', repairErr.message);
+        }
+      }, 1000);
+
       return true;
     } catch (error) {
       console.error(`Error: ${error.message}`);

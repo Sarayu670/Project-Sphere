@@ -59,16 +59,33 @@ app.use('/api/meetings', require('./routes/meetingRoutes'));
 app.use('/api/submissions', require('./routes/submissionRoutes'));
 app.use('/api/chat', require('./routes/chatRoutes'));
 app.use('/api/projects', require('./routes/projectRoutes'));
+app.use('/api/ai-problems', require('./routes/aiProblemRoutes'));
+app.use('/api/ai-mentor', require('./routes/aiMentorRoutes'));
+
+
 
 // Health check route
 app.get('/api/health', (req, res) => {
   res.status(200).json({ success: true, message: 'Server is running' });
 });
 
-// Handle unknown routes (optional but recommended)
-app.use((req, res) => {
-  res.status(404).json({ success: false, message: 'Route not found' });
-});
+// SPA catch-all: serve React's index.html for any non-API route
+// This fixes page refresh on /coordinator, /dashboard, etc. in production
+const distPath = path.join(__dirname, '../frontend/dist');
+const fs = require('fs');
+if (fs.existsSync(distPath)) {
+  // Serve built frontend static files
+  app.use(express.static(distPath));
+  // Catch-all: return index.html for any route not matched above
+  app.use((req, res) => {
+    res.sendFile(path.join(distPath, 'index.html'));
+  });
+} else {
+  // Development: just return 404 for unknown API routes
+  app.use((req, res) => {
+    res.status(404).json({ success: false, message: 'Route not found' });
+  });
+}
 
 const PORT = process.env.PORT || 5000;
 

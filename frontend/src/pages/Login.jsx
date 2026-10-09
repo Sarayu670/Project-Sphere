@@ -10,7 +10,7 @@ function Login() {
   const [role, setRole] = useState('student');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, logout } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -26,14 +26,21 @@ function Login() {
       }
       const userData = await login(email, password, role);
       
-      // Validate returned user role matches requested role
-      if (userData.role !== role) {
+      if (userData.role !== (role === 'coordinator' ? 'guide' : role)) {
         setError(`Role mismatch: You cannot login as ${role} with ${userData.role} credentials`);
+        logout();
+        setLoading(false);
+        return;
+      }
+
+      if (role === 'coordinator' && !userData.isCoordinator) {
+        setError('This Guide account does not have Class Coordinator access. Register as a coordinator first.');
+        logout();
         setLoading(false);
         return;
       }
       
-      navigate('/');
+      navigate(role === 'coordinator' ? '/coordinator' : '/');
     } catch (err) {
       setError(err.response?.data?.message || 'Login failed');
     } finally {
@@ -93,6 +100,7 @@ function Login() {
             <select value={role} onChange={(e) => setRole(e.target.value)} required>
               <option value="student">Student</option>
               <option value="guide">Guide</option>
+              <option value="coordinator">Class Coordinator</option>
               <option value="admin">Admin</option>
             </select>
           </div>
@@ -107,10 +115,9 @@ function Login() {
         </form>
 
         <div className="auth-footer">
-          <p>Don't have an account?</p>
+          <p>Don't have an admin account?</p>
           <div className="register-links">
-            <Link to="/register/guide" className="register-link">👨‍🏫 Guide</Link>
-            <Link to="/register/admin" className="register-link">👑 Admin</Link>
+            <Link to="/register/admin" className="register-link">👑 Register as Admin</Link>
           </div>
         </div>
       </div>

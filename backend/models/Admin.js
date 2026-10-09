@@ -20,6 +20,12 @@ const AdminSchema = new mongoose.Schema({
     minlength: 6,
     select: false
   },
+  department: {
+    type: String,
+    enum: ['ALL', 'CSE', 'IT', 'ECE', 'CSM', 'EEE', 'CSD', 'ETM'],
+    default: 'ALL',
+    trim: true
+  },
   role: {
     type: String,
     default: 'admin'

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import * as api from '../../services/api';
 import AIMentorRoadmap from '../../components/AIMentorRoadmap';
+import BatchTimeline from './BatchTimeline';
 
 const YEAR_LABELS = {
   '2nd': '2nd - Real Time Project',
@@ -30,6 +31,7 @@ function BatchDetails({ batchId, onBack }) {
   const [statusUpdating, setStatusUpdating] = useState(false);
   const [outcomeUpdating, setOutcomeUpdating] = useState(false);
   const [outcomeSuccess, setOutcomeSuccess] = useState(false);
+  const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'timeline' | 'roadmap'
 
   const fetchData = async () => {
     try {
@@ -157,6 +159,13 @@ function BatchDetails({ batchId, onBack }) {
         </div>
       </div>
 
+      <div className="tabs" style={{ marginBottom: '20px' }}>
+        <button className={`tab ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => setActiveTab('overview')}>📋 Overview</button>
+        <button className={`tab ${activeTab === 'timeline' ? 'active' : ''}`} onClick={() => setActiveTab('timeline')}>📅 Timeline &amp; Submissions</button>
+        <button className={`tab ${activeTab === 'roadmap' ? 'active' : ''}`} onClick={() => setActiveTab('roadmap')}>🧭 AI Roadmap</button>
+      </div>
+
+      {activeTab === 'overview' && (
       <div className="grid grid-2" style={{ marginBottom: '20px' }}>
         <div className="card">
           <h3 style={{ marginBottom: '16px', color: '#2d3748' }}>📋 Problem Details</h3>
@@ -198,8 +207,11 @@ function BatchDetails({ batchId, onBack }) {
           )}
         </div>
       </div>
+      )}
 
-      <AIMentorRoadmap batchId={batchId} userRole="guide" />
+      {activeTab === 'timeline' && <BatchTimeline batch={batch} />}
+
+      {activeTab === 'roadmap' && <AIMentorRoadmap batchId={batchId} userRole="guide" />}
     </div>
   );
 }

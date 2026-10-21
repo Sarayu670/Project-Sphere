@@ -6,7 +6,6 @@ import ChatsListPanel from '../../components/ChatsListPanel';
 import { generateChatReport } from '../../utils/reportGenerator';
 import usePolling from '../../utils/usePolling';
 import BatchDetails from './BatchDetails';
-import GuideTimeline from './GuideTimeline';
 import GuideMarksReport from './GuideMarksReport';
 import ExcelImportProblem from './ExcelImportProblem';
 import GuideSearch from '../admin/GuideSearch';
@@ -17,8 +16,12 @@ import './GuideDashboard.css';
 
 
 function GuideDashboard() {
-  const [activeTab, setActiveTab] = useState(
-    () => sessionStorage.getItem('guideActiveTab') || 'problems'
+  const [activeTab, setActiveTab] = useState(() => {
+    const saved = sessionStorage.getItem('guideActiveTab');
+    // The old 'submissions' (Timeline) tab was removed - submissions now live under My Teams
+    if (saved === 'submissions') return 'teams';
+    return saved || 'problems';
+  }
   );
   const { user } = useAuth();
   const [unreadCounts, setUnreadCounts] = useState({});
@@ -392,7 +395,7 @@ function GuideDashboard() {
       </div>
 
       {/* Banner notification for new team submissions */}
-      {pendingSubmissionsCount > 0 && activeTab !== 'submissions' && (
+      {pendingSubmissionsCount > 0 && activeTab !== 'teams' && (
         <div
           style={{
             background: 'linear-gradient(90deg, #eff6ff 0%, #dbeafe 100%)',
@@ -419,10 +422,10 @@ function GuideDashboard() {
           </div>
           <button
             className="btn btn-primary btn-sm"
-            onClick={() => handleTabChange('submissions')}
+            onClick={() => handleTabChange('teams')}
             style={{ background: '#2563eb', border: 'none', padding: '7px 16px', fontWeight: '600', fontSize: '13px', cursor: 'pointer' }}
           >
-            Review Timeline →
+            Review in My Teams →
           </button>
         </div>
       )}
@@ -432,9 +435,8 @@ function GuideDashboard() {
         <button className={`tab ${activeTab === 'requests' ? 'active' : ''}`} onClick={() => handleTabChange('requests')}>
           ⏳ Pending Requests ({optedTeams.length})
         </button>
-        <button className={`tab ${activeTab === 'teams' ? 'active' : ''}`} onClick={() => handleTabChange('teams')}>👥 My Teams</button>
-        <button className={`tab ${activeTab === 'submissions' ? 'active' : ''}`} onClick={() => handleTabChange('submissions')} style={{ position: 'relative' }}>
-          📅 Timeline
+        <button className={`tab ${activeTab === 'teams' ? 'active' : ''}`} onClick={() => handleTabChange('teams')} style={{ position: 'relative' }}>
+          👥 My Teams
           {pendingSubmissionsCount > 0 && (
             <span
               style={{
@@ -624,8 +626,6 @@ function GuideDashboard() {
           )}
         </div>
       )}
-
-      {activeTab === 'submissions' && <GuideTimeline />}
 
       {activeTab === 'marks' && <GuideMarksReport />}
 

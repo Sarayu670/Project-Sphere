@@ -7,6 +7,12 @@ function ImportProjectData() {
     const [files, setFiles] = useState([]);
     const [loading, setLoading] = useState(false);
     const [results, setResults] = useState(null);
+    const [filters, setFilters] = useState({
+        year: 'all',
+        branch: 'all',
+        section: 'all',
+        projectType: ''
+    });
     const [dialog, setDialog] = useState({ isOpen: false, title: '', message: '', type: 'info' });
 
     const handleFileChange = (e) => {
@@ -23,7 +29,7 @@ function ImportProjectData() {
 
         setLoading(true);
         try {
-            const response = await api.importProjectExcelFiles(files);
+            const response = await api.importProjectExcelFiles(files, filters);
             setResults(response.data.data);
             showDialog('Success', response.data.message, 'success');
             setFiles([]);
@@ -47,57 +53,105 @@ function ImportProjectData() {
 
     return (
         <div>
-            <div className="section-header">
-                <h2 className="section-title">📥 Import Unified Project Data from Excel</h2>
-                <p style={{ color: '#718096', marginTop: '8px' }}>
-                    Import team names, student names, guide names, project titles, and COE from multiple Excel files
-                </p>
-            </div>
-
-
-            <div className="card" style={{ padding: '24px', maxWidth: '1200px', width: '100%' }}>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
-                    <a
-                        href="#"
-                        className="btn btn-secondary"
-                        style={{ backgroundColor: '#28a745', textDecoration: 'none', color: 'white', padding: '8px 16px', borderRadius: '4px' }}
-                        onClick={e => { e.preventDefault(); downloadProjectExcelTemplate(); }}
-                    >
-                        📥 Download Template
-                    </a>
-                </div>
-
-                <h3 style={{ marginBottom: '16px', color: '#2d3748' }}>📋 Excel File Requirements</h3>
-                <div style={{ marginBottom: '20px', padding: '16px', background: '#f0f4ff', borderRadius: '8px' }}>
-                    <p style={{ color: '#2d3748', marginBottom: '12px', fontSize: '14px', fontWeight: '500' }}>
-                        Please ensure your Excel file contains the following columns (recommended names):
-                    </p>
-                    <ul style={{ color: '#2d3748', fontSize: '14px', marginLeft: '20px', lineHeight: '1.8' }}>
-                        <li><strong>Batch No</strong> (or <strong>Proj ID/Batch</strong>)</li>
-                        <li><strong>Roll No</strong></li>
-                        <li><strong>Name of the Student</strong></li>
-                        <li><strong>Year</strong></li>
-                        <li><strong>Branch</strong></li>
-                        <li><strong>Section</strong></li>
-                        <li><strong>Internal Guide</strong></li>
-                        <li><strong>Project Title</strong></li>
-                        <li><strong>Domain</strong></li>
-                        <li><strong>CoE/RC</strong></li>
-                        <li><strong>Guide Email</strong></li>
-                    </ul>
-                    <div style={{ marginTop: '16px', padding: '12px', background: '#fff3cd', borderRadius: '6px', border: '1px solid #ffc107' }}>
-                        <p style={{ fontSize: '13px', color: '#856404', margin: 0 }}>
-                            <strong>Note:</strong> Column names can vary - the system uses intelligent pattern matching to detect fields, but using the above names is recommended for best results.
+            <div className="card" style={{ padding: '24px', maxWidth: '1200px', width: '100%', margin: '0 auto' }}>
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: '12px',
+                    paddingBottom: '18px',
+                    marginBottom: '20px',
+                    borderBottom: '1px solid #e2e8f0'
+                }}>
+                    <div>
+                        <h2 style={{ margin: 0, color: '#1e3a8a', fontSize: '22px' }}>Import Project Batches</h2>
+                        <p style={{ margin: '5px 0 0', color: '#718096', fontSize: '14px' }}>
+                            Select the batch details and upload Excel files.
                         </p>
                     </div>
+                    <button
+                        type="button"
+                        className="btn btn-secondary"
+                        style={{ backgroundColor: '#28a745', color: 'white', borderColor: '#28a745' }}
+                        onClick={downloadProjectExcelTemplate}
+                    >
+                        Download Template
+                    </button>
                 </div>
 
-
-
                 <form onSubmit={handleImport}>
-                    <div style={{ marginBottom: '20px' }}>
-                        <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', color: '#2d3748' }}>
-                            Select Excel Files (1-10 files)
+                    <div style={{ marginBottom: '20px', padding: '18px', background: '#f7fafc', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
+                        <h3 style={{ margin: '0 0 14px', color: '#2d3748', fontSize: '16px' }}>
+                            Batch details
+                        </h3>
+                        <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+                            gap: '14px'
+                        }}>
+                            <label style={{ color: '#2d3748', fontSize: '14px', fontWeight: 500 }}>
+                                Academic Year
+                                <select
+                                    value={filters.year}
+                                    onChange={e => setFilters({ ...filters, year: e.target.value })}
+                                    disabled={loading}
+                                    style={{ display: 'block', width: '100%', marginTop: '6px', padding: '10px', border: '1px solid #cbd5e0', borderRadius: '6px' }}
+                                >
+                                    <option value="all">All Years</option>
+                                    <option value="2nd">2nd Year</option>
+                                    <option value="3rd">3rd Year</option>
+                                    <option value="4th">4th Year</option>
+                                </select>
+                            </label>
+                            <label style={{ color: '#2d3748', fontSize: '14px', fontWeight: 500 }}>
+                                Branch
+                                <select
+                                    value={filters.branch}
+                                    onChange={e => setFilters({ ...filters, branch: e.target.value })}
+                                    disabled={loading}
+                                    style={{ display: 'block', width: '100%', marginTop: '6px', padding: '10px', border: '1px solid #cbd5e0', borderRadius: '6px' }}
+                                >
+                                    <option value="all">All Branches</option>
+                                    {['CSE', 'IT', 'ECE', 'CSM', 'EEE', 'CSD', 'ETM'].map(branch => (
+                                        <option key={branch} value={branch}>{branch}</option>
+                                    ))}
+                                </select>
+                            </label>
+                            <label style={{ color: '#2d3748', fontSize: '14px', fontWeight: 500 }}>
+                                Section
+                                <select
+                                    value={filters.section}
+                                    onChange={e => setFilters({ ...filters, section: e.target.value })}
+                                    disabled={loading}
+                                    style={{ display: 'block', width: '100%', marginTop: '6px', padding: '10px', border: '1px solid #cbd5e0', borderRadius: '6px' }}
+                                >
+                                    <option value="all">All Sections</option>
+                                    {['A', 'B', 'C', 'D', 'E'].map(section => (
+                                        <option key={section} value={section}>Section {section}</option>
+                                    ))}
+                                </select>
+                            </label>
+                            <label style={{ color: '#2d3748', fontSize: '14px', fontWeight: 500 }}>
+                                Project Type
+                                <select
+                                    value={filters.projectType}
+                                    onChange={e => setFilters({ ...filters, projectType: e.target.value })}
+                                    disabled={loading}
+                                    required
+                                    style={{ display: 'block', width: '100%', marginTop: '6px', padding: '10px', border: '1px solid #cbd5e0', borderRadius: '6px' }}
+                                >
+                                    <option value="">Select project type</option>
+                                    <option value="Mini Project 1">Mini Project 1</option>
+                                    <option value="Mini Project 2">Mini Project 2</option>
+                                    <option value="Major Project">Major Project</option>
+                                </select>
+                            </label>
+                        </div>
+                    </div>
+                    <div style={{ marginBottom: '18px' }}>
+                        <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, color: '#2d3748' }}>
+                            Excel files <span style={{ fontWeight: 400, color: '#718096' }}>(up to 10)</span>
                         </label>
                         <input
                             type="file"
@@ -108,20 +162,18 @@ function ImportProjectData() {
                             style={{
                                 display: 'block',
                                 width: '100%',
-                                padding: '12px 12px',
-                                border: '2px dashed #cbd5e0',
-                                borderRadius: '8px',
+                                padding: '14px',
+                                border: '1px solid #cbd5e0',
+                                borderRadius: '6px',
                                 cursor: 'pointer',
                                 fontSize: '14px',
                                 boxSizing: 'border-box'
                             }}
                         />
                         {files.length > 0 && (
-                            <div style={{ marginTop: '12px' }}>
-                                <p style={{ color: '#38a169', fontSize: '14px', fontWeight: '500', marginBottom: '8px' }}>
-                                    ✓ {files.length} file(s) selected:
-                                </p>
-                                <ul style={{ fontSize: '13px', color: '#2d3748', marginLeft: '20px', lineHeight: '1.6' }}>
+                            <div style={{ marginTop: '10px', color: '#4a5568', fontSize: '13px' }}>
+                                <span style={{ color: '#276749', fontWeight: 600 }}>{files.length} file(s) selected</span>
+                                <ul style={{ margin: '6px 0 0', paddingLeft: '20px', lineHeight: 1.6 }}>
                                     {files.map((file, index) => (
                                         <li key={index}>{file.name}</li>
                                     ))}
@@ -134,7 +186,7 @@ function ImportProjectData() {
                         type="submit"
                         disabled={loading || files.length === 0}
                         className="btn btn-primary"
-                        style={{ width: '100%', opacity: loading || files.length === 0 ? 0.6 : 1 }}
+                        style={{ minWidth: '180px', opacity: loading || files.length === 0 ? 0.6 : 1 }}
                     >
                         {loading ? 'Importing...' : `Import ${files.length} File(s)`}
                     </button>

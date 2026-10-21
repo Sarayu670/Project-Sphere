@@ -166,10 +166,13 @@ export const summarizeBatch = (batchId) => axios.post(`${API_URL}/chat/summarize
 export const getBatchSummaries = (batchId) => axios.get(`${API_URL}/chat/summaries-batch/${batchId}`);
 export const getAllProjects = () => axios.get(`${API_URL}/projects`);
 export const searchProjects = (query, type = 'all') => axios.get(`${API_URL}/projects/search`, { params: { q: query, type } });
-export const importProjectExcelFiles = (files) => {
+export const importProjectExcelFiles = (files, filters) => {
   const formData = new FormData();
   files.forEach((file, index) => {
     formData.append('files', file);
+  });
+  Object.entries(filters).forEach(([key, value]) => {
+    formData.append(key, value);
   });
   return axios.post(`${API_URL}/projects/import`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
@@ -221,5 +224,4 @@ export const updateMilestoneTask = (batchId, data) => axios.put(`${API_URL}/ai-m
 export const getBatchProgressAnalysis = (batchId) => axios.get(`${API_URL}/ai-mentor/progress-analysis/${batchId}`);
 export const refreshBatchProgressAnalysis = (batchId) => axios.post(`${API_URL}/ai-mentor/progress-analysis/${batchId}/refresh`);
 export const getRecommendedProblems = (params = {}) => axios.get(`${API_URL}/ai-mentor/recommend-problems`, { params });
-
 

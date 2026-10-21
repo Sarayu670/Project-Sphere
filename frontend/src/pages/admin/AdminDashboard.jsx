@@ -210,6 +210,7 @@ function AdminDashboard() {
         'Year': batch.year || '',
         'Branch': batch.branch || '',
         'Section': batch.section || '',
+        'Project Type': batch.projectType || 'Not Set',
         'COE / RC': batch.problemId?.coeId?.name || batch.coeId?.name || batch.coe?.name || 'Not Assigned',
         'Domain': batch.domain || 'Not Assigned',
         'Thrust Area': batch.thrustArea || batch.domain || 'Not Assigned',
@@ -231,6 +232,7 @@ function AdminDashboard() {
       { wch: 8 },  // Year
       { wch: 10 }, // Branch
       { wch: 10 }, // Section
+      { wch: 20 }, // Project Type
       { wch: 22 }, // COE/RC
       { wch: 20 }, // Domain
       { wch: 25 }, // Thrust Area
@@ -272,6 +274,14 @@ function AdminDashboard() {
   console.log('AdminDashboard: Rendering with activeTab:', activeTab);
 
   const filteredBatches = getFilteredBatches();
+  const projectTypes = [...new Set(filteredBatches.map(batch => batch.projectType).filter(Boolean))];
+  const projectTypeSummary = projectTypes.length === 1
+    ? projectTypes[0]
+    : projectTypes.length > 1
+      ? 'Multiple Project Types'
+      : filterYear === '4th' || (filteredBatches.length > 0 && filteredBatches.every(batch => batch.year === '4th'))
+        ? 'Major Project'
+        : 'Project Type Not Set';
 
   // Pagination logic
   const totalPages = Math.ceil(filteredBatches.length / itemsPerPage);
@@ -431,10 +441,15 @@ function AdminDashboard() {
           </div>
 
           {(filterYear || filterBranch || filterSection) && (
-            <p style={{ color: '#666', marginBottom: '15px' }}>
-              Showing: {filterYear || 'All Years'} • {filterBranch || 'All Branches'} • Section {filterSection || 'All'}
-              <strong> ({filteredBatches.length} teams)</strong>
-            </p>
+            <div style={{
+              margin: '4px 0 18px',
+              color: '#1e3a8a',
+              fontSize: '18px',
+              fontWeight: 700,
+              textAlign: 'center'
+            }}>
+              {filterYear ? `${filterYear} Year` : 'All Years'} · {filterBranch || 'All Branches'} · {filterSection ? `Section ${filterSection}` : 'All Sections'} · {filteredBatches.length} {filteredBatches.length === 1 ? 'Team' : 'Teams'} · {projectTypeSummary}
+            </div>
           )}
 
           {filteredBatches.length === 0 ? (
@@ -753,4 +768,3 @@ function AdminDashboard() {
 }
 
 export default AdminDashboard;
-

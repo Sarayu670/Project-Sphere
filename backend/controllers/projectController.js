@@ -24,6 +24,31 @@ exports.importExcelFiles = async (req, res) => {
             });
         }
 
+        const projectTypes = Batch.schema.path('projectType').enumValues.filter(Boolean);
+        if (!projectTypes.includes(req.body.projectType)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Please select a valid project type'
+            });
+        }
+
+        const filterOptions = {
+            year: Batch.schema.path('year').enumValues,
+            branch: Batch.schema.path('branch').enumValues,
+            section: Batch.schema.path('section').enumValues
+        };
+        const filters = {};
+        for (const field of Object.keys(filterOptions)) {
+            const value = req.body[field] || 'all';
+            if (value !== 'all' && !filterOptions[field].includes(value)) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Invalid ${field} filter`
+                });
+            }
+            filters[field] = value === 'all' ? null : value;
+        }
+
         const results = {
             success: 0,
             failed: 0,
@@ -39,8 +64,15 @@ exports.importExcelFiles = async (req, res) => {
 
             try {
                 console.log(`Processing file ${i + 1}: ${file.originalname}`);
-                const records = parseExcelFile(file.buffer);
-                allRecords.push(records);
+                const records = parseExcelFile(file.buffer, {
+                    year: filters.year,
+                    branch: filters.branch,
+                    section: filters.section
+                });
+                allRecords.push(records.map(record => ({
+                    ...record,
+                    projectType: req.body.projectType
+                })));
                 console.log(`Extracted ${records.length} records from ${file.originalname}`);
             } catch (error) {
                 results.errors.push({
@@ -51,8 +83,22 @@ exports.importExcelFiles = async (req, res) => {
         }
 
         // Merge records from all files and remove duplicates
-        const mergedRecords = mergeRecords(...allRecords);
+        const mergedRecords = mergeRecords(...allRecords).filter(record =>
+            Object.entries(filters).every(([field, value]) =>
+                !value || String(record[field]).toLowerCase() === value.toLowerCase()
+            )
+        );
         console.log(`Total unique records after merging: ${mergedRecords.length}`);
+
+        if (mergedRecords.length === 0) {
+            const parseErrors = results.errors.map(({ file, error }) => `${file}: ${error}`).join('; ');
+            return res.status(400).json({
+                success: false,
+                message: parseErrors
+                    ? `No valid batches were available to import. ${parseErrors}`
+                    : 'No batches matched the selected year, branch, and section filters'
+            });
+        }
 
         // Process each record
         for (const record of mergedRecords) {
@@ -199,6 +245,10 @@ exports.importExcelFiles = async (req, res) => {
                 // 5. Find or create Batch using BatchID as primary identifier
                 const batchIdentifier = record.batchId && record.batchId !== 'N/A' ? record.batchId : record.teamName;
                 let batch = await Batch.findOne({
+                    year: record.year,
+                    branch: record.branch,
+                    section: record.section,
+                    projectType: record.projectType,
                     $or: [
                         { batchId: batchIdentifier },
                         { teamName: batchIdentifier }
@@ -229,6 +279,7 @@ exports.importExcelFiles = async (req, res) => {
                     if (record.year) batch.year = record.year;
                     if (record.branch) batch.branch = record.branch;
                     if (record.section) batch.section = record.section;
+                    batch.projectType = record.projectType;
                     if (record.domain && record.domain !== 'N/A') batch.domain = record.domain;
                     if (record.researchArea && record.researchArea !== 'N/A') {
                         batch.researchArea = record.researchArea;
@@ -250,6 +301,7 @@ exports.importExcelFiles = async (req, res) => {
                         year: record.year || '4th',
                         branch: record.branch || 'CSE',
                         section: record.section || 'A',
+                        projectType: record.projectType,
                         domain: record.domain && record.domain !== 'N/A' ? record.domain : undefined,
                         researchArea: record.researchArea && record.researchArea !== 'N/A' ? record.researchArea : undefined,
                         thrustArea: record.thrustArea && record.thrustArea !== 'N/A' ? record.thrustArea : (record.researchArea || undefined),
@@ -455,4 +507,3 @@ exports.deleteAllProjects = async (req, res) => {
         });
     }
 };
-

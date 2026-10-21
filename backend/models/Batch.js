@@ -3,8 +3,6 @@ const mongoose = require('mongoose');
 const BatchSchema = new mongoose.Schema({
   batchId: {
     type: String,
-    unique: true,
-    sparse: true, // Allows null values while maintaining uniqueness for non-null values
     trim: true
   },
   leaderStudentId: {
@@ -32,6 +30,11 @@ const BatchSchema = new mongoose.Schema({
     type: String,
     enum: ['A', 'B', 'C', 'D', 'E'],
     required: [true, 'Section is required']
+  },
+  projectType: {
+    type: String,
+    enum: ['', 'Mini Project 1', 'Mini Project 2', 'Major Project'],
+    default: ''
   },
   
   // Project Domain (from Excel import)
@@ -150,5 +153,13 @@ const BatchSchema = new mongoose.Schema({
 
 // Index for search
 BatchSchema.index({ teamName: 'text', domain: 'text', thrustArea: 'text', 'coe.name': 'text', 'rc.name': 'text' });
+BatchSchema.index(
+  { batchId: 1, year: 1, branch: 1, section: 1, projectType: 1 },
+  {
+    name: 'batch_identity_unique',
+    unique: true,
+    partialFilterExpression: { batchId: { $type: 'string' } }
+  }
+);
 
 module.exports = mongoose.model('Batch', BatchSchema);

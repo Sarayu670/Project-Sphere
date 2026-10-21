@@ -174,6 +174,11 @@ exports.searchAllBatches = async (req, res) => {
     let batches = await Batch.find({
       $or: [
         { teamName: searchRegex },
+        { batchId: searchRegex },
+        { year: searchRegex },
+        { branch: searchRegex },
+        { section: searchRegex },
+        { projectType: searchRegex },
         { domain: searchRegex },
         { 'coe.name': searchRegex },
         { 'rc.name': searchRegex },
@@ -1043,6 +1048,11 @@ exports.searchBatches = async (req, res) => {
     const batches = await Batch.find({
       $or: [
         { teamName: searchRegex },
+        { batchId: searchRegex },
+        { year: searchRegex },
+        { branch: searchRegex },
+        { section: searchRegex },
+        { projectType: searchRegex },
         { 'leaderStudentId.name': searchRegex },
         { 'guideId.name': searchRegex }
       ]
@@ -1725,4 +1735,3 @@ exports.deleteBatchByCoordinator = async (req, res) => {
 
 // Shared helper (used by the guide marks report)
 exports.attachTeamMembers = attachTeamMembers;
-

@@ -127,7 +127,7 @@ function extractCOENameFromText(text) {
 /**
  * Parse Excel file and extract data
  */
-function parseExcelFile(fileBuffer) {
+function parseExcelFile(fileBuffer, identityFilters = {}) {
     try {
         const workbook = XLSX.read(fileBuffer, { type: 'buffer' });
 
@@ -268,13 +268,6 @@ function parseExcelFile(fileBuffer) {
                 teamName = lastTeamName;
             }
 
-            // Use BatchID as primary key, fallback to teamName
-            const groupKey = batchId || teamName;
-            if (!groupKey) continue;
-
-            lastBatchId = batchId;
-            lastTeamName = teamName;
-
             // Extract other fields
             let guideName = guideNameIndex >= 0 ? normalizeText(row[guideNameIndex]) : '';
             let guideEmail = guideEmailIndex >= 0 ? normalizeText(row[guideEmailIndex]) : '';
@@ -287,11 +280,20 @@ function parseExcelFile(fileBuffer) {
             let coeRaw = coeIndex >= 0 ? normalizeText(row[coeIndex]) : '';
             let coe = coeRaw ? extractCOENameFromText(coeRaw) : 'N/A';
             let yearRaw = yearIndex >= 0 ? normalizeText(row[yearIndex]) : '';
-            let year = yearRaw ? normalizeYear(yearRaw) : '';
+            let year = identityFilters.year || (yearRaw ? normalizeYear(yearRaw) : '');
             let branchRaw = branchIndex >= 0 ? normalizeText(row[branchIndex]) : '';
-            let branch = branchRaw ? branchRaw.toUpperCase() : '';
+            let branch = identityFilters.branch || (branchRaw ? branchRaw.toUpperCase() : '');
             let sectionRaw = sectionIndex >= 0 ? normalizeText(row[sectionIndex]) : '';
-            let section = sectionRaw ? sectionRaw.toUpperCase() : '';
+            let section = identityFilters.section || (sectionRaw ? sectionRaw.toUpperCase() : '');
+
+            if (!year && lastYear) year = lastYear;
+            if (!branch && lastBranch) branch = lastBranch;
+            if (!section && lastSection) section = lastSection;
+
+            // A short batch ID can be reused by different academic groups.
+            const batchIdentifier = batchId || teamName;
+            if (!batchIdentifier) continue;
+            const groupKey = `${batchIdentifier}|${year || '4th'}|${branch || 'CSE'}|${section || 'A'}`;
 
             // Check if this is a new batch or continuation of the same batch
             const isNewBatch = !batchGroups[groupKey];
@@ -304,9 +306,9 @@ function parseExcelFile(fileBuffer) {
             if (!domain && !isNewBatch && lastDomain !== 'N/A') domain = lastDomain;
             if (!researchArea && !isNewBatch && lastResearchArea !== 'N/A') researchArea = lastResearchArea;
             if (!coeRaw && !isNewBatch && lastCoe !== 'N/A') coe = lastCoe;
-            if (!year && lastYear) year = lastYear;
-            if (!branch && lastBranch) branch = lastBranch;
-            if (!section && lastSection) section = lastSection;
+
+            lastBatchId = batchId;
+            lastTeamName = teamName;
 
             // Update last values for fill-down (but only after we've used them)
             if (guideName) lastGuideName = guideName;
@@ -401,7 +403,14 @@ function mergeRecords(...recordsArray) {
     recordsArray.forEach(records => {
         records.forEach(record => {
             // Create unique key
-            const key = `${record.teamName.toLowerCase()}|${record.projectTitle.toLowerCase()}`;
+            const key = [
+                record.teamName,
+                record.projectTitle,
+                record.year,
+                record.branch,
+                record.section,
+                record.projectType
+            ].map(value => String(value || '').trim().toLowerCase()).join('|');
 
             if (!seen.has(key)) {
                 seen.add(key);

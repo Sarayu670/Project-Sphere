@@ -9,6 +9,32 @@ const connectDB = async () => {
       const conn = await mongoose.connect(process.env.MONGODB_URI, {
         serverSelectionTimeoutMS: 10000,
       });
+
+      const Batch = require('../models/Batch');
+      let batchIndexes = [];
+      try {
+        batchIndexes = await Batch.collection.indexes();
+      } catch (indexError) {
+        if (indexError.code !== 26) throw indexError;
+      }
+
+      const legacyBatchIdIndex = batchIndexes.find(index =>
+        index.unique &&
+        Object.keys(index.key).length === 1 &&
+        index.key.batchId === 1
+      );
+      if (legacyBatchIdIndex) {
+        await Batch.collection.dropIndex(legacyBatchIdIndex.name);
+      }
+      await Batch.collection.createIndex(
+        { batchId: 1, year: 1, branch: 1, section: 1, projectType: 1 },
+        {
+          name: 'batch_identity_unique',
+          unique: true,
+          partialFilterExpression: { batchId: { $type: 'string' } }
+        }
+      );
+
       console.log(`MongoDB Connected: ${conn.connection.host}`);
       
       // Auto-repair any imported guide default passwords
@@ -63,4 +89,3 @@ const connectDB = async () => {
 };
 
 module.exports = connectDB;
-

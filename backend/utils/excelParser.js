@@ -198,6 +198,15 @@ function parseExcelFile(fileBuffer, identityFilters = {}) {
         const branchIndex = findColumnIndex(headers, COLUMN_PATTERNS.branch);
         const sectionIndex = findColumnIndex(headers, COLUMN_PATTERNS.section);
 
+        // Branch and section now come only from the Excel (no form fallback), so a file
+        // without these columns would silently land every team in CSE / Section A.
+        const missingColumns = [];
+        if (branchIndex < 0 && !identityFilters.branch) missingColumns.push('Branch');
+        if (sectionIndex < 0 && !identityFilters.section) missingColumns.push('Section');
+        if (missingColumns.length > 0) {
+            throw new Error(`Missing required column(s): ${missingColumns.join(', ')}. Please use the Download Template format.`);
+        }
+
         // Find all student name and roll number columns
         const studentNameIndices = findAllColumnIndices(headers, COLUMN_PATTERNS.students);
         const rollNumberIndices = findAllColumnIndices(headers, COLUMN_PATTERNS.rollNumbers);

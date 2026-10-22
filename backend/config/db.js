@@ -26,8 +26,16 @@ const connectDB = async () => {
       if (legacyBatchIdIndex) {
         await Batch.collection.dropIndex(legacyBatchIdIndex.name);
       }
+      // The identity index now includes joiningYear. MongoDB won't redefine an index
+      // under the same name, so drop the older version (without joiningYear) first.
+      const outdatedIdentityIndex = batchIndexes.find(index =>
+        index.name === 'batch_identity_unique' && !('joiningYear' in index.key)
+      );
+      if (outdatedIdentityIndex) {
+        await Batch.collection.dropIndex(outdatedIdentityIndex.name);
+      }
       await Batch.collection.createIndex(
-        { batchId: 1, year: 1, branch: 1, section: 1, projectType: 1 },
+        { batchId: 1, joiningYear: 1, year: 1, branch: 1, section: 1, projectType: 1 },
         {
           name: 'batch_identity_unique',
           unique: true,

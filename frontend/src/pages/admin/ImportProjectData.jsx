@@ -4,13 +4,16 @@ import * as api from '../../services/api';
 import ConfirmationDialog from '../../components/ConfirmationDialog';
 
 function ImportProjectData() {
+    // Joining (intake) year is typed by the user, e.g. 2026
+    const maxJoiningYear = new Date().getFullYear() + 1;
+    const isValidJoiningYear = (value) =>
+        /^\d{4}$/.test(value) && Number(value) >= 2000 && Number(value) <= maxJoiningYear;
     const [files, setFiles] = useState([]);
     const [loading, setLoading] = useState(false);
     const [results, setResults] = useState(null);
     const [filters, setFilters] = useState({
+        joiningYear: '',
         year: 'all',
-        branch: 'all',
-        section: 'all',
         projectType: ''
     });
     const [dialog, setDialog] = useState({ isOpen: false, title: '', message: '', type: 'info' });
@@ -28,6 +31,11 @@ function ImportProjectData() {
         }
 
         setLoading(true);
+        if (!isValidJoiningYear(filters.joiningYear)) {
+            setLoading(false);
+            showDialog('Error', `Please enter a valid joining year (e.g. 2026), between 2000 and ${maxJoiningYear}`, 'danger');
+            return;
+        }
         try {
             const response = await api.importProjectExcelFiles(files, filters);
             setResults(response.data.data);
@@ -67,7 +75,7 @@ function ImportProjectData() {
                     <div>
                         <h2 style={{ margin: 0, color: '#1e3a8a', fontSize: '22px' }}>Import Project Batches</h2>
                         <p style={{ margin: '5px 0 0', color: '#718096', fontSize: '14px' }}>
-                            Select the batch details and upload Excel files.
+                            Enter the batch details and upload Excel files. Branch and section are read from the Excel.
                         </p>
                     </div>
                     <button
@@ -91,6 +99,33 @@ function ImportProjectData() {
                             gap: '14px'
                         }}>
                             <label style={{ color: '#2d3748', fontSize: '14px', fontWeight: 500 }}>
+                                Joining Year
+                                <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    maxLength={4}
+                                    placeholder="e.g. 2026"
+                                    value={filters.joiningYear}
+                                    onChange={e => setFilters({ ...filters, joiningYear: e.target.value.replace(/\D/g, '').slice(0, 4) })}
+                                    disabled={loading}
+                                    required
+                                    style={{
+                                        display: 'block',
+                                        width: '100%',
+                                        marginTop: '6px',
+                                        padding: '10px',
+                                        border: `1px solid ${filters.joiningYear.length === 4 && !isValidJoiningYear(filters.joiningYear) ? '#e53e3e' : '#cbd5e0'}`,
+                                        borderRadius: '6px',
+                                        boxSizing: 'border-box'
+                                    }}
+                                />
+                                {filters.joiningYear.length === 4 && !isValidJoiningYear(filters.joiningYear) && (
+                                    <span style={{ display: 'block', marginTop: '4px', color: '#e53e3e', fontSize: '12px', fontWeight: 400 }}>
+                                        Enter a year between 2000 and {maxJoiningYear}
+                                    </span>
+                                )}
+                            </label>
+                            <label style={{ color: '#2d3748', fontSize: '14px', fontWeight: 500 }}>
                                 Academic Year
                                 <select
                                     value={filters.year}
@@ -102,34 +137,6 @@ function ImportProjectData() {
                                     <option value="2nd">2nd Year</option>
                                     <option value="3rd">3rd Year</option>
                                     <option value="4th">4th Year</option>
-                                </select>
-                            </label>
-                            <label style={{ color: '#2d3748', fontSize: '14px', fontWeight: 500 }}>
-                                Branch
-                                <select
-                                    value={filters.branch}
-                                    onChange={e => setFilters({ ...filters, branch: e.target.value })}
-                                    disabled={loading}
-                                    style={{ display: 'block', width: '100%', marginTop: '6px', padding: '10px', border: '1px solid #cbd5e0', borderRadius: '6px' }}
-                                >
-                                    <option value="all">All Branches</option>
-                                    {['CSE', 'IT', 'ECE', 'CSM', 'EEE', 'CSD', 'ETM'].map(branch => (
-                                        <option key={branch} value={branch}>{branch}</option>
-                                    ))}
-                                </select>
-                            </label>
-                            <label style={{ color: '#2d3748', fontSize: '14px', fontWeight: 500 }}>
-                                Section
-                                <select
-                                    value={filters.section}
-                                    onChange={e => setFilters({ ...filters, section: e.target.value })}
-                                    disabled={loading}
-                                    style={{ display: 'block', width: '100%', marginTop: '6px', padding: '10px', border: '1px solid #cbd5e0', borderRadius: '6px' }}
-                                >
-                                    <option value="all">All Sections</option>
-                                    {['A', 'B', 'C', 'D', 'E'].map(section => (
-                                        <option key={section} value={section}>Section {section}</option>
-                                    ))}
                                 </select>
                             </label>
                             <label style={{ color: '#2d3748', fontSize: '14px', fontWeight: 500 }}>
@@ -149,6 +156,11 @@ function ImportProjectData() {
                             </label>
                         </div>
                     </div>
+                    {isValidJoiningYear(filters.joiningYear) && (
+                        <p style={{ margin: '-8px 0 18px', color: '#4a5568', fontSize: '13px' }}>
+                            Teams will be saved as <strong style={{ color: '#1e3a8a' }}>{filters.joiningYear}-&lt;team name&gt;</strong>, e.g. <strong style={{ color: '#1e3a8a' }}>{filters.joiningYear}-S193</strong>
+                        </p>
+                    )}
                     <div style={{ marginBottom: '18px' }}>
                         <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, color: '#2d3748' }}>
                             Excel files <span style={{ fontWeight: 400, color: '#718096' }}>(up to 10)</span>

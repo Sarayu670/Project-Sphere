@@ -37,6 +37,16 @@ const BatchSchema = new mongoose.Schema({
     default: ''
   },
   
+  // Intake (joining) year of the students, e.g. 2023. Set by Import Projects.
+  // Separates teams of different intakes that reuse the same team code.
+  joiningYear: {
+    type: Number,
+    min: 2000,
+    max: 2100,
+    default: null,
+    index: true
+  },
+
   // Project Domain (from Excel import)
   domain: {
     type: String,
@@ -154,7 +164,7 @@ const BatchSchema = new mongoose.Schema({
 // Index for search
 BatchSchema.index({ teamName: 'text', domain: 'text', thrustArea: 'text', 'coe.name': 'text', 'rc.name': 'text' });
 BatchSchema.index(
-  { batchId: 1, year: 1, branch: 1, section: 1, projectType: 1 },
+  { batchId: 1, joiningYear: 1, year: 1, branch: 1, section: 1, projectType: 1 },
   {
     name: 'batch_identity_unique',
     unique: true,

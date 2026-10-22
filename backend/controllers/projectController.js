@@ -8,6 +8,32 @@ const ProblemStatement = require('../models/ProblemStatement');
 const { parseExcelFile, mergeRecords, validateRecord } = require('../utils/excelParser');
 const bcrypt = require('bcryptjs');
 
+/**
+ * Prefix a team name with the joining year: "S193" -> "2023-S193".
+ * Any existing year prefix is replaced, so re-imports never produce "2023-2023-S193".
+ */
+const withJoiningYear = (teamName, joiningYear) => {
+    const name = String(teamName || '').trim().replace(/^(19|20)\d{2}-/, '');
+    return `${joiningYear}-${name}`;
+};
+
+/**
+ * Guess the joining year from roll numbers (JNTU format: "23251A05M43" -> 2023).
+ * Returns the most common year among valid roll numbers, or null if none parse.
+ */
+const inferJoiningYearFromRolls = (rollNumbers = []) => {
+    const counts = {};
+    rollNumbers.forEach(roll => {
+        const match = /^(\d{2})/.exec(String(roll || '').trim());
+        if (match && !String(roll).startsWith('TEMP_')) {
+            const year = 2000 + Number(match[1]);
+            counts[year] = (counts[year] || 0) + 1;
+        }
+    });
+    const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+    return entries.length ? Number(entries[0][0]) : null;
+};
+
 
 /**
  * @desc    Import projects from Excel files
@@ -29,6 +55,15 @@ exports.importExcelFiles = async (req, res) => {
             return res.status(400).json({
                 success: false,
                 message: 'Please select a valid project type'
+            });
+        }
+
+        const joiningYear = Number(req.body.joiningYear);
+        const maxJoiningYear = new Date().getFullYear() + 1;
+        if (!Number.isInteger(joiningYear) || joiningYear < 2000 || joiningYear > maxJoiningYear) {
+            return res.status(400).json({
+                success: false,
+                message: 'Please select a valid joining year'
             });
         }
 
@@ -114,6 +149,20 @@ exports.importExcelFiles = async (req, res) => {
                         errors: validation.errors
                     });
                     continue;
+                }
+
+                // Team name shown everywhere: "<joiningYear>-<team>". record.teamName stays raw
+                // so student default passwords / placeholder roll numbers don't change.
+                const displayTeamName = withJoiningYear(record.teamName, joiningYear);
+
+                // Sanity check (warning only): roll numbers usually start with the intake year
+                const rollYear = inferJoiningYearFromRolls(record.rollNumbers);
+                if (rollYear && rollYear !== joiningYear) {
+                    results.warnings.push({
+                        teamName: displayTeamName,
+                        projectTitle: record.projectTitle,
+                        errors: [`Roll numbers suggest joining year ${rollYear}, but ${joiningYear} was selected. Imported anyway.`]
+                    });
                 }
 
                 // Sync with Batch and Students
@@ -242,18 +291,25 @@ exports.importExcelFiles = async (req, res) => {
                     }
                 }
 
-                // 5. Find or create Batch using BatchID as primary identifier
+                // 5. Find or create Batch. Identity = joiningYear + year/branch/section/type + team code,
+                //    so a new intake reusing a code (e.g. S193) never overwrites an older batch.
                 const batchIdentifier = record.batchId && record.batchId !== 'N/A' ? record.batchId : record.teamName;
-                let batch = await Batch.findOne({
+                const identityCodes = [...new Set([batchIdentifier, record.teamName, displayTeamName])];
+                const identityFilter = {
                     year: record.year,
                     branch: record.branch,
                     section: record.section,
                     projectType: record.projectType,
                     $or: [
-                        { batchId: batchIdentifier },
-                        { teamName: batchIdentifier }
+                        { batchId: { $in: identityCodes } },
+                        { teamName: { $in: identityCodes } }
                     ]
-                });
+                };
+                let batch = await Batch.findOne({ ...identityFilter, joiningYear });
+                if (!batch) {
+                    // Legacy batch imported before joining years existed: upgrade it in place
+                    batch = await Batch.findOne({ ...identityFilter, joiningYear: null });
+                }
 
                 // CRITICAL: If batch exists, unlink old members to prevent cumulative growth
                 if (batch) {
@@ -280,6 +336,8 @@ exports.importExcelFiles = async (req, res) => {
                     if (record.branch) batch.branch = record.branch;
                     if (record.section) batch.section = record.section;
                     batch.projectType = record.projectType;
+                    batch.joiningYear = joiningYear;
+                    batch.teamName = displayTeamName;
                     if (record.domain && record.domain !== 'N/A') batch.domain = record.domain;
                     if (record.researchArea && record.researchArea !== 'N/A') {
                         batch.researchArea = record.researchArea;
@@ -290,7 +348,8 @@ exports.importExcelFiles = async (req, res) => {
                 } else {
                     batch = await Batch.create({
                         batchId: record.batchId && record.batchId !== 'N/A' ? record.batchId : undefined,
-                        teamName: record.teamName || batchIdentifier,
+                        teamName: displayTeamName,
+                        joiningYear,
                         leaderStudentId: studentIds[0] || null,
                         guideId: guide ? guide._id : null,
                         allotmentStatus: guide ? 'allotted' : 'none',
@@ -332,17 +391,18 @@ exports.importExcelFiles = async (req, res) => {
 
                 // Create or Update project (Deduplicate by batchId or teamName)
                 const projectIdentifier = record.batchId && record.batchId !== 'N/A' ? record.batchId : record.teamName;
-                let project = await Project.findOne({
-                    $or: [
-                        { batchId: projectIdentifier },
-                        { teamName: projectIdentifier }
-                    ]
-                });
+                let project = await Project.findOne({ teamName: displayTeamName });
+                if (!project) {
+                    // Legacy project saved before joining years (raw, unprefixed team name)
+                    project = await Project.findOne({
+                        teamName: { $in: [...new Set([record.teamName, projectIdentifier])] }
+                    });
+                }
 
                 if (project) {
                     // Update existing project
                     if (record.batchId && record.batchId !== 'N/A') project.batchId = record.batchId;
-                    project.teamName = record.teamName || projectIdentifier;
+                    project.teamName = displayTeamName;
                     project.students = record.students;
                     project.rollNumbers = record.rollNumbers || [];
                     project.guideName = record.guideName;
@@ -357,7 +417,7 @@ exports.importExcelFiles = async (req, res) => {
                     // Create new project
                     await Project.create({
                         batchId: record.batchId || 'N/A',
-                        teamName: record.teamName || projectIdentifier,
+                        teamName: displayTeamName,
                         students: record.students,
                         rollNumbers: record.rollNumbers || [],
                         guideName: record.guideName,
